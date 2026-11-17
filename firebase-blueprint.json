@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "Shop": {
+      "title": "Shop",
+      "description": "Retail shop registered by a field sales executive for snack distribution.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "shopCode": { "type": "string", "description": "Unique human-readable Shop ID such as SHP-101." },
+        "name": { "type": "string", "description": "Shop display name." },
+        "ownerName": { "type": "string", "description": "Contact person or owner name." },
+        "phone": { "type": "string", "description": "Primary phone number." },
+        "secondaryPhone": { "type": "string", "description": "Optional secondary contact number." },
+        "address": { "type": "string", "description": "Shop street and locality address." },
+        "pinCode": { "type": "string", "description": "Postal PIN code." },
+        "routeId": { "type": "string", "description": "Assigned route identifier." },
+        "photoUri": { "type": "string", "description": "Local file path or URI for shop photo." },
+        "latitude": { "type": "number", "description": "Captured GPS latitude." },
+        "longitude": { "type": "number", "description": "Captured GPS longitude." },
+        "note": { "type": "string", "description": "Notes or remarks for the shop." },
+        "status": {
+          "type": "string",
+          "enum": ["active", "inactive", "deleted"],
+          "description": "Shop lifecycle status."
+        },
+        "inquiryStatus": {
+          "type": "string",
+          "enum": ["pending_inquiry", "confirmed", "unattended", "no_order"],
+          "description": "Current order inquiry status."
+        },
+        "enquiryDate": { "type": "string", "description": "Date of inquiry (yyyy-MM-dd)." },
+        "callDate": { "type": "string", "description": "Scheduled call date (yyyy-MM-dd)." },
+        "lastOrderDate": { "type": "string", "description": "Last order date (yyyy-MM-dd)." },
+        "lastCallDate": { "type": "string", "description": "Last call date (yyyy-MM-dd)." },
+        "confirmedPriceNotes": { "type": "string", "description": "Summary of selected products and confirmed supplier prices." },
+        "mapsLink": { "type": "string", "description": "Optional Google Maps URL for the shop." },
+        "addedBy": { "type": "string", "description": "Name or ID of the field executive who added the shop." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "shopCode", "name", "ownerName", "phone", "address", "pinCode", "routeId", "status", "inquiryStatus", "createdAt", "updatedAt"]
+    },
+    "OrderRecord": {
+      "title": "OrderRecord",
+      "description": "Order placed for a registered shop.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "orderCode": { "type": "string", "description": "Order identifier such as ORD-2041." },
+        "shopId": { "type": "string", "description": "Firestore document ID of the shop." },
+        "shopCode": { "type": "string", "description": "Human-readable Shop ID." },
+        "shopName": { "type": "string", "description": "Shop display name." },
+        "routeId": { "type": "string", "description": "Route identifier." },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "delivered", "rejected"],
+          "description": "Order fulfillment status."
+        },
+        "totalAmount": { "type": "number", "description": "Total order value in INR." },
+        "itemCount": { "type": "integer", "description": "Total packet count in the order." },
+        "itemsSummary": { "type": "string", "description": "Compact summary of ordered products and quantities." },
+        "orderDate": { "type": "string", "description": "Order date (yyyy-MM-dd)." },
+        "note": { "type": "string", "description": "Optional order instructions." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "orderCode", "shopId", "shopCode", "shopName", "routeId", "status", "totalAmount", "itemCount", "itemsSummary", "orderDate", "createdAt", "updatedAt"]
+    },
+    "StockItem": {
+      "title": "StockItem",
+      "description": "Store inventory item tracked for stock alerts.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "productCode": { "type": "string", "description": "SKU code such as BC100." },
+        "productName": { "type": "string", "description": "Product name." },
+        "packSize": { "type": "string", "description": "Pack weight such as 100g, 200g, 500g." },
+        "category": { "type": "string", "description": "Snack category." },
+        "quantity": { "type": "integer", "description": "Available packet count in store." },
+        "minThreshold": { "type": "integer", "description": "Minimum stock threshold before alert triggers." },
+        "unitPrice": { "type": "number", "description": "Unit wholesale price in INR." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "productCode", "productName", "packSize", "category", "quantity", "minThreshold", "unitPrice", "createdAt", "updatedAt"]
+    },
+    "OperationsMeta": {
+      "title": "OperationsMeta",
+      "description": "Operational counters and receivables/payables summary for the user's dashboard.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "shopRegTarget": { "type": "integer", "description": "Daily shop registration target." },
+        "vehiclesToDispatch": { "type": "integer", "description": "Vehicles waiting for dispatch." },
+        "vehiclesOnRoad": { "type": "integer", "description": "Vehicles currently out for delivery." },
+        "returnsCollected": { "type": "integer", "description": "Pending order returns collected today." },
+        "toCollectAmount": { "type": "number", "description": "Pending receivable amount in INR." },
+        "toCollectShops": { "type": "integer", "description": "Number of shops with pending payment." },
+        "toSuppliersAmount": { "type": "number", "description": "Payable amount to suppliers in INR." },
+        "toSuppliersCount": { "type": "integer", "description": "Number of suppliers to pay." },
+        "seeded": { "type": "boolean", "description": "Whether initial starter data has been seeded." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "shopRegTarget", "vehiclesToDispatch", "vehiclesOnRoad", "returnsCollected", "toCollectAmount", "toCollectShops", "toSuppliersAmount", "toSuppliersCount", "seeded", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/shops/{shopId}": {
+      "schema": { "$ref": "#/entities/Shop" },
+      "description": "Registered shops belonging to the authenticated field user."
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/OrderRecord" },
+      "description": "Orders placed by the authenticated field user."
+    },
+    "/users/{userId}/stocks/{stockId}": {
+      "schema": { "$ref": "#/entities/StockItem" },
+      "description": "Store stock items and alert levels for the authenticated field user."
+    },
+    "/users/{userId}/meta/{metaId}": {
+      "schema": { "$ref": "#/entities/OperationsMeta" },
+      "description": "Dashboard operational counters and receivables/payables summary."
+    }
+  }
+}

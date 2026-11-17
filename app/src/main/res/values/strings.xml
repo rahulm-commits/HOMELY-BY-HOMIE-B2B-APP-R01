@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">SnackRoute</string>
+    <string name="sign_in_title">SnackRoute Field Ops</string>
+    <string name="sign_in_subtitle">Manage retail shops, offline field registrations, orders, and daily store stock.</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="skip_login_test_mode">Skip Login (Test Mode)</string>
+    <string name="test_mode_hint">Test all screens locally on device without logging in. Sign in with Google anytime for cloud sync.</string>
+    <string name="sign_out">Sign out</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_shops">Shops</string>
+    <string name="nav_orders">Orders</string>
+    <string name="nav_packing">Packing</string>
+    <string name="nav_transport">Transport</string>
+    <string name="nav_more">More</string>
+    <string name="nav_suppliers">Suppliers</string>
+    <string name="nav_routes">Routes</string>
+    <string name="nav_payments">Payments</string>
+    <string name="nav_products">Products</string>
+</resources>

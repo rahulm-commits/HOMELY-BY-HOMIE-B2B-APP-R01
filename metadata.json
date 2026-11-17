@@ -1,0 +1,8 @@
+{
+  "name": "Share Remix HOMELY BT HOMIE",
+  "description": "Snack distribution field sales, shop management, and order tracking app.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

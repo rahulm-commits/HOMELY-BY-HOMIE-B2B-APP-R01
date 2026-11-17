@@ -1,0 +1,229 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny all access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isOptionalString(data, field, maxLen) {
+      return !(field in data) || data[field] == null || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isOptionalNumber(data, field) {
+      return !(field in data) || data[field] == null || data[field] is number;
+    }
+
+    function isValidShop(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.shopCode is string && data.shopCode.size() >= 2 && data.shopCode.size() <= 32 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.ownerName is string && data.ownerName.size() >= 1 && data.ownerName.size() <= 100 &&
+        data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 24 &&
+        data.address is string && data.address.size() >= 1 && data.address.size() <= 300 &&
+        data.pinCode is string && data.pinCode.size() >= 3 && data.pinCode.size() <= 16 &&
+        data.routeId is string && data.routeId.size() >= 2 && data.routeId.size() <= 64 &&
+        data.status in ['active', 'inactive', 'deleted'] &&
+        data.inquiryStatus in ['pending_inquiry', 'confirmed', 'unattended', 'no_order'] &&
+        isOptionalString(data, 'secondaryPhone', 24) &&
+        isOptionalString(data, 'photoUri', 600) &&
+        isOptionalString(data, 'note', 500) &&
+        isOptionalString(data, 'enquiryDate', 32) &&
+        isOptionalString(data, 'callDate', 32) &&
+        isOptionalString(data, 'lastOrderDate', 32) &&
+        isOptionalString(data, 'lastCallDate', 32) &&
+        isOptionalString(data, 'confirmedPriceNotes', 600) &&
+        isOptionalString(data, 'mapsLink', 600) &&
+        isOptionalString(data, 'addedBy', 120) &&
+        isOptionalNumber(data, 'latitude') &&
+        isOptionalNumber(data, 'longitude') &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidOrder(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.orderCode is string && data.orderCode.size() >= 2 && data.orderCode.size() <= 32 &&
+        data.shopId is string && data.shopId.size() >= 1 && data.shopId.size() <= 128 &&
+        data.shopCode is string && data.shopCode.size() >= 2 && data.shopCode.size() <= 32 &&
+        data.shopName is string && data.shopName.size() >= 1 && data.shopName.size() <= 120 &&
+        data.routeId is string && data.routeId.size() >= 2 && data.routeId.size() <= 64 &&
+        data.status in ['pending', 'confirmed', 'delivered', 'rejected'] &&
+        data.totalAmount is number && data.totalAmount >= 0 &&
+        data.itemCount is int && data.itemCount >= 1 && data.itemCount <= 100000 &&
+        data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 800 &&
+        data.orderDate is string && data.orderDate.size() >= 4 && data.orderDate.size() <= 32 &&
+        isOptionalString(data, 'note', 500) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStockItem(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.productCode is string && data.productCode.size() >= 2 && data.productCode.size() <= 32 &&
+        data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 100 &&
+        data.packSize is string && data.packSize.size() >= 1 && data.packSize.size() <= 32 &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 64 &&
+        data.quantity is int && data.quantity >= 0 && data.quantity <= 1000000 &&
+        data.minThreshold is int && data.minThreshold >= 0 && data.minThreshold <= 100000 &&
+        data.unitPrice is number && data.unitPrice >= 0 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidOperationsMeta(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.shopRegTarget is int && data.shopRegTarget >= 0 && data.shopRegTarget <= 10000 &&
+        data.vehiclesToDispatch is int && data.vehiclesToDispatch >= 0 && data.vehiclesToDispatch <= 1000 &&
+        data.vehiclesOnRoad is int && data.vehiclesOnRoad >= 0 && data.vehiclesOnRoad <= 1000 &&
+        data.returnsCollected is int && data.returnsCollected >= 0 && data.returnsCollected <= 10000 &&
+        data.toCollectAmount is number && data.toCollectAmount >= 0 &&
+        data.toCollectShops is int && data.toCollectShops >= 0 && data.toCollectShops <= 100000 &&
+        data.toSuppliersAmount is number && data.toSuppliersAmount >= 0 &&
+        data.toSuppliersCount is int && data.toSuppliersCount >= 0 && data.toSuppliersCount <= 100000 &&
+        data.seeded is bool &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId}/shops/{shopId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(shopId);
+      allow create: if isOwner(userId) &&
+        isValidId(shopId) &&
+        incoming().keys().hasAll([
+          'userId', 'shopCode', 'name', 'ownerName', 'phone',
+          'address', 'pinCode', 'routeId', 'status', 'inquiryStatus',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'shopCode', 'name', 'ownerName', 'phone', 'secondaryPhone',
+          'address', 'pinCode', 'routeId', 'photoUri', 'latitude', 'longitude',
+          'note', 'status', 'inquiryStatus', 'enquiryDate', 'callDate',
+          'lastOrderDate', 'lastCallDate', 'confirmedPriceNotes', 'mapsLink',
+          'addedBy', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidShop(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(shopId) &&
+        isValidShop(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'shopCode', 'name', 'ownerName', 'phone', 'secondaryPhone',
+          'address', 'pinCode', 'routeId', 'photoUri', 'latitude', 'longitude',
+          'note', 'status', 'inquiryStatus', 'enquiryDate', 'callDate',
+          'lastOrderDate', 'lastCallDate', 'confirmedPriceNotes', 'mapsLink',
+          'addedBy', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(shopId);
+    }
+
+    match /users/{userId}/orders/{orderId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(orderId);
+      allow create: if isOwner(userId) &&
+        isValidId(orderId) &&
+        incoming().keys().hasAll([
+          'userId', 'orderCode', 'shopId', 'shopCode', 'shopName',
+          'routeId', 'status', 'totalAmount', 'itemCount', 'itemsSummary',
+          'orderDate', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'orderCode', 'shopId', 'shopCode', 'shopName',
+          'routeId', 'status', 'totalAmount', 'itemCount', 'itemsSummary',
+          'orderDate', 'note', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidOrder(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(orderId) &&
+        isValidOrder(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        existing().status != 'delivered' &&
+        existing().status != 'rejected' &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'totalAmount', 'itemCount', 'itemsSummary', 'note', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(orderId);
+    }
+
+    match /users/{userId}/stocks/{stockId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(stockId);
+      allow create: if isOwner(userId) &&
+        isValidId(stockId) &&
+        incoming().keys().hasAll([
+          'userId', 'productCode', 'productName', 'packSize', 'category',
+          'quantity', 'minThreshold', 'unitPrice', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'productCode', 'productName', 'packSize', 'category',
+          'quantity', 'minThreshold', 'unitPrice', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidStockItem(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(stockId) &&
+        isValidStockItem(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'quantity', 'minThreshold', 'unitPrice', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(stockId);
+    }
+
+    match /users/{userId}/meta/{metaId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(metaId);
+      allow create: if isOwner(userId) &&
+        isValidId(metaId) &&
+        incoming().keys().hasAll([
+          'userId', 'shopRegTarget', 'vehiclesToDispatch', 'vehiclesOnRoad',
+          'returnsCollected', 'toCollectAmount', 'toCollectShops',
+          'toSuppliersAmount', 'toSuppliersCount', 'seeded', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'shopRegTarget', 'vehiclesToDispatch', 'vehiclesOnRoad',
+          'returnsCollected', 'toCollectAmount', 'toCollectShops',
+          'toSuppliersAmount', 'toSuppliersCount', 'seeded', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidOperationsMeta(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(metaId) &&
+        isValidOperationsMeta(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'shopRegTarget', 'vehiclesToDispatch', 'vehiclesOnRoad',
+          'returnsCollected', 'toCollectAmount', 'toCollectShops',
+          'toSuppliersAmount', 'toSuppliersCount', 'seeded', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(metaId);
+    }
+  }
+}

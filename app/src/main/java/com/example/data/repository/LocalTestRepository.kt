@@ -1,0 +1,512 @@
+package com.example.data.repository
+
+import com.example.data.model.CatalogProduct
+import com.example.data.model.DeliveryRoute
+import com.example.data.model.InquiryStatus
+import com.example.data.model.OperationsMeta
+import com.example.data.model.OrderRecord
+import com.example.data.model.OrderStatus
+import com.example.data.model.RoutesCatalog
+import com.example.data.model.Shop
+import com.example.data.model.ShopStatus
+import com.example.data.model.StockItem
+import com.google.firebase.Timestamp
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+
+/**
+ * In-memory local repository used ONLY when the user selects "Skip Login (Test Mode)".
+ * Never touches Firebase Auth or Firestore so zero unauthenticated network calls occur.
+ */
+class LocalTestRepository : SnackRouteDataSource {
+
+  private val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+  private val yesterday = daysAgoString(1)
+  private val threeDaysAgo = daysAgoString(3)
+  private val sevenDaysAgo = daysAgoString(7)
+
+  private val shopsFlow = MutableStateFlow(
+    listOf(
+      Shop(
+        id = "local_shop_1",
+        userId = LOCAL_UID,
+        shopCode = "SHP-101",
+        name = "Malabar Heritage Bakery",
+        ownerName = "Suresh Nair",
+        phone = "9847012345",
+        secondaryPhone = "9847011223",
+        address = "Fort Road, Near Town Hall, Kannur",
+        pinCode = "670001",
+        routeId = RoutesCatalog.R01_KANNUR_BANGALORE,
+        latitude = 11.8745,
+        longitude = 75.3704,
+        note = "Takes weekly Banana Chips & Mixture crates",
+        status = ShopStatus.ACTIVE,
+        inquiryStatus = InquiryStatus.PENDING_INQUIRY,
+        enquiryDate = today,
+        callDate = today,
+        lastOrderDate = threeDaysAgo,
+        lastCallDate = yesterday,
+        confirmedPriceNotes = "BC100: ₹42, JB200: ₹92",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      Shop(
+        id = "local_shop_2",
+        userId = LOCAL_UID,
+        shopCode = "SHP-102",
+        name = "Kaveri Super Mart",
+        ownerName = "Prakash Shetty",
+        phone = "9448023456",
+        address = "12th Cross, Malleshwaram, Bangalore",
+        pinCode = "560003",
+        routeId = RoutesCatalog.R01_KANNUR_BANGALORE,
+        latitude = 13.0031,
+        longitude = 77.5643,
+        note = "Call before 11 AM for weekend stock",
+        status = ShopStatus.ACTIVE,
+        inquiryStatus = InquiryStatus.PENDING_INQUIRY,
+        enquiryDate = today,
+        callDate = today,
+        lastOrderDate = sevenDaysAgo,
+        lastCallDate = threeDaysAgo,
+        confirmedPriceNotes = "BC200: ₹85",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      Shop(
+        id = "local_shop_3",
+        userId = LOCAL_UID,
+        shopCode = "SHP-103",
+        name = "Calicut Spice & Bakes",
+        ownerName = "Faisal Rahman",
+        phone = "9895034567",
+        secondaryPhone = "9895034500",
+        address = "SM Street, Palayam, Kozhikode",
+        pinCode = "673001",
+        routeId = RoutesCatalog.R02_KANNUR_KOZHIKODE,
+        latitude = 11.2588,
+        longitude = 75.7804,
+        note = "Confirmed morning route",
+        status = ShopStatus.ACTIVE,
+        inquiryStatus = InquiryStatus.CONFIRMED,
+        enquiryDate = today,
+        callDate = today,
+        lastOrderDate = today,
+        lastCallDate = today,
+        confirmedPriceNotes = "JB200: ₹90, MX500: ₹162",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      Shop(
+        id = "local_shop_4",
+        userId = LOCAL_UID,
+        shopCode = "SHP-104",
+        name = "Deccan Fresh Corner",
+        ownerName = "Anand Kulkarni",
+        phone = "9822045678",
+        address = "FC Road, Shivajinagar, Pune",
+        pinCode = "411004",
+        routeId = RoutesCatalog.R03_BANGALORE_PUNE,
+        latitude = 18.5204,
+        longitude = 73.8567,
+        note = "Owner unavailable on Monday mornings",
+        status = ShopStatus.ACTIVE,
+        inquiryStatus = InquiryStatus.UNATTENDED,
+        enquiryDate = yesterday,
+        callDate = today,
+        lastOrderDate = sevenDaysAgo,
+        lastCallDate = yesterday,
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      Shop(
+        id = "local_shop_5",
+        userId = LOCAL_UID,
+        shopCode = "SHP-105",
+        name = "Thalassery Chips Centre",
+        ownerName = "Meera Krishnan",
+        phone = "9745056789",
+        address = "Logans Road, Thalassery",
+        pinCode = "670101",
+        routeId = RoutesCatalog.R02_KANNUR_KOZHIKODE,
+        latitude = 11.7491,
+        longitude = 75.4890,
+        note = "Stock sufficient until Friday",
+        status = ShopStatus.ACTIVE,
+        inquiryStatus = InquiryStatus.NO_ORDER,
+        enquiryDate = yesterday,
+        callDate = today,
+        lastOrderDate = threeDaysAgo,
+        lastCallDate = today,
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      Shop(
+        id = "local_shop_6",
+        userId = LOCAL_UID,
+        shopCode = "SHP-106",
+        name = "Green Valley Provision",
+        ownerName = "Ramesh Gowda",
+        phone = "9900167890",
+        address = "Jayanagar 4th Block, Bangalore",
+        pinCode = "560011",
+        routeId = RoutesCatalog.R01_KANNUR_BANGALORE,
+        latitude = 12.9250,
+        longitude = 77.5938,
+        note = "Temporarily closed for renovation",
+        status = ShopStatus.INACTIVE,
+        inquiryStatus = InquiryStatus.NO_ORDER,
+        enquiryDate = sevenDaysAgo,
+        callDate = sevenDaysAgo,
+        lastOrderDate = sevenDaysAgo,
+        lastCallDate = sevenDaysAgo,
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+    )
+  )
+
+  private val ordersFlow = MutableStateFlow(
+    listOf(
+      OrderRecord(
+        id = "local_ord_1",
+        userId = LOCAL_UID,
+        orderCode = "ORD-2041",
+        shopId = "local_shop_3",
+        shopCode = "SHP-103",
+        shopName = "Calicut Spice & Bakes",
+        routeId = RoutesCatalog.R02_KANNUR_KOZHIKODE,
+        status = OrderStatus.CONFIRMED,
+        totalAmount = 6420.0,
+        itemCount = 60,
+        itemsSummary = "JB200 x40, MX500 x20",
+        orderDate = today,
+        note = "Morning van dispatch",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      OrderRecord(
+        id = "local_ord_2",
+        userId = LOCAL_UID,
+        orderCode = "ORD-2040",
+        shopId = "local_shop_1",
+        shopCode = "SHP-101",
+        shopName = "Malabar Heritage Bakery",
+        routeId = RoutesCatalog.R01_KANNUR_BANGALORE,
+        status = OrderStatus.DELIVERED,
+        totalAmount = 8950.0,
+        itemCount = 95,
+        itemsSummary = "BC100 x50, BC200 x30, JB200 x15",
+        orderDate = today,
+        note = "Delivered via Van #02",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      OrderRecord(
+        id = "local_ord_3",
+        userId = LOCAL_UID,
+        orderCode = "ORD-2039",
+        shopId = "local_shop_2",
+        shopCode = "SHP-102",
+        shopName = "Kaveri Super Mart",
+        routeId = RoutesCatalog.R01_KANNUR_BANGALORE,
+        status = OrderStatus.PENDING,
+        totalAmount = 4250.0,
+        itemCount = 50,
+        itemsSummary = "BC200 x50",
+        orderDate = today,
+        note = "Awaiting packing",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      OrderRecord(
+        id = "local_ord_4",
+        userId = LOCAL_UID,
+        orderCode = "ORD-2035",
+        shopId = "local_shop_4",
+        shopCode = "SHP-104",
+        shopName = "Deccan Fresh Corner",
+        routeId = RoutesCatalog.R03_BANGALORE_PUNE,
+        status = OrderStatus.DELIVERED,
+        totalAmount = 12400.0,
+        itemCount = 110,
+        itemsSummary = "BC500 x30, JB200 x50, TP200 x30",
+        orderDate = yesterday,
+        note = "Yesterday route",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+      OrderRecord(
+        id = "local_ord_5",
+        userId = LOCAL_UID,
+        orderCode = "ORD-2032",
+        shopId = "local_shop_5",
+        shopCode = "SHP-105",
+        shopName = "Thalassery Chips Centre",
+        routeId = RoutesCatalog.R02_KANNUR_KOZHIKODE,
+        status = OrderStatus.REJECTED,
+        totalAmount = 1980.0,
+        itemCount = 22,
+        itemsSummary = "MR200 x22",
+        orderDate = threeDaysAgo,
+        note = "Shop closed during delivery window",
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      ),
+    )
+  )
+
+  private val stocksFlow = MutableStateFlow(
+    listOf(
+      StockItem(
+        id = "local_stk_1",
+        userId = LOCAL_UID,
+        productCode = "BC100",
+        productName = "Banana Chips",
+        packSize = "100g",
+        category = "Banana Chips",
+        quantity = 24,
+        minThreshold = 50,
+        unitPrice = 45.0,
+      ),
+      StockItem(
+        id = "local_stk_2",
+        userId = LOCAL_UID,
+        productCode = "JB200",
+        productName = "Jaggery Banana",
+        packSize = "200g",
+        category = "Jaggery & Sweet",
+        quantity = 18,
+        minThreshold = 40,
+        unitPrice = 96.0,
+      ),
+      StockItem(
+        id = "local_stk_3",
+        userId = LOCAL_UID,
+        productCode = "MX500",
+        productName = "Kerala Spicy Mixture",
+        packSize = "500g",
+        category = "Mixtures & Savories",
+        quantity = 14,
+        minThreshold = 25,
+        unitPrice = 170.0,
+      ),
+      StockItem(
+        id = "local_stk_4",
+        userId = LOCAL_UID,
+        productCode = "TP200",
+        productName = "Tapioca Chips",
+        packSize = "200g",
+        category = "Tapioca & Crackers",
+        quantity = 85,
+        minThreshold = 30,
+        unitPrice = 65.0,
+      ),
+    )
+  )
+
+  private val metaFlow = MutableStateFlow<OperationsMeta?>(
+    OperationsMeta(
+      id = "summary",
+      userId = LOCAL_UID,
+      shopRegTarget = 10,
+      vehiclesToDispatch = 3,
+      vehiclesOnRoad = 2,
+      returnsCollected = 4,
+      toCollectAmount = 46800.0,
+      toCollectShops = 11,
+      toSuppliersAmount = 28500.0,
+      toSuppliersCount = 4,
+      seeded = true,
+    )
+  )
+
+  private val routesFlow = MutableStateFlow(RoutesCatalog.starterRoutes)
+
+  override fun observeShops(userId: String): Flow<List<Shop>> = shopsFlow.asStateFlow()
+
+  override fun observeOrders(userId: String): Flow<List<OrderRecord>> = ordersFlow.asStateFlow()
+
+  override fun observeStocks(userId: String): Flow<List<StockItem>> = stocksFlow.asStateFlow()
+
+  override fun observeMeta(userId: String): Flow<OperationsMeta?> = metaFlow.asStateFlow()
+
+  override fun observeRoutes(): Flow<List<DeliveryRoute>> = routesFlow.asStateFlow()
+
+  override suspend fun seedStarterDataIfNeeded(): Result<Unit> = Result.success(Unit)
+
+  override suspend fun seedRoutesIfNeeded(): Result<Unit> = Result.success(Unit)
+
+  override suspend fun saveRoute(route: DeliveryRoute): Result<Unit> {
+    routesFlow.update { current ->
+      val idx = current.indexOfFirst { it.id == route.id }
+      if (idx >= 0) {
+        current.toMutableList().apply { set(idx, route) }
+      } else {
+        current + route
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun updateShopRoute(shopId: String, newRouteId: String): Result<Unit> {
+    shopsFlow.update { current ->
+      current.map {
+        if (it.id == shopId) it.copy(routeId = newRouteId, updatedAt = Timestamp.now()) else it
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun saveShop(shop: Shop): Result<String> {
+    val isUpdate = shop.id.isNotBlank()
+    val targetId = if (isUpdate) shop.id else "local_shop_${UUID.randomUUID().toString().take(8)}"
+    val saved = shop.copy(
+      id = targetId,
+      userId = LOCAL_UID,
+      enquiryDate = shop.enquiryDate.ifBlank { today },
+      callDate = shop.callDate.ifBlank { today },
+      lastCallDate = shop.lastCallDate.ifBlank { today },
+      createdAt = shop.createdAt ?: Timestamp.now(),
+      updatedAt = Timestamp.now(),
+      isPendingSync = true,
+    )
+    shopsFlow.update { current ->
+      if (isUpdate) {
+        current.map { if (it.id == targetId) saved else it }
+      } else {
+        listOf(saved) + current
+      }
+    }
+    return Result.success(targetId)
+  }
+
+  override suspend fun updateShopStatus(shopId: String, newStatus: String): Result<Unit> {
+    shopsFlow.update { current ->
+      current.map {
+        if (it.id == shopId) it.copy(status = newStatus, updatedAt = Timestamp.now()) else it
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun updateShopInquiryStatus(
+    shopId: String,
+    inquiryStatus: String,
+    markCalledToday: Boolean,
+  ): Result<Unit> {
+    shopsFlow.update { current ->
+      current.map {
+        if (it.id == shopId) {
+          it.copy(
+            inquiryStatus = inquiryStatus,
+            lastCallDate = if (markCalledToday) today else it.lastCallDate,
+            updatedAt = Timestamp.now(),
+          )
+        } else {
+          it
+        }
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun placeOrder(
+    shop: Shop,
+    items: List<Pair<CatalogProduct, Int>>,
+    note: String,
+  ): Result<String> {
+    val validItems = items.filter { it.second > 0 }
+    if (validItems.isEmpty()) {
+      return Result.failure(IllegalArgumentException("Select at least one product to place an order."))
+    }
+    val orderId = "local_ord_${UUID.randomUUID().toString().take(8)}"
+    val orderCode = "ORD-${(System.currentTimeMillis() % 9000 + 1000)}"
+    val totalAmount = validItems.sumOf { (prod, qty) -> prod.defaultPrice * qty }
+    val itemCount = validItems.sumOf { it.second }
+    val itemsSummary = validItems.joinToString(", ") { (prod, qty) -> "${prod.code} x$qty" }
+
+    val newOrder = OrderRecord(
+      id = orderId,
+      userId = LOCAL_UID,
+      orderCode = orderCode,
+      shopId = shop.id,
+      shopCode = shop.shopCode,
+      shopName = shop.name,
+      routeId = shop.routeId,
+      status = OrderStatus.CONFIRMED,
+      totalAmount = totalAmount,
+      itemCount = itemCount,
+      itemsSummary = itemsSummary,
+      orderDate = today,
+      note = note.trim(),
+      createdAt = Timestamp.now(),
+      updatedAt = Timestamp.now(),
+      isPendingSync = true,
+    )
+    ordersFlow.update { listOf(newOrder) + it }
+    shopsFlow.update { current ->
+      current.map {
+        if (it.id == shop.id) {
+          it.copy(
+            inquiryStatus = InquiryStatus.CONFIRMED,
+            lastOrderDate = today,
+            lastCallDate = today,
+            updatedAt = Timestamp.now(),
+          )
+        } else {
+          it
+        }
+      }
+    }
+    return Result.success(orderId)
+  }
+
+  override suspend fun updateOrderStatus(
+    orderId: String,
+    newStatus: String,
+    note: String?,
+  ): Result<Unit> {
+    ordersFlow.update { current ->
+      current.map { ord ->
+        if (ord.id == orderId || ord.orderCode == orderId) {
+          ord.copy(
+            status = newStatus,
+            note = note?.trim() ?: ord.note,
+            updatedAt = Timestamp.now(),
+          )
+        } else {
+          ord
+        }
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun updateStockQuantity(stockId: String, newQuantity: Int): Result<Unit> {
+    stocksFlow.update { current ->
+      current.map {
+        if (it.id == stockId) it.copy(quantity = newQuantity.coerceAtLeast(0)) else it
+      }.sortedBy { it.quantity - it.minThreshold }
+    }
+    return Result.success(Unit)
+  }
+
+  private fun daysAgoString(days: Int): String {
+    val cal = Calendar.getInstance()
+    cal.add(Calendar.DAY_OF_YEAR, -days)
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
+  }
+
+  companion object {
+    const val LOCAL_UID = "local_test_user"
+  }
+}

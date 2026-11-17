@@ -1,0 +1,485 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#f1fcf4;}body{overscroll-behavior:none;font-family:'Inter',sans-serif;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode: "class", theme: {extend: {colors: {"on-background": "#141e19", "inverse-on-surface": "#e8f4eb", "on-primary": "#ffffff", "secondary-fixed-dim": "#80d9a5", "surface-container": "#e5f1e8", "on-tertiary-container": "#ffb3ac", "primary-container": "#005f3a", "on-surface": "#141e19", "on-secondary": "#ffffff", "secondary-container": "#99f2bd", "inverse-surface": "#28332d", "tertiary-fixed": "#ffdad6", "primary-fixed-dim": "#88d7a8", "on-error-container": "#93000a", "surface-dim": "#d1ddd5", "surface-container-high": "#dfebe3", "on-tertiary-fixed": "#410003", "on-primary-fixed-variant": "#005231", "surface-bright": "#f1fcf4", "surface-tint": "#186c45", "surface-container-highest": "#dae5dd", "on-secondary-fixed-variant": "#005231", surface: "#f1fcf4", "on-tertiary-fixed-variant": "#93000f", "surface-container-lowest": "#ffffff", "tertiary-container": "#a80716", "tertiary-fixed-dim": "#ffb3ac", "error-container": "#ffdad6", "on-secondary-container": "#087147", "inverse-primary": "#88d7a8", background: "#f1fcf4", error: "#ba1a1a", primary: "#004529", "on-primary-container": "#88d7a8", outline: "#6f7a71", "surface-container-low": "#ebf6ee", secondary: "#006d43", tertiary: "#7e000b", "on-error": "#ffffff", "on-primary-fixed": "#002111", "secondary-fixed": "#9bf5c0", "on-tertiary": "#ffffff", "surface-variant": "#dae5dd", "primary-fixed": "#a4f4c3", "on-surface-variant": "#3f4942", "on-secondary-fixed": "#002111", "outline-variant": "#bfc9bf"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"margin-mobile": "1rem", "space-xs": "0.25rem", "space-xl": "1.5rem", "gutter-mobile": "0.75rem", gutter: "1rem", "space-sm": "0.5rem", "space-md": "0.75rem", margin: "1.5rem", "space-lg": "1rem"}, fontFamily: {"headline-xl-mobile": ["Inter"], "headline-lg-mobile": ["Inter"], "body-md": ["Inter"], "headline-lg": ["Inter"], "headline-xl": ["Inter"], "label-sm": ["Inter"], "label-md": ["Inter"], "headline-md": ["Inter"], "body-sm": ["Inter"], "label-lg": ["Inter"], "body-lg": ["Inter"], "headline-sm": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"headline-xl-mobile": ["24px", {lineHeight: "32px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg-mobile": ["20px", {lineHeight: "28px", letterSpacing: "-0.015em", fontWeight: "600"}], "body-md": ["14px", {lineHeight: "20px", letterSpacing: "0em", fontWeight: "400"}], "headline-lg": ["24px", {lineHeight: "32px", letterSpacing: "-0.015em", fontWeight: "600"}], "headline-xl": ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "label-sm": ["11px", {lineHeight: "14px", letterSpacing: "0.03em", fontWeight: "600"}], "label-md": ["12px", {lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "600"}], "headline-md": ["20px", {lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-sm": ["12px", {lineHeight: "16px", letterSpacing: "0.005em", fontWeight: "400"}], "label-lg": ["14px", {lineHeight: "20px", letterSpacing: "0.01em", fontWeight: "600"}], "body-lg": ["16px", {lineHeight: "24px", letterSpacing: "0em", fontWeight: "400"}], "headline-sm": ["16px", {lineHeight: "24px", letterSpacing: "-0.005em", fontWeight: "600"}]}}}}</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen max-w-[390px] mx-auto"><header class="fixed top-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe w-full max-w-[390px]"><div class="h-16 px-space-xs flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-xs min-w-0"><button aria-label="Go back" class="w-11 h-11 flex items-center justify-center rounded-full text-on-surface active:bg-surface-container-high transition-colors focus:outline-none" onclick="history.back()"><span class="material-symbols-outlined text-[24px]">arrow_back</span></button><img alt="HOMELY BY HOMIE Logo" class="h-7 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClEIbmedDwEv1NmgS6eoQLLtUOIwYO9iXDYzP9QSYxl4QYQ9IzuwvNGuBojUjKzeOq7SOwwF8km2dye1zxzOPBAfWg3F5kRgbYBMVm9OPfsVqx6TLAFk6ZjMJg5IqRvvB0wlmKcy4FalV7EbysKkGBAWHbIwSjOb3_6-WCVVfM4nsb1_j8QooaojdeajXgQSC_D9WzZyqw_WODo_yR8e0yoTgS_JAuikJrknN7zDAUTXhcksFktMV9"><div class="flex flex-col min-w-0"><h1 class="font-headline-sm text-headline-sm text-on-surface truncate">Register Shop</h1></div></div><div class="flex items-center flex-shrink-0 pr-space-sm"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfIsESqKSVWokr94YM8cTUT4hiSj4XAxSIH3c7rYZ6E2QjBdjxn2QHyR4if7dx3PLK8s78M7L6N--h52RlOKWs6JieIE1nVWtH-1nKR0nO2Md-bz_Sa9fhRxyGx1KSIM1V87Bj_QjlUGpotUfcp_ZJBNtcLa8V5dkAOPUvCT3SQoulY_MTI2Q4bmZypbvgnRlW9kA7Bjvckq-gaKt90G77w4hCStzpqmpKYOwvC0cWd_fU2XFbyU35"></div></div></header><main class="flex flex-col relative w-full pt-16 pb-safe bg-surface min-h-screen"><div class="flex flex-col w-full pb-28">
+<!-- Sub-Header & Sticky Note Trigger -->
+<div class="px-margin-mobile pt-space-sm pb-space-xs flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm px-2 py-0.5 rounded-full">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+        New Registration
+      </span>
+<span class="font-body-sm text-body-sm text-secondary">Step 1 of 1</span>
+</div>
+<!-- Shop Notes Quick Button with Counter -->
+<button class="flex items-center gap-1.5 bg-surface-container-lowest shadow-sm hover:bg-surface-container-low active:bg-surface-container text-on-surface px-space-sm py-1.5 rounded-xl transition-all" id="open-notes-btn" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary" style="font-variation-settings: &quot;FILL&quot; 1;">sticky_note_2</span>
+<span class="font-label-md text-label-md font-semibold text-primary">Notes</span>
+<span class="bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.2 rounded-full leading-tight">1</span>
+</button>
+</div>
+<form class="px-margin-mobile flex flex-col gap-space-md mt-space-xs" id="shop-registration-form" onsubmit="event.preventDefault();">
+<!-- SECTION A: Shop Information -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">storefront</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Shop Information</h2>
+</div>
+<span class="font-label-sm text-label-sm text-primary bg-surface-container-low px-2 py-0.5 rounded-full">Section A</span>
+</div>
+<!-- Field 1: Unique Shop ID -->
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-secondary">Unique Shop ID</label>
+<span class="font-label-sm text-label-sm text-primary flex items-center gap-0.5 bg-surface-container px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[13px]">verified</span>
+            Auto Generated (System)
+          </span>
+</div>
+<div class="flex items-center justify-between bg-surface-container-low rounded-lg px-space-md py-2 text-on-surface">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-secondary">lock</span>
+<span class="font-headline-sm text-headline-sm tracking-wider font-mono text-primary">SHOP-000130</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary bg-surface-container-highest px-2 py-0.5 rounded">Allocated</span>
+</div>
+</div>
+<!-- Field 2: Shop Name -->
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1" for="shop-name">
+            Shop Name <span class="text-error">*</span>
+</label>
+<span class="font-label-sm text-label-sm text-primary hidden items-center gap-0.5" id="name-status">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Valid
+          </span>
+</div>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface placeholder-secondary font-body-md text-body-md rounded-lg px-space-md py-2.5 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all pr-10" id="shop-name" oninput="document.getElementById('name-status').classList.toggle('hidden', this.value.trim().length &lt; 3);" placeholder="e.g. Green Valley Stores" required="" type="text" value="Green Valley Stores">
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-[20px] text-secondary pointer-events-none">business</span>
+</div>
+</div>
+<!-- Field 3: Shop Photograph -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between">
+<span>Shop Frontage Photo</span>
+<span class="font-label-sm text-label-sm text-secondary font-normal">Optional / Recommended</span>
+</label>
+<!-- Image Preview Card -->
+<div class="bg-surface-container-low rounded-xl p-space-sm flex flex-col gap-space-sm">
+<div class="relative rounded-lg overflow-hidden h-36 bg-surface-container-highest flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="Modern Indian retail grocery storefront with neatly stacked fresh produce bins outside, vibrant signage in Malayalam and English reading Green Valley Stores, daytime natural lighting with crisp product visibility." id="shop-photo-preview" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyYHmWyTzcmt6QOgh2mFAAi3t0_7N_Ut3tuVtax1JslMgNLoeX3hC6CxF5yIQywpGcAGLOIF53QvUk9X0smeBBeplJDlMwMOXco42ZHaOal6g-DFbcpA_tr6f81NWx-0AVUvRCCyIAm70k9TRTEV8j8Hjv6LjCFaFExjD2Xri7qpNWJPUS1ql0yu7S6DbwO1KFPLxgjF7eMsnthKqbyr-v99YfpFDCcF-HH3eE5Rdx7ajtAY72cyrZ">
+<div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent flex items-end p-2.5 justify-between">
+<span class="font-label-sm text-label-sm text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">check</span> Captured
+              </span>
+<div class="flex gap-1.5">
+<button class="bg-surface-container-lowest/90 backdrop-blur-sm hover:bg-surface-container-lowest text-on-surface text-label-sm font-label-sm px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1 active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[14px]">sync</span> Replace
+                </button>
+<button class="bg-error-container text-on-error-container text-label-sm font-label-sm px-2 py-1 rounded-full shadow-sm flex items-center gap-0.5 active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[14px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Action Buttons -->
+<div class="grid grid-cols-2 gap-space-sm">
+<button class="flex items-center justify-center gap-1.5 py-2 px-space-sm bg-surface-container-lowest hover:bg-surface-container text-primary rounded-lg font-label-md text-label-md shadow-sm transition-colors active:scale-98" type="button">
+<span class="material-symbols-outlined text-[18px]">photo_camera</span>
+              Take Photo
+            </button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-space-sm bg-surface-container-lowest hover:bg-surface-container text-on-surface-variant rounded-lg font-label-md text-label-md shadow-sm transition-colors active:scale-98" type="button">
+<span class="material-symbols-outlined text-[18px]">add_photo_alternate</span>
+              Upload Image
+            </button>
+</div>
+<span class="text-center font-label-sm text-label-sm text-secondary">Supports JPG, PNG up to 10MB</span>
+</div>
+</div>
+</div>
+<!-- SECTION B: Owner / Contact Information -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">person_pin</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Owner / Contact Information</h2>
+</div>
+<span class="font-label-sm text-label-sm text-primary bg-surface-container-low px-2 py-0.5 rounded-full">Section B</span>
+</div>
+<!-- Field 1: Owner Name -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1" for="owner-name">
+          Owner Name <span class="text-error">*</span>
+</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface placeholder-secondary font-body-md text-body-md rounded-lg px-space-md py-2.5 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all pr-10" id="owner-name" placeholder="Rajesh Kumar" required="" type="text" value="Rajesh Kumar">
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-[20px] text-secondary pointer-events-none">badge</span>
+</div>
+</div>
+<!-- Field 2: Primary Mobile Number -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1" for="primary-phone">
+          Primary Mobile Number <span class="text-error">*</span>
+</label>
+<div class="flex items-center rounded-lg bg-surface-container-low overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-surface-container-lowest transition-all">
+<!-- Fixed India prefix container -->
+<div class="flex items-center gap-1 px-space-md py-2.5 bg-surface-container-high text-on-surface flex-shrink-0">
+<span class="text-[14px]">🇮🇳</span>
+<span class="font-label-lg text-label-lg font-semibold text-on-surface">+91</span>
+</div>
+<input class="w-full bg-transparent text-on-surface placeholder-secondary font-body-md text-body-md px-space-md py-2.5 focus:outline-none tracking-wide" id="primary-phone" maxlength="11" placeholder="98765 43210" required="" type="tel" value="98452 10982">
+<span class="material-symbols-outlined pr-3 text-[18px] text-primary">phone_iphone</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">Used for order dispatches, SMS receipts &amp; digital OTPs</span>
+</div>
+<!-- Field 3: Alternative Mobile Number -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between" for="alt-phone">
+<span>Alternative Mobile Number</span>
+<span class="font-label-sm text-label-sm text-secondary font-normal">Optional</span>
+</label>
+<div class="flex items-center rounded-lg bg-surface-container-low overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-surface-container-lowest transition-all">
+<div class="flex items-center gap-1 px-space-md py-2.5 bg-surface-container-high text-on-surface flex-shrink-0">
+<span class="text-[14px]">🇮🇳</span>
+<span class="font-label-lg text-label-lg font-semibold text-on-surface">+91</span>
+</div>
+<input class="w-full bg-transparent text-on-surface placeholder-secondary font-body-md text-body-md px-space-md py-2.5 focus:outline-none tracking-wide" id="alt-phone" maxlength="11" placeholder="98765 00000" type="tel">
+<span class="material-symbols-outlined pr-3 text-[18px] text-secondary">contact_phone</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">Optional backup number for delivery coordinates</span>
+</div>
+</div>
+<!-- SECTION C: Shop Location -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">pin_drop</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Shop Location</h2>
+</div>
+<span class="font-label-sm text-label-sm text-primary bg-surface-container-low px-2 py-0.5 rounded-full">Section C</span>
+</div>
+<!-- GPS Quick Action Button -->
+<button class="w-full py-2.5 px-space-md bg-surface-container hover:bg-surface-container-high text-primary rounded-xl font-label-lg text-label-lg flex items-center justify-center gap-2 transition-all active:scale-98 shadow-sm" id="gps-btn" type="button">
+<span class="material-symbols-outlined text-[20px] text-primary" style="font-variation-settings: &quot;FILL&quot; 1;">my_location</span>
+<span class="font-semibold">Use Current GPS Location</span>
+</button>
+<!-- Field 1: Address Textarea -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1" for="shop-address">
+          Shop Location / Address <span class="text-error">*</span>
+</label>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low text-on-surface placeholder-secondary font-body-md text-body-md rounded-lg p-space-md focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none" id="shop-address" placeholder="Enter shop address or area (e.g. Edappally, Kochi, Kerala)" required="" rows="3">Shop No. 4/118, Opp. Metro Pillar 382, NH Bypass Road, Edappally, Kochi, Kerala - 682024</textarea>
+</div>
+</div>
+<!-- Field 2: Google Maps Link + Interactive Preview -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between" for="maps-link">
+<span>Google Maps Link</span>
+<span class="font-label-sm text-label-sm text-secondary font-normal">Optional</span>
+</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-primary">location_on</span>
+<input class="w-full bg-surface-container-low text-on-surface placeholder-secondary font-body-md text-body-md rounded-lg pl-9 pr-24 py-2.5 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" id="maps-link" placeholder="Paste Google Maps location link" type="url" value="https://maps.app.goo.gl/KochiGreenValleyB2B">
+<a class="absolute right-1.5 px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-primary font-label-sm text-label-sm rounded-md transition-colors flex items-center gap-0.5" href="#" onclick="event.preventDefault(); alert('Opening mapped geolocation coordinates in external maps app...');">
+<span>Open</span>
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+</div>
+<!-- Static Map Visualizer Indicator -->
+<div class="w-full h-28 bg-cover bg-center rounded-xl relative overflow-hidden shadow-sm" data-location="Edappally, Kochi, Kerala, India" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuBwHC52wfVLTY96e2J3MLVlmn3ppA0B6sEvEe-0Y85iKLt-o0ukY82qfjQ1vVISbVfOhBDKJgkQGrozWUwT7RYKm5SwZUoPnGUlWtMCbPRglmi6XYtavvSj1rMhfJYlqtsOM0Kots4BWX0DZUEiUxClTZ5hJnj5ArWLLrtxsXFSzl48vJaT-ExrIiqpWfjnG7RvWQMWSw9UXxhivo4r58qxHRHWY3ZsSISx8AeadLObpsk6LnfStghp&quot;);">
+<div class="absolute inset-0 bg-on-surface/10 flex items-center justify-center">
+<div class="bg-surface-container-lowest/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5 text-on-surface font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-primary text-[16px]" style="font-variation-settings: &quot;FILL&quot; 1;">pin_drop</span>
+<span>Edappally Hub (9.9816° N, 76.2999° E)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION D: Registration Information -->
+<!-- SECTION D: Confirmed Product Pricing -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">price_check</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Confirmed Product Pricing</h2>
+</div>
+<span class="font-label-sm text-label-sm text-primary bg-surface-container-low px-2 py-0.5 rounded-full">Section D • Agreed B2B Rates</span>
+</div>
+<!-- Interactive Option Toggle Card -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-low rounded-xl border border-primary/20">
+<div class="flex items-center gap-2.5 min-w-0 pr-2">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md font-semibold text-on-surface">Enter Confirmed Price for Products</span>
+<span class="font-body-sm text-body-sm text-secondary truncate">Set agreed wholesale rates for this retailer during onboarding</span>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Form Fields for Agreed Product Rates -->
+<div class="flex flex-col gap-space-sm bg-surface-container-low/60 p-space-sm rounded-xl">
+<!-- Select Product -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between">
+<span>Select Product <span class="text-error">*</span></span>
+<span class="font-label-sm text-label-sm text-secondary font-normal font-mono">SKU-BNC-001</span>
+</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-secondary pointer-events-none">inventory_2</span>
+<select class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md rounded-lg pl-9 pr-8 py-2.5 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer">
+<option selected="" value="SKU-BNC-001">Kerala Special Banana Chips [SKU-BNC-001]</option>
+<option value="SKU-TMC-002">Malabar Tapioca Chips Spicy [SKU-TMC-002]</option>
+<option value="SKU-JGY-003">Organic Jaggery Coated Banana Crisps [SKU-JGY-003]</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 text-[20px] text-secondary pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Select Pack Size -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between">
+<span>Select Pack Size <span class="text-error">*</span></span>
+<span class="font-label-sm text-label-sm text-secondary font-normal">Std Wholesale: ₹42.00</span>
+</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-secondary pointer-events-none">straighten</span>
+<select class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md rounded-lg pl-9 pr-8 py-2.5 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer">
+<option selected="" value="100g">100g Pouch (Std: ₹42.00)</option>
+<option value="250g">250g Pouch (Std: ₹98.00)</option>
+<option value="500g">500g Family Pack (Std: ₹185.00)</option>
+<option value="1kg">1kg Bulk Crate Bag (Std: ₹350.00)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 text-[20px] text-secondary pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Confirmed Selling Price per Pack -->
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1" for="confirmed-price">
+Confirmed Selling Price per Pack <span class="text-error">*</span>
+</label>
+<span class="font-label-sm text-label-sm text-primary flex items-center gap-0.5 bg-surface-container px-2 py-0.5 rounded-full font-medium">
+<span class="material-symbols-outlined text-[12px]">trending_down</span>
+₹3.50 below list price (Margin Protected)
+</span>
+</div>
+<div class="flex items-center rounded-lg bg-surface-container-low overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-surface-container-lowest transition-all">
+<div class="flex items-center justify-center px-3.5 py-2.5 bg-surface-container-high text-on-surface flex-shrink-0 font-bold font-mono text-[15px]">
+₹
+</div>
+<input class="w-full bg-transparent text-on-surface font-headline-sm text-headline-sm font-mono px-space-md py-2 focus:outline-none tracking-wide text-primary" id="confirmed-price" placeholder="0.00" step="0.25" type="number" value="38.50">
+<span class="pr-3 text-secondary font-label-sm text-label-sm flex-shrink-0">/ pack</span>
+</div>
+</div>
+<!-- Date Agreed / Validity -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between" for="validity-range">
+<span>Date Agreed / Validity</span>
+<span class="font-label-sm text-label-sm text-secondary font-normal">36 Days Active</span>
+</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-[18px] text-primary">calendar_month</span>
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md rounded-lg pl-9 pr-space-md py-2.5 focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" id="validity-range" type="text" value="25 Oct 2026 - 30 Nov 2026">
+</div>
+</div>
+</div>
+<!-- Secondary Button: Add Another Product Rate -->
+<button class="w-full py-2.5 px-space-md bg-surface-container-lowest hover:bg-surface-container text-primary border border-primary/25 rounded-xl font-label-lg text-label-lg flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>+ Add Another Product Rate</span>
+</button>
+</div><div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[18px]">info</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Registration Information</h3>
+</div>
+<span class="font-label-sm text-label-sm text-secondary">System Metadata</span>
+</div>
+<div class="grid grid-cols-1 gap-2 pt-1">
+<!-- Date & Time Added -->
+<div class="flex items-center justify-between py-1.5 px-2.5 bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">schedule</span>
+<span class="font-label-md text-label-md text-secondary">Date &amp; Time Added</span>
+</div>
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">25 Oct 2026, 10:30 AM IST</span>
+</div>
+<!-- Added By -->
+<div class="flex items-center justify-between py-1.5 px-2.5 bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">badge</span>
+<span class="font-label-md text-label-md text-secondary">Added By</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">Arun Sharma</span>
+<span class="font-label-sm text-label-sm bg-surface-container text-primary px-1.5 py-0.2 rounded font-mono">#FO-402</span>
+</div>
+</div>
+<!-- Status -->
+<div class="flex items-center justify-between py-1.5 px-2.5 bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">sync_saved_locally</span>
+<span class="font-label-md text-label-md text-secondary">Sync Status</span>
+</div>
+<span class="font-label-sm text-label-sm font-semibold bg-surface-container-high text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+            Draft / Ready to Sync
+          </span>
+</div>
+</div>
+</div>
+</form>
+<!-- Interactive Shop Notes Modal / Sheet -->
+<div class="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm hidden flex-col justify-end transition-opacity max-w-[390px] mx-auto" id="notes-overlay">
+<div class="bg-surface-container-lowest rounded-t-2xl shadow-2xl p-margin-mobile flex flex-col gap-space-md max-h-[751px] transform translate-y-full transition-transform duration-200" id="notes-sheet">
+<!-- Handle -->
+<div class="w-12 h-1.5 bg-outline-variant/60 rounded-full self-center"></div>
+<!-- Sheet Title -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: &quot;FILL&quot; 1;">sticky_note_2</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Shop Dispatch Notes</h3>
+<p class="font-body-sm text-body-sm text-secondary">Field notes for delivery routing &amp; fulfillment</p>
+</div>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center text-secondary active:scale-90" id="close-notes-x" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Notes Content -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-secondary font-semibold" for="shop-notes-field">Special Operational Instructions</label>
+<textarea class="w-full bg-surface-container-low text-on-surface placeholder-secondary font-body-md text-body-md rounded-xl p-space-md focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none leading-relaxed" id="shop-notes-field" placeholder="Add shop-specific unloading notes, gate passes, or shopkeeper availability..." rows="5">Preferred delivery time before 9:00 AM. Best to contact shopkeeper after 2 PM. Narrow lane for truck entry; use secondary mini-tempo dispatch if order exceeds 15 crates.</textarea>
+</div>
+<!-- Sheet Actions -->
+<div class="flex items-center gap-space-sm pt-space-xs">
+<button class="flex-1 py-2.5 rounded-lg bg-surface-container-high text-on-surface font-label-lg text-label-lg font-semibold active:scale-98 transition-transform" id="close-notes-btn" type="button">
+          Cancel
+        </button>
+<button class="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-lg text-label-lg font-semibold flex items-center justify-center gap-1.5 shadow-md active:scale-98 transition-transform" id="save-notes-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">check</span>
+          Save Notes
+        </button>
+</div>
+</div>
+</div>
+<!-- FIXED BOTTOM ACTION BAR -->
+<div class="fixed bottom-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-4px_12px_rgba(0,0,0,0.05)] px-margin-mobile py-space-sm flex items-center gap-space-md pb-safe w-full max-w-[390px]">
+<!-- Secondary Button: Cancel -->
+<button class="flex-1 h-11 bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg font-semibold rounded-lg flex items-center justify-center transition-colors active:scale-98" id="cancel-btn" type="button">
+      Cancel
+    </button>
+<!-- Primary Button: Save Shop -->
+<button class="flex-[2] h-11 bg-primary hover:bg-on-primary-fixed-variant active:bg-on-primary-fixed text-on-primary font-label-lg text-label-lg font-bold rounded-lg flex items-center justify-center gap-2 shadow-md transition-all active:scale-98" id="save-shop-btn" type="button"><span class="material-symbols-outlined text-[20px]">check</span> Register Shop</button>
+</div>
+</div>
+<script>
+  // Shop Notes Drawer Micro-interaction
+  const openNotesBtn = document.getElementById('open-notes-btn');
+  const notesOverlay = document.getElementById('notes-overlay');
+  const notesSheet = document.getElementById('notes-sheet');
+  const closeNotesX = document.getElementById('close-notes-x');
+  const closeNotesBtn = document.getElementById('close-notes-btn');
+  const saveNotesBtn = document.getElementById('save-notes-btn');
+  const gpsBtn = document.getElementById('gps-btn');
+  const cancelBtn = document.getElementById('cancel-btn');
+  const saveShopBtn = document.getElementById('save-shop-btn');
+
+  function openNotes() {
+    notesOverlay.classList.remove('hidden');
+    notesOverlay.classList.add('flex');
+    setTimeout(() => {
+      notesSheet.classList.remove('translate-y-full');
+      notesSheet.classList.add('translate-y-0');
+    }, 10);
+  }
+
+  function closeNotes() {
+    notesSheet.classList.remove('translate-y-0');
+    notesSheet.classList.add('translate-y-full');
+    setTimeout(() => {
+      notesOverlay.classList.remove('flex');
+      notesOverlay.classList.add('hidden');
+    }, 200);
+  }
+
+  if (openNotesBtn) openNotesBtn.addEventListener('click', openNotes);
+  if (closeNotesX) closeNotesX.addEventListener('click', closeNotes);
+  if (closeNotesBtn) closeNotesBtn.addEventListener('click', closeNotes);
+  if (saveNotesBtn) {
+    saveNotesBtn.addEventListener('click', () => {
+      closeNotes();
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-primary text-on-primary px-4 py-2 rounded-full font-label-md text-label-md shadow-lg flex items-center gap-1.5 animate-bounce';
+      toast.innerHTML = '<span class="material-symbols-outlined text-[16px]">task_alt</span> Notes updated for SHOP-000130';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    });
+  }
+
+  // GPS Simulation Action
+  if (gpsBtn) {
+    gpsBtn.addEventListener('click', () => {
+      const originalText = gpsBtn.innerHTML;
+      gpsBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span> Fetching GPS Lock...';
+      gpsBtn.disabled = true;
+      setTimeout(() => {
+        gpsBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] text-primary" style="font-variation-settings: \'FILL\' 1;">check_circle</span> Location Locked (Accuracy: ±2m)';
+        gpsBtn.classList.remove('bg-surface-container');
+        gpsBtn.classList.add('bg-surface-container-highest');
+        gpsBtn.disabled = false;
+      }, 700);
+    });
+  }
+
+  // Cancel with safety prompt
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      if (confirm('Discard unsaved shop registration details and return?')) {
+        history.back();
+      }
+    });
+  }
+
+  // Save Shop Action
+  if (saveShopBtn) {
+    saveShopBtn.addEventListener('click', () => {
+      saveShopBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Registering...';
+      setTimeout(() => {
+        alert('Shop "Green Valley Stores" (SHOP-000130) successfully created and queued for inventory allocation!');
+        saveShopBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check</span> Registered';
+      }, 900);
+    });
+  }
+</script></main>
+
+
+
+
+</body></html>

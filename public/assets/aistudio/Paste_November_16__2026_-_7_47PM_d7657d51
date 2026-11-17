@@ -1,0 +1,789 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_tab" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {primary: "#004529", "on-tertiary": "#ffffff", "surface-bright": "#f1fcf4", "tertiary-fixed": "#ffdad6", "surface-variant": "#dae5dd", tertiary: "#7e000b", "secondary-fixed-dim": "#80d9a5", "primary-container": "#005f3a", "surface-dim": "#d1ddd5", "on-primary-container": "#88d7a8", "error-container": "#ffdad6", "on-secondary-fixed": "#002111", "on-primary-fixed-variant": "#005231", "outline-variant": "#bfc9bf", outline: "#6f7a71", "on-error-container": "#93000a", "on-tertiary-fixed": "#410003", "inverse-primary": "#88d7a8", "on-background": "#141e19", surface: "#f1fcf4", "surface-tint": "#186c45", "on-primary-fixed": "#002111", "inverse-surface": "#28332d", "inverse-on-surface": "#e8f4eb", "on-error": "#ffffff", "surface-container-high": "#dfebe3", "tertiary-fixed-dim": "#ffb3ac", "surface-container-highest": "#dae5dd", "primary-fixed-dim": "#88d7a8", "on-primary": "#ffffff", "surface-container-lowest": "#ffffff", "on-secondary": "#ffffff", "on-tertiary-container": "#ffb3ac", "on-secondary-fixed-variant": "#005231", "surface-container": "#e5f1e8", "secondary-fixed": "#9bf5c0", background: "#f1fcf4", error: "#ba1a1a", "on-surface-variant": "#3f4942", secondary: "#006d43", "primary-fixed": "#a4f4c3", "secondary-container": "#99f2bd", "tertiary-container": "#a80716", "on-tertiary-fixed-variant": "#93000f", "surface-container-low": "#ebf6ee", "on-surface": "#141e19", "on-secondary-container": "#087147"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"space-xl": "1.5rem", margin: "1.5rem", "gutter-tablet": "1rem", "margin-tablet": "1.5rem", "space-lg": "1rem", "space-xs": "0.25rem", "space-md": "0.75rem", gutter: "1rem", "space-sm": "0.5rem", "margin-mobile": "1rem", "gutter-mobile": "0.75rem"}, fontFamily: {"label-md": ["Inter"], "body-sm": ["Inter"], "headline-md": ["Inter"], "label-sm": ["Inter"], "numeric-metric": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "headline-lg-mobile": ["Inter"], "label-lg": ["Inter"], "headline-lg": ["Inter"], "body-md": ["Inter"], "headline-sm": ["Inter"], "headline-xl": ["Inter"], "headline-xl-mobile": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"label-md": ["12px", {lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "600"}], "body-sm": ["12px", {lineHeight: "16px", letterSpacing: "0.005em", fontWeight: "400"}], "headline-md": ["20px", {lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600"}], "label-sm": ["11px", {lineHeight: "14px", letterSpacing: "0.03em", fontWeight: "600"}], "numeric-metric": ["24px", {lineHeight: "28px", fontWeight: "700"}], "body-lg": ["16px", {lineHeight: "24px", letterSpacing: "0em", fontWeight: "400"}], "headline-lg-mobile": ["20px", {lineHeight: "28px", letterSpacing: "-0.015em", fontWeight: "600"}], "label-lg": ["14px", {lineHeight: "20px", letterSpacing: "0.01em", fontWeight: "600"}], "headline-lg": ["24px", {lineHeight: "32px", letterSpacing: "-0.015em", fontWeight: "600"}], "body-md": ["14px", {lineHeight: "20px", letterSpacing: "0em", fontWeight: "400"}], "headline-sm": ["16px", {lineHeight: "24px", letterSpacing: "-0.005em", fontWeight: "600"}], "headline-xl": ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-xl-mobile": ["24px", {lineHeight: "32px", letterSpacing: "-0.02em", fontWeight: "700"}]}}}};</script><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen" data-mode="connect"><header class="fixed top-0 w-full z-40 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]" id="app-header"><div class="h-16 px-4 flex items-center justify-between gap-2 border-b border-outline-variant/30"><div class="flex flex-col min-w-0"><span class="text-[11px] font-bold text-[#005f3a] tracking-wider uppercase">HOMELY BY HOMIE</span><div class="flex items-center gap-1.5 min-w-0"><h1 class="text-[18px] font-bold text-on-surface truncate">Route Planning</h1><span class="text-xs text-on-surface-variant truncate flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#005f3a]"></span>Kochi Central Hub</span></div></div><div class="flex items-center gap-2 flex-shrink-0"><button aria-label="Search Routes and Stores" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-transform cursor-pointer" type="button"><span class="material-symbols-outlined text-[22px]">search</span></button><button aria-label="Notifications" class="relative w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-transform cursor-pointer" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-4 h-4 bg-error text-white font-label-sm text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-surface">3</span></button><div class="w-9 h-9 rounded-full bg-primary flex items-center justify-center cursor-pointer active:scale-95 transition-transform shadow-sm"><span class="material-symbols-outlined text-on-primary text-[20px]">person</span></div></div></div></header><main class="flex flex-col relative w-full pt-16 pb-20 bg-surface min-h-screen"><div class="flex flex-col w-full relative select-none">
+<!-- Map Viewport Container -->
+<div class="relative w-full h-[520px] overflow-hidden bg-surface-container-low shadow-inner" id="map-viewport-container">
+<!-- Map Background Engine with Route Polyline & Kochi Topography -->
+<div class="absolute inset-0 w-full h-full bg-cover bg-center pointer-events-none opacity-40 mix-blend-multiply" data-location="Kalamassery, Ernakulam, Kerala" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC3Mehzj40ry2kGZJZ-wZr0mb0fSpemeCFdt9wvQitqggdRCs-fsCIpaeBrDMVi9faAXph5t_vgfl2GdmeyWt9sCuV7HRDwzT79EKSU-O3xy1o21qrHNh6P42GE7qDMgMd3MjfE8p7I6G6VbhOg4em5ibvFI5UKpzvWEpH0RsYfl4uwwkCeykgcJNmaPvrSSMO0u2bie9DIgYB08fhYqPkoBrZjw8DFhzQFcFNbyac')"></div>
+<!-- Procedural Tactical Map Canvas (Highways, Waterway, Delivery Corridor Polylines) -->
+<svg class="absolute inset-0 w-full h-full" fill="none" viewBox="0 0 390 520" xmlns="http://www.w3.org/2000/svg">
+<!-- Periyar River waterway aesthetic contour -->
+<path d="M-20 60 C80 90, 160 40, 240 110 S340 180, 420 160" opacity="0.6" stroke="#b4c5ff" stroke-linecap="round" stroke-width="14"></path>
+<!-- Kochi Backwaters branch -->
+<path d="M20 540 C60 440, 40 380, 70 320 S140 240, 180 200" opacity="0.5" stroke="#dbe1ff" stroke-linecap="round" stroke-width="10"></path>
+<!-- Primary Arterial Logistics Corridors (NH 544 & Seaport-Airport Road) -->
+<path d="M60 490 L120 380 L195 240 L285 140 L340 70" stroke="#dee9fc" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"></path>
+<path d="M120 380 L230 400 L320 340 L350 260" stroke="#dee9fc" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"></path>
+<!-- Route 1 (Kochi North - Aluva) Active Delivery Corridor Polyline -->
+<path class="animate-pulse" d="M195 240 L230 210 L285 140 L305 110 L340 70" id="route1-line" stroke="#006c4c" stroke-dasharray="6 3" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"></path>
+<!-- Route 2 (Ernakulam South) Branch Line -->
+<path d="M195 240 L160 290 L120 380 L90 440" stroke="#003ea8" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.75" stroke-width="3"></path>
+<!-- Route 3 (Kakkanad Hub) Branch Line -->
+<path d="M195 240 L240 280 L290 310 L330 350" stroke="#b45309" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.65" stroke-width="3"></path>
+<!-- Key Depot Marker: Kalamassery Staging Bay #03 -->
+<g transform="translate(195, 240)">
+<circle class="animate-ping" fill="#005138" fill-opacity="0.15" r="18"></circle>
+<circle fill="#005138" r="12"></circle>
+<path d="M-5 -4 L5 -4 L0 5 Z" fill="#ffffff"></path>
+</g>
+</svg>
+<!-- Top Floating Controls Layer -->
+<div class="absolute top-0 inset-x-0 p-space-sm flex flex-col gap-space-xs z-20 bg-gradient-to-b from-surface/90 via-surface/60 to-transparent">
+<!-- Route Filter Pill Bar (Ergonomic Carousel) -->
+<div class="relative w-full flex items-center gap-space-xs"><div class="relative flex-1"><div class="flex items-center justify-between w-full h-10 px-3 rounded-xl bg-surface-container-lowest text-on-surface shadow-sm border border-outline-variant/30 active:scale-98 transition-transform cursor-pointer"><div class="flex items-center gap-2 min-w-0"><span class="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0"></span><span class="font-label-md text-label-md text-on-surface truncate">North-Aluva #1</span><span class="px-1.5 py-0.2 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface-variant flex-shrink-0">28 shops</span></div><span class="material-symbols-outlined text-[20px] text-on-surface-variant ml-1 flex-shrink-0">arrow_drop_down</span></div><select aria-label="Select Route" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer font-label-md text-label-md" id="route-selector-dropdown" onchange="filterRoute(this.value)"><option value="all">All Routes (112 shops)</option><option selected="" value="r1">Route 1: North-Aluva (28 shops)</option><option value="r2">Route 2: Ernakulam South (32 shops)</option><option value="r3">Route 3: Kakkanad Hub (22 shops)</option><option value="r4">Route 4: Fort Kochi (16 shops)</option><option value="create">+ Create New Route</option></select></div><button aria-label="Create New Delivery Route" class="flex-shrink-0 h-10 w-10 rounded-xl bg-surface-container-lowest text-primary shadow-sm border border-outline-variant/30 flex items-center justify-center active:scale-95 transition-transform" type="button"><span class="material-symbols-outlined text-[20px]">add</span></button></div>
+<!-- Quick Status & Action Ribbons -->
+<div class="flex items-center justify-between gap-space-xs mt-0.5"><div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#e8f5ec] text-[#005f3a] text-xs font-medium border border-[#18794e]/20 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-[#005f3a]"></span><span>Kochi Central Hub</span></div>
+<!-- Draft Changes Notification Chip -->
+<div class="flex items-center gap-2 bg-surface-container-lowest px-3 py-1.5 rounded-full shadow-md hidden" id="draft-pill"><span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span><span class="font-label-sm text-label-sm text-secondary">Route Synced</span></div>
+<!-- Floating Tactical Utility Buttons -->
+<div class="flex items-center gap-1.5">
+<button class="w-10 h-10 rounded-full bg-surface-container-lowest text-on-surface shadow-md flex items-center justify-center active:scale-90 transition-transform" title="Center GPS" type="button">
+<span class="material-symbols-outlined text-[20px]">my_location</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface-container-lowest text-primary shadow-md flex items-center justify-center active:scale-90 transition-transform" id="toggle-layer" onclick="toggleMapMode()" title="Toggle Layers" type="button">
+<span class="material-symbols-outlined text-[20px]">alt_route</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface-container-lowest text-on-surface shadow-md flex items-center justify-center active:scale-90 transition-transform" id="fullscreen-toggle-btn" onclick="toggleFullscreenMap()" title="Full Screen View" type="button"><span class="material-symbols-outlined text-[20px]" id="fullscreen-icon">fullscreen</span></button>
+</div>
+</div>
+</div>
+<!-- Tactical Interactive Pins On Top of SVG Map -->
+<!-- Depot Hub Pin -->
+<div class="absolute left-[180px] top-[228px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto">
+<div class="px-2 py-0.5 rounded-md bg-inverse-surface text-inverse-on-surface font-label-sm text-label-sm shadow-md mb-1 whitespace-nowrap">
+        Hub Bay #03
+      </div>
+</div>
+<!-- PIN: Priya Supermarket (Edappally Toll - UNALLOCATED) -->
+<div class="absolute left-[220px] top-[198px] cursor-pointer group -translate-x-1/2 -translate-y-full z-10 transition-transform hover:scale-110 active:scale-95" id="pin-priya" onclick="selectShop('SHOP-000131')">
+<div class="flex flex-col items-center">
+<span class="bg-surface-container-lowest text-on-surface px-1.5 py-0.5 rounded shadow text-[10px] font-label-md whitespace-nowrap mb-0.5">Priya Supermarket</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest text-on-surface shadow-lg flex items-center justify-center relative">
+<span class="w-2.5 h-2.5 rounded-full bg-error"></span>
+<span class="absolute -top-1 -right-1 bg-surface text-on-surface text-[9px] font-label-sm w-4 h-4 rounded-full flex items-center justify-center shadow">?</span>
+</div>
+</div>
+</div>
+<!-- PIN: Annapoorna Traders (Route 1 - Stop #01) -->
+<div class="absolute left-[275px] top-[130px] cursor-pointer -translate-x-1/2 -translate-y-full z-10 hover:scale-110 active:scale-95 transition-transform" onclick="selectShop('SHOP-000088')">
+<div class="flex flex-col items-center">
+<span class="bg-primary text-on-primary px-1.5 py-0.5 rounded shadow text-[10px] font-label-md whitespace-nowrap mb-0.5">#1 Annapoorna</span>
+<div class="w-7 h-7 rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-[15px]">storefront</span>
+</div>
+</div>
+</div>
+<!-- PIN: Green Leaf Kirana (Route 1 - Stop #02) -->
+<div class="absolute left-[330px] top-[60px] cursor-pointer -translate-x-1/2 -translate-y-full z-10 hover:scale-110 active:scale-95 transition-transform" onclick="selectShop('SHOP-000092')">
+<div class="flex flex-col items-center">
+<span class="bg-primary text-on-primary px-1.5 py-0.5 rounded shadow text-[10px] font-label-md whitespace-nowrap mb-0.5">#2 Green Leaf</span>
+<div class="w-7 h-7 rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-[15px]">storefront</span>
+</div>
+</div>
+</div>
+<!-- PIN: Cochin Fresh Veg Mart (Route 2 - Blue) -->
+<div class="absolute left-[110px] top-[370px] cursor-pointer -translate-x-1/2 -translate-y-full z-10 hover:scale-110 active:scale-95 transition-transform" onclick="selectShop('SHOP-000204')">
+<div class="flex flex-col items-center">
+<span class="bg-tertiary text-on-tertiary px-1.5 py-0.5 rounded shadow text-[10px] font-label-md whitespace-nowrap mb-0.5">Cochin Fresh</span>
+<div class="w-7 h-7 rounded-full bg-tertiary text-on-tertiary shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-[15px]">shopping_basket</span>
+</div>
+</div>
+</div>
+<!-- PIN: InfoPark Greens (Route 3 - Orange) -->
+<div class="absolute left-[310px] top-[330px] cursor-pointer -translate-x-1/2 -translate-y-full z-10 hover:scale-110 active:scale-95 transition-transform" onclick="selectShop('SHOP-000318')">
+<div class="flex flex-col items-center">
+<span class="bg-[#f59e0b] text-on-secondary-fixed px-1.5 py-0.5 rounded shadow text-[10px] font-label-md whitespace-nowrap mb-0.5">InfoPark Mart</span>
+<div class="w-7 h-7 rounded-full bg-[#f59e0b] text-on-secondary-fixed shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-[15px]">storefront</span>
+</div>
+</div>
+</div>
+<!-- PIN: Aluva Bazar Fresh (Route 1 - Stop #03) -->
+<div class="absolute left-[295px] top-[102px] cursor-pointer -translate-x-1/2 -translate-y-full z-10 hover:scale-110 active:scale-95 transition-transform" onclick="selectShop('SHOP-000412')">
+<div class="flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-primary text-on-primary shadow-md flex items-center justify-center">
+<span class="font-label-sm text-label-sm">3</span>
+</div>
+</div>
+</div>
+<!-- Map Scale & Geolocation Pill Watermark -->
+<div class="absolute bottom-4 left-4 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-1 rounded-md shadow-sm flex items-center gap-1.5 text-on-surface-variant z-10 pointer-events-none">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="font-label-sm text-label-sm">Edappally-Kalamassery Sector (1:25,000)</span>
+</div>
+<!-- Floating Interactive Selected Shop Card Popup -->
+<div class="absolute bottom-3 inset-x-3 z-30 transition-all duration-300 transform translate-y-0 opacity-100" id="shop-card-popup">
+<div class="bg-surface-container-lowest rounded-xl shadow-xl p-space-sm flex flex-col gap-space-xs">
+<!-- Header row -->
+<div class="flex items-start justify-between gap-space-xs">
+<div class="flex items-center gap-space-xs min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0 text-primary">
+<span class="material-symbols-outlined text-[22px]">store</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate" id="card-shop-name">Annapoorna Traders</h2>
+<span class="px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex-shrink-0" id="card-shop-badge">Moved to Ernakulam S. #2</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant" id="card-shop-id">ID: SHOP-000088 • R. Pillai</span>
+</div>
+</div>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-90" onclick="closeShopPopup()" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Details Grid -->
+<div class="grid grid-cols-2 gap-space-xs bg-surface-container-low p-2 rounded-lg text-on-surface">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-primary text-[16px]">location_on</span>
+<span class="font-body-sm text-body-sm truncate">Near Toll Jct, Edappally</span>
+</div>
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-tertiary text-[16px]">call</span>
+<a class="font-label-sm text-label-sm text-tertiary truncate" href="tel:+919845210982">+91 98452 10982</a>
+</div>
+</div>
+<!-- Quick Route Reassignment Controls -->
+<div class="flex flex-col gap-1 mt-0.5">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Quick Assign Corridor:</span>
+<div class="grid grid-cols-3 gap-1.5">
+<button class="h-9 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm flex items-center justify-center gap-1 active:scale-95 transition-transform" onclick="reassignRoute('North-Aluva #1')" type="button">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed"></span>
+<span>+ North #1</span>
+</button>
+<button class="h-9 rounded-lg bg-surface-container-high text-tertiary font-label-sm text-label-sm flex items-center justify-center gap-1 active:scale-95 transition-transform" onclick="reassignRoute('Ernakulam S. #2')" type="button">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span>+ South #2</span>
+</button>
+<button class="h-9 rounded-lg bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center justify-center gap-1 active:scale-95 transition-transform" onclick="reassignRoute('Kakkanad #3')" type="button">
+<span class="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
+<span>+ Kakkanad #3</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Draggable Bottom Sheet / Collapsible Drawer -->
+<div class="w-full bg-surface-container-lowest rounded-t-3xl shadow-2xl flex flex-col -mt-4 z-30" id="bottom-allocation-drawer">
+<!-- Ergonomic Grab Handle Bar -->
+<div class="w-full pt-3 pb-2 flex flex-col items-center cursor-pointer active:opacity-75" onclick="toggleDrawer()">
+<div class="w-10 h-1 bg-outline-variant rounded-full"></div>
+<div class="w-full px-margin mt-2 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">local_shipping</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Allocation Dispatch</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">14 Unallocated</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] transition-transform duration-300" id="drawer-arrow">expand_less</span>
+</div>
+</div>
+</div>
+<!-- Segmented Filter Tabs -->
+<div class="px-margin pt-1 pb-2">
+<div class="grid grid-cols-3 p-1 rounded-xl bg-surface-container text-center">
+<button class="py-2 rounded-lg font-label-md text-label-md transition-all text-on-surface-variant" id="tab-btn-unallocated" onclick="if(window.closeMoreMenu) window.closeMoreMenu(); switchDrawerTab('unallocated')" type="button">
+          Unallocated (14)
+        </button>
+<button class="py-2 rounded-lg font-label-md text-label-md transition-all bg-surface-container-lowest text-primary shadow-sm font-semibold" id="tab-btn-routes" onclick="if(window.closeMoreMenu) window.closeMoreMenu(); switchDrawerTab('routes')" type="button">
+          My Routes (5)
+        </button>
+<button class="py-2 rounded-lg font-label-md text-label-md transition-all text-on-surface-variant" id="tab-btn-missing" onclick="if(window.closeMoreMenu) window.closeMoreMenu(); switchDrawerTab('missing')" type="button">
+          Missing GPS (2)
+        </button>
+</div>
+</div>
+<!-- TAB 1: UNALLOCATED SHOPS CONTENT -->
+<div class="flex flex-col px-margin pb-6 gap-space-sm hidden" id="tab-view-unallocated">
+<!-- Search Filter Bar -->
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-3 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full h-11 pl-10 pr-4 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest" placeholder="Search shops by name, locality, or phone..." type="text">
+</div>
+<!-- Shop Item List -->
+<div class="flex flex-col gap-2.5">
+<!-- Item 1 -->
+<div class="p-space-sm rounded-xl bg-surface-container-low flex items-center justify-between gap-space-xs shadow-sm">
+<div class="flex items-center gap-space-xs min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">storefront</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Priya Supermarket</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Edappally Toll • +91 98452 10982</span>
+<span class="font-label-sm text-label-sm text-error mt-0.5">Unallocated • 4.2 km from Bay</span>
+</div>
+</div>
+<button class="h-10 px-3 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm flex items-center gap-1 active:scale-95 flex-shrink-0" onclick="selectShop('SHOP-000131')" type="button">
+<span>+ Assign</span>
+</button>
+</div>
+<!-- Item 2 -->
+<div class="p-space-sm rounded-xl bg-surface-container-low flex items-center justify-between gap-space-xs shadow-sm">
+<div class="flex items-center gap-space-xs min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">storefront</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Malabar Fresh Mart</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Pipeline Road, Kalamassery • +91 94471 22901</span>
+<span class="font-label-sm text-label-sm text-error mt-0.5">Unallocated • 1.8 km from Bay</span>
+</div>
+</div>
+<button class="h-10 px-3 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm flex items-center gap-1 active:scale-95 flex-shrink-0" type="button">
+<span>+ Assign</span>
+</button>
+</div>
+<!-- Item 3 -->
+<div class="p-space-sm rounded-xl bg-surface-container-low flex items-center justify-between gap-space-xs shadow-sm">
+<div class="flex items-center gap-space-xs min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">storefront</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Vyttila Daily Provisions</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Janatha Jct, Vyttila • +91 98950 44102</span>
+<span class="font-label-sm text-label-sm text-error mt-0.5">Unallocated • 8.1 km from Bay</span>
+</div>
+</div>
+<button class="h-10 px-3 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm flex items-center gap-1 active:scale-95 flex-shrink-0" type="button">
+<span>+ Assign</span>
+</button>
+</div>
+</div>
+<!-- Action Confirmation Trigger for bulk flow -->
+<div class="mt-2 p-3 bg-secondary-container rounded-xl flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">auto_fix_high</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-secondary-container">Smart Route Optimizer</span>
+<span class="font-body-sm text-body-sm text-on-secondary-container opacity-80">Auto-cluster remaining 14 drops</span>
+</div>
+</div>
+<button class="h-9 px-3 bg-primary text-on-primary font-label-sm text-label-sm rounded-lg active:scale-95" type="button">Auto Group</button>
+</div>
+</div>
+<!-- TAB 2: MY ROUTES CONTENT -->
+<div class="flex flex-col px-margin pb-6 gap-space-sm" id="tab-view-routes">
+<!-- Route 1 Card -->
+<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-2" id="route-card-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded-full bg-primary"></span>
+<span class="font-headline-sm text-headline-sm text-on-surface" id="route-card-name-1">Route 1: Kochi North - Aluva</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-primary hover:bg-surface-container active:scale-90 transition-transform cursor-pointer" onclick="openEditRouteModal('Route 1: Kochi North - Aluva', 'Tata Ace (KL-07-CD-4190)', '32', '28', 'Rajan Kumar', '+91 98452 10980', '06:30 AM – 10:30 AM', 'Bay #03 - North Dock')" title="View Route" type="button"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container active:scale-90 transition-transform cursor-pointer" onclick="openEditRouteModal('Route 1: Kochi North - Aluva', 'Tata Ace (KL-07-CD-4190)', '32', '28', 'Rajan Kumar', '+91 98452 10980', '06:30 AM – 10:30 AM', 'Bay #03 - North Dock')" title="Edit Route &amp; Driver Details" type="button"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span id="route-card-vehicle-1">Tata Ace (KL-07-CD-4190)</span>
+<span class="font-label-md text-label-md text-primary" id="route-card-load-1">28 / 32 Crates (88% Full)</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full w-[88%]" id="route-card-bar-1"></div>
+</div>
+</div>
+<!-- Route 2 Card -->
+<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-2" id="route-card-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded-full bg-tertiary"></span>
+<span class="font-headline-sm text-headline-sm text-on-surface" id="route-card-name-2">Route 2: Ernakulam South</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-tertiary hover:bg-surface-container active:scale-90 transition-transform cursor-pointer" onclick="openEditRouteModal('Route 2: Ernakulam South', 'Mahindra Bolero Maxi (KL-07-CB-9081)', '40', '32', 'Manoj Varma', '+91 97455 67890', '07:15 AM – 11:30 AM', 'Bay #01 - South Dock')" title="View Route" type="button"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-tertiary hover:bg-surface-container active:scale-90 transition-transform cursor-pointer" onclick="openEditRouteModal('Route 2: Ernakulam South', 'Mahindra Bolero Maxi (KL-07-CB-9081)', '40', '32', 'Manoj Varma', '+91 97455 67890', '07:15 AM – 11:30 AM', 'Bay #01 - South Dock')" title="Edit Route &amp; Driver Details" type="button"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span id="route-card-vehicle-2">Mahindra Bolero Maxi (KL-07-CB-9081)</span>
+<span class="font-label-md text-label-md text-tertiary" id="route-card-load-2">32 / 40 Crates (80% Full)</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-tertiary h-full w-[80%]" id="route-card-bar-2"></div>
+</div>
+</div>
+<!-- Route 3 Card -->
+<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-2" id="route-card-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded-full bg-[#f59e0b]"></span>
+<span class="font-headline-sm text-headline-sm text-on-surface" id="route-card-name-3">Route 3: Kakkanad Hub Express</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container active:scale-90 transition-transform cursor-pointer" onclick="openEditRouteModal('Route 3: Kakkanad Hub Express', 'Ashok Leyland Dost (KL-07-CC-1120)', '30', '22', 'Shaji Mathew', '+91 94470 33445', '08:00 AM – 12:00 PM', 'Bay #05 - Central Dock')" title="View Route" type="button"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container active:scale-90 transition-transform cursor-pointer" onclick="openEditRouteModal('Route 3: Kakkanad Hub Express', 'Ashok Leyland Dost (KL-07-CC-1120)', '30', '22', 'Shaji Mathew', '+91 94470 33445', '08:00 AM – 12:00 PM', 'Bay #05 - Central Dock')" title="Edit Route &amp; Driver Details" type="button"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span id="route-card-vehicle-3">Ashok Leyland Dost (KL-07-CC-1120)</span>
+<span class="font-label-md text-label-md text-on-surface" id="route-card-load-3">22 / 30 Crates (73% Full)</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-[#f59e0b] h-full w-[73%]" id="route-card-bar-3"></div>
+</div>
+</div>
+<!-- Add New Route CTA -->
+<button class="h-12 w-full rounded-xl bg-surface-container text-primary font-label-lg text-label-lg flex items-center justify-center gap-2 active:scale-98 cursor-pointer hover:bg-surface-container-high transition-colors" onclick="openEditRouteModal('Route 4: Fort Kochi - Mattancherry', 'Eicher Pro 2049 (KL-07-BX-4450)', '60', '0', 'Anand V.', '+91 98450 99887', '06:00 AM – 10:00 AM', 'Bay #02 - Main Facility')" type="button">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>Create New Delivery Route</span>
+</button>
+</div>
+<!-- TAB 3: MISSING GPS VIEW -->
+<div class="flex-col px-margin pb-6 gap-space-sm hidden" id="tab-view-missing">
+<div class="p-3 bg-error-container rounded-xl flex items-center gap-2.5">
+<span class="material-symbols-outlined text-error text-[24px]">wrong_location</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-error-container">2 Stores Need Geocoding</span>
+<span class="font-body-sm text-body-sm text-on-error-container">Driver WhatsApp live location required.</span>
+</div>
+</div>
+<div class="p-space-sm rounded-xl bg-surface-container-low flex items-center justify-between gap-space-xs">
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm text-on-surface">Kalyan Provision Store</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Near Old Mosque, Aluva Bypass</span>
+</div>
+<button class="h-9 px-3 rounded-lg bg-surface-container-high text-primary font-label-sm text-label-sm active:scale-95 cursor-pointer" type="button">Request GPS</button>
+</div>
+<div class="p-space-sm rounded-xl bg-surface-container-low flex items-center justify-between gap-space-xs">
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm text-on-surface">Bismillah Super Bakes</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Kalamassery Premier Jct</span>
+</div>
+<button class="h-9 px-3 rounded-lg bg-surface-container-high text-primary font-label-sm text-label-sm active:scale-95 cursor-pointer" type="button">Request GPS</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Edit Route Bottom Sheet Modal Backdrop & Container -->
+<div class="fixed inset-0 z-50 flex-col justify-end bg-inverse-surface/50 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none hidden" id="edit-route-modal" onclick="if(event.target === this) closeEditRouteModal()">
+<div class="w-full max-h-[777px] bg-surface-container-lowest rounded-t-3xl shadow-2xl flex flex-col transform transition-transform duration-300 overflow-hidden translate-y-full" id="edit-route-modal-panel" onclick="event.stopPropagation()">
+<!-- Header Bar -->
+<div class="w-full pt-3 pb-3 flex flex-col items-center border-b border-outline-variant/30 flex-shrink-0 bg-surface-container-lowest">
+<div class="w-10 h-1 bg-outline-variant rounded-full mb-2"></div>
+<div class="w-full px-margin flex items-center justify-between">
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider">Edit Route &amp; Driver Details</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate" id="modal-route-title">Route 1: Kochi North - Aluva</h2>
+</div>
+<button aria-label="Close" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-90 transition-transform cursor-pointer" onclick="closeEditRouteModal()" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+</div>
+<!-- Scrollable Form Fields -->
+<div class="p-margin flex flex-col gap-space-sm overflow-y-auto flex-1 pb-6">
+<!-- Crate Capacity / Load meter -->
+<div class="p-space-sm rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-primary">inventory_2</span>
+          Crate Load Capacity
+        </span>
+<span class="font-label-md text-label-md text-primary font-bold" id="modal-route-load">28 / 32 Crates (88% Full)</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-2.5 overflow-hidden">
+<div class="bg-primary h-full w-[88%] transition-all duration-300 rounded-full" id="modal-route-progress"></div>
+</div>
+<div class="flex items-center justify-between text-body-sm text-on-surface-variant">
+<span>Corridor Capacity: <strong class="text-on-surface" id="modal-capacity-text">32 Crates</strong></span>
+<span class="inline-flex items-center gap-1 text-secondary font-label-sm font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>Optimal Fill
+        </span>
+</div>
+</div>
+<!-- Route Name input field -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-bold" for="modal-input-route-name">Route Name</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-primary text-[20px] pointer-events-none">alt_route</span>
+<input class="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface font-body-md border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest" id="modal-input-route-name" type="text" value="Route 1: Kochi North - Aluva">
+</div>
+</div>
+<!-- Assigned Vehicle selector -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-bold" for="modal-select-vehicle">Assigned Vehicle</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[20px] pointer-events-none">local_shipping</span>
+<select class="w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-low text-on-surface font-body-md border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest appearance-none cursor-pointer" id="modal-select-vehicle">
+<option selected="" value="Tata Ace (KL-07-CD-4190)">Tata Ace (KL-07-CD-4190) • Cap: 32 Crates</option>
+<option value="Mahindra Bolero Maxi (KL-07-CB-9081)">Mahindra Bolero Maxi (KL-07-CB-9081) • Cap: 40 Crates</option>
+<option value="Ashok Leyland Dost (KL-07-CC-1120)">Ashok Leyland Dost (KL-07-CC-1120) • Cap: 30 Crates</option>
+<option value="Eicher Pro 2049 (KL-07-BX-4450)">Eicher Pro 2049 (KL-07-BX-4450) • Cap: 60 Crates</option>
+</select>
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant absolute right-3 pointer-events-none">unfold_more</span>
+</div>
+</div>
+<!-- Driver Name & Phone -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-xs">
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-bold" for="modal-input-driver">Driver Name</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-primary text-[20px] pointer-events-none">badge</span>
+<input class="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface font-body-md border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest" id="modal-input-driver" placeholder="Driver full name" type="text" value="Rajan Kumar">
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-bold" for="modal-input-contact">Driver Contact Number</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-secondary text-[20px] pointer-events-none">call</span>
+<input class="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface font-body-md border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest" id="modal-input-contact" placeholder="+91 00000 00000" type="tel" value="+91 98452 10980">
+</div>
+</div>
+</div>
+<!-- Staging Bay & Dispatch Window -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-xs">
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-bold" for="modal-select-bay">Staging Bay</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[20px] pointer-events-none">warehouse</span>
+<select class="w-full h-11 pl-10 pr-8 rounded-xl bg-surface-container-low text-on-surface font-body-md border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest appearance-none cursor-pointer" id="modal-select-bay">
+<option selected="" value="Bay #03 - North Dock">Bay #03 - North Dock</option>
+<option value="Bay #01 - South Dock">Bay #01 - South Dock</option>
+<option value="Bay #02 - Main Facility">Bay #02 - Main Facility</option>
+<option value="Bay #05 - Central Dock">Bay #05 - Central Dock</option>
+</select>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant absolute right-2.5 pointer-events-none">arrow_drop_down</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface font-bold" for="modal-input-time">Dispatch Time Window</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-primary text-[20px] pointer-events-none">schedule</span>
+<input class="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface font-body-md border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest" id="modal-input-time" type="text" value="06:30 AM – 10:30 AM">
+</div>
+</div>
+</div>
+</div>
+<!-- Pinned Bottom Action Dock -->
+<div class="p-4 border-t border-outline-variant/30 bg-surface-container-lowest flex items-center justify-between gap-3 flex-shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+<button class="h-12 flex-1 rounded-xl bg-surface-container text-on-surface font-label-lg active:scale-95 transition-transform hover:bg-surface-container-high flex items-center justify-center font-bold cursor-pointer" onclick="closeEditRouteModal()" type="button">
+      Cancel
+    </button>
+<button class="h-12 flex-[2] rounded-xl bg-primary text-on-primary font-label-lg flex items-center justify-center gap-2 shadow-md active:scale-95 transition-transform hover:opacity-95 font-bold cursor-pointer" onclick="saveRouteDetails()" type="button">
+<span class="material-symbols-outlined text-[20px]">check_circle</span>
+<span>Save Route</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Toast Notification -->
+<div class="fixed top-20 inset-x-4 z-50 transition-all duration-300 transform flex justify-center -translate-y-8 opacity-0 pointer-events-none" id="save-toast-banner">
+<div class="bg-primary-container text-on-primary px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-primary">
+<span class="material-symbols-outlined text-secondary-fixed text-[22px]">check_circle</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold" id="toast-title">Route &amp; Driver Details Saved!</span>
+<span class="font-body-sm text-body-sm opacity-90" id="toast-subtitle">Allocations and corridors updated successfully.</span>
+</div>
+</div>
+</div>
+</main><nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#dfebe3] max-w-[390px] mx-auto" id="app-navigation"><div class="h-16 flex items-center justify-around"><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" href="#" onclick="if(window.closeMoreMenu) window.closeMoreMenu()"><span class="material-symbols-outlined text-[24px]">home</span><span class="font-label-sm text-[11px] mt-0.5">Home</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" href="#" onclick="if(window.closeMoreMenu) window.closeMoreMenu()"><span class="material-symbols-outlined text-[24px]">storefront</span><span class="font-label-sm text-[11px] mt-0.5">Shops</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" href="#" onclick="if(window.closeMoreMenu) window.closeMoreMenu()"><span class="material-symbols-outlined text-[24px]">receipt_long</span><span class="font-label-sm text-[11px] mt-0.5">Orders</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" href="#" onclick="if(window.closeMoreMenu) window.closeMoreMenu()"><span class="material-symbols-outlined text-[24px]">inventory_2</span><span class="font-label-sm text-[11px] mt-0.5">Packing</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" href="#" onclick="if(window.closeMoreMenu) window.closeMoreMenu()"><span class="material-symbols-outlined text-[24px]">local_shipping</span><span class="font-label-sm text-[11px] mt-0.5">Transport</span></a></div></nav><!-- More Floating Action Menu Overlay & Controls --><div class="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 transition-opacity duration-200 cursor-pointer hidden opacity-0" id="more-backdrop"></div><!-- Expandable Horizontal Menu Strip --><div class="fixed bottom-[76px] z-50 transition-all duration-200 right-3 left-3 sm:left-auto sm:right-4 hidden opacity-0" id="more-horizontal-strip"><div class="bg-surface-container-lowest rounded-2xl shadow-xl border border-slate-200/90 py-2.5 px-2 sm:px-3 grid grid-cols-4 gap-1 sm:gap-3"><button class="flex flex-col items-center justify-center gap-1 group py-1.5 px-1 rounded-xl hover:bg-surface-container transition-colors active:scale-95 cursor-pointer" type="button"><div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary group-hover:scale-105 transition-transform shrink-0"><span class="material-symbols-outlined text-[20px]">handshake</span></div><span class="font-label-sm text-label-sm font-semibold text-on-surface tracking-tight text-center truncate w-full">Suppliers</span></button><button class="flex flex-col items-center justify-center gap-1 group py-1.5 px-1 rounded-xl bg-secondary-container text-on-secondary-container transition-colors active:scale-95 cursor-pointer" type="button"><div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center group-hover:scale-105 transition-transform shrink-0 shadow-sm ring-2 ring-primary"><span class="material-symbols-outlined text-[20px]">alt_route</span></div><span class="font-label-sm text-label-sm font-bold text-primary tracking-tight text-center truncate w-full">Route Plan</span></button><button class="flex flex-col items-center justify-center gap-1 group py-1.5 px-1 rounded-xl hover:bg-surface-container transition-colors active:scale-95 cursor-pointer" type="button"><div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary group-hover:scale-105 transition-transform shrink-0"><span class="material-symbols-outlined text-[20px]">payments</span></div><span class="font-label-sm text-label-sm font-semibold text-on-surface tracking-tight text-center truncate w-full">Payments</span></button><button class="flex flex-col items-center justify-center gap-1 group py-1.5 px-1 rounded-xl hover:bg-surface-container transition-colors active:scale-95 cursor-pointer" type="button"><div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"><span class="material-symbols-outlined text-[20px]">add_circle</span></div><span class="font-label-sm text-label-sm font-semibold text-on-surface tracking-tight text-center truncate w-full">New Product</span></button></div></div><!-- Three-Dot Floating FAB Button --><button aria-label="More Options" class="fixed bottom-[68px] z-40 w-11 h-11 rounded-full bg-white text-[#005f3a] shadow-md border border-[#dfebe3] flex items-center justify-center cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95 right-4" id="more-fab-btn" type="button"><span class="material-symbols-outlined text-[24px] text-[#005f3a] transition-transform duration-200" id="more-fab-icon">more_vert</span></button><script>(function(){const btn=document.getElementById('more-fab-btn');const icon=document.getElementById('more-fab-icon');const strip=document.getElementById('more-horizontal-strip');const bdrop=document.getElementById('more-backdrop');let isOpen=false;function toggleMore(open){isOpen=(typeof open==='boolean')?open:!isOpen;if(isOpen){strip.classList.remove('hidden');bdrop.classList.remove('hidden');requestAnimationFrame(()=>{strip.classList.remove('opacity-0','translate-y-2');bdrop.classList.remove('opacity-0');icon.textContent='close';icon.classList.add('rotate-90');});}else{strip.classList.add('opacity-0','translate-y-2');bdrop.classList.add('opacity-0');icon.textContent='more_vert';icon.classList.remove('rotate-90');setTimeout(()=>{if(!isOpen){strip.classList.add('hidden');bdrop.classList.add('hidden');}},200);}}if(btn)btn.addEventListener('click',()=>toggleMore());if(bdrop)bdrop.addEventListener('click',()=>toggleMore(false));if(strip){strip.querySelectorAll('button').forEach(itemBtn=>{itemBtn.addEventListener('click',()=>{toggleMore(false);});});}})();</script>
+<script>
+  let isPolylineVisible = true;
+  let drawerExpanded = false;
+  let currentEditingRouteIndex = 1;
+
+  function selectShop(id) {
+    const card = document.getElementById('shop-card-popup');
+    const nameEl = document.getElementById('card-shop-name');
+    const badgeEl = document.getElementById('card-shop-badge');
+    const idEl = document.getElementById('card-shop-id');
+
+    if (id === 'SHOP-000131') {
+      nameEl.textContent = 'Priya Supermarket';
+      badgeEl.textContent = 'Unallocated';
+      badgeEl.className = 'px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm flex-shrink-0';
+      idEl.textContent = 'ID: SHOP-000131 • K. G. Varghese';
+    } else if (id === 'SHOP-000088') {
+      nameEl.textContent = 'Annapoorna Traders';
+      badgeEl.textContent = 'Route 1 (#1)';
+      badgeEl.className = 'px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm flex-shrink-0';
+      idEl.textContent = 'ID: SHOP-000088 • R. Pillai';
+    } else {
+      nameEl.textContent = 'Store Allocation Selected';
+      badgeEl.textContent = 'Active Stop';
+      badgeEl.className = 'px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex-shrink-0';
+      idEl.textContent = 'ID: ' + id;
+    }
+
+    card.classList.remove('translate-y-full', 'opacity-0', 'pointer-events-none');
+    card.classList.add('translate-y-0', 'opacity-100');
+  }
+
+  function closeShopPopup() {
+    const card = document.getElementById('shop-card-popup');
+    card.classList.add('translate-y-full', 'opacity-0', 'pointer-events-none');
+    card.classList.remove('translate-y-0', 'opacity-100');
+  }
+
+  function reassignRoute(routeName) {
+    const badgeEl = document.getElementById('card-shop-badge');
+    badgeEl.textContent = 'Moved to ' + routeName;
+    badgeEl.className = 'px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex-shrink-0';
+
+    const draftPill = document.getElementById('draft-pill');
+    draftPill.classList.remove('hidden');
+    draftPill.querySelector('span:nth-child(2)').textContent = '4 Draft Changes';
+  }
+
+  function commitChanges() {
+    const draftPill = document.getElementById('draft-pill');
+    draftPill.innerHTML = '<span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span><span class="font-label-sm text-label-sm text-secondary">Route Synced</span>';
+    setTimeout(() => {
+      draftPill.classList.add('hidden');
+    }, 2000);
+  }
+
+  function discardChanges() {
+    const draftPill = document.getElementById('draft-pill');
+    draftPill.classList.add('hidden');
+  }
+
+  function toggleMapMode() {
+    const polyline = document.getElementById('route1-line');
+    const btn = document.getElementById('toggle-layer');
+    isPolylineVisible = !isPolylineVisible;
+    if (isPolylineVisible) {
+      polyline.style.display = 'block';
+      btn.classList.add('text-primary');
+      btn.classList.remove('text-outline');
+    } else {
+      polyline.style.display = 'none';
+      btn.classList.remove('text-primary');
+      btn.classList.add('text-outline');
+    }
+  }
+
+  function filterRoute(type) {
+    const pills = ['pill-all', 'pill-r1', 'pill-r2', 'pill-r3'];
+    pills.forEach(p => {
+      const el = document.getElementById(p);
+      if (el) {
+        el.classList.remove('bg-primary', 'text-on-primary');
+        el.classList.add('bg-surface-container-lowest');
+      }
+    });
+
+    const activeEl = document.getElementById(type === 'all' ? 'pill-all' : ('pill-' + type));
+    if (activeEl) {
+      activeEl.classList.add('bg-primary', 'text-on-primary');
+      activeEl.classList.remove('bg-surface-container-lowest');
+    }
+  }
+
+  function switchDrawerTab(tabId) {
+    const views = ['unallocated', 'routes', 'missing'];
+    views.forEach(v => {
+      const view = document.getElementById('tab-view-' + v);
+      const btn = document.getElementById('tab-btn-' + v);
+      if (v === tabId) {
+        view.classList.remove('hidden');
+        btn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-sm', 'font-semibold');
+        btn.classList.remove('text-on-surface-variant');
+      } else {
+        view.classList.add('hidden');
+        btn.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-sm', 'font-semibold');
+        btn.classList.add('text-on-surface-variant');
+      }
+    });
+  }
+
+  function toggleDrawer() {
+    const arrow = document.getElementById('drawer-arrow');
+    drawerExpanded = !drawerExpanded;
+    if (drawerExpanded) {
+      arrow.style.transform = 'rotate(180deg)';
+    } else {
+      arrow.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  let isMapFullscreen = false;
+  function toggleFullscreenMap() {
+    isMapFullscreen = !isMapFullscreen;
+    const mapContainer = document.getElementById('map-viewport-container');
+    const icon = document.getElementById('fullscreen-icon');
+    const btn = document.getElementById('fullscreen-toggle-btn');
+    const bottomDrawer = document.getElementById('bottom-allocation-drawer');
+    const header = document.getElementById('app-header');
+    const nav = document.getElementById('app-navigation');
+
+    if (isMapFullscreen) {
+      mapContainer.classList.remove('relative', 'h-[520px]');
+      mapContainer.classList.add('fixed', 'inset-0', 'h-full', 'w-full', 'z-50');
+      icon.textContent = 'fullscreen_exit';
+      btn.title = 'Exit Full Screen';
+      btn.classList.add('bg-primary', 'text-on-primary');
+      btn.classList.remove('bg-surface-container-lowest', 'text-on-surface');
+      if (bottomDrawer) bottomDrawer.classList.add('hidden');
+      if (header) header.classList.add('hidden');
+      if (nav) nav.classList.add('hidden');
+    } else {
+      mapContainer.classList.add('relative', 'h-[520px]');
+      mapContainer.classList.remove('fixed', 'inset-0', 'h-full', 'w-full', 'z-50');
+      icon.textContent = 'fullscreen';
+      btn.title = 'Full Screen View';
+      btn.classList.remove('bg-primary', 'text-on-primary');
+      btn.classList.add('bg-surface-container-lowest', 'text-on-surface');
+      if (bottomDrawer) bottomDrawer.classList.remove('hidden');
+      if (header) header.classList.remove('hidden');
+      if (nav) nav.classList.remove('hidden');
+    }
+  }
+
+  /* Robust Edit Route Modal Controls */
+  window.openEditRouteModal = function(name, vehicle, maxCrates, currentCrates, driver, phone, time, bay) {
+    const modal = document.getElementById('edit-route-modal');
+    const panel = document.getElementById('edit-route-modal-panel');
+    if (!modal || !panel) return;
+
+    if (name) {
+      if (name.includes('1')) currentEditingRouteIndex = 1;
+      else if (name.includes('2')) currentEditingRouteIndex = 2;
+      else if (name.includes('3')) currentEditingRouteIndex = 3;
+      
+      const titleEl = document.getElementById('modal-route-title');
+      const inputNameEl = document.getElementById('modal-input-route-name');
+      if (titleEl) titleEl.textContent = name;
+      if (inputNameEl) inputNameEl.value = name;
+    }
+
+    if (driver) {
+      const driverEl = document.getElementById('modal-input-driver');
+      if (driverEl) driverEl.value = driver;
+    }
+
+    if (phone) {
+      const contactEl = document.getElementById('modal-input-contact');
+      if (contactEl) contactEl.value = phone;
+    }
+
+    if (time) {
+      const timeEl = document.getElementById('modal-input-time');
+      if (timeEl) timeEl.value = time;
+    }
+
+    if (vehicle) {
+      const sel = document.getElementById('modal-select-vehicle');
+      if (sel) {
+        for (let opt of sel.options) {
+          if (opt.value.includes(vehicle.split(' (')[0]) || opt.value.includes(vehicle)) {
+            opt.selected = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (bay) {
+      const baySel = document.getElementById('modal-select-bay');
+      if (baySel) {
+        for (let opt of baySel.options) {
+          if (opt.value === bay) {
+            opt.selected = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (maxCrates && currentCrates) {
+      const maxInt = parseInt(maxCrates);
+      const currInt = parseInt(currentCrates);
+      const pct = Math.round((currInt / maxInt) * 100);
+      const loadEl = document.getElementById('modal-route-load');
+      const progEl = document.getElementById('modal-route-progress');
+      const capTextEl = document.getElementById('modal-capacity-text');
+      if (loadEl) loadEl.textContent = currInt + ' / ' + maxInt + ' Crates (' + pct + '% Full)';
+      if (progEl) progEl.style.width = pct + '%';
+      if (capTextEl) capTextEl.textContent = maxInt + ' Crates';
+    }
+
+    modal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+    modal.classList.add('flex', 'opacity-100');
+    panel.classList.remove('translate-y-full');
+    panel.classList.add('translate-y-0');
+  };
+
+  window.closeEditRouteModal = function() {
+    const modal = document.getElementById('edit-route-modal');
+    const panel = document.getElementById('edit-route-modal-panel');
+    if (!modal || !panel) return;
+
+    panel.classList.remove('translate-y-0');
+    panel.classList.add('translate-y-full');
+    modal.classList.remove('opacity-100');
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    setTimeout(() => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }, 280);
+  };
+
+  window.showSavedToast = function(title, subtitle) {
+    const toast = document.getElementById('save-toast-banner');
+    if (toast) {
+      if (title) document.getElementById('toast-title').textContent = title;
+      if (subtitle) document.getElementById('toast-subtitle').textContent = subtitle;
+      toast.classList.remove('-translate-y-8', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.add('-translate-y-8', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2500);
+    }
+  };
+
+  window.saveRouteDetails = function() {
+    const newName = document.getElementById('modal-input-route-name').value;
+    const newVehicle = document.getElementById('modal-select-vehicle').value;
+
+    // Update corresponding route card in list if exists
+    const cardNameEl = document.getElementById('route-card-name-' + currentEditingRouteIndex);
+    const cardVehicleEl = document.getElementById('route-card-vehicle-' + currentEditingRouteIndex);
+    if (cardNameEl && newName) cardNameEl.textContent = newName;
+    if (cardVehicleEl && newVehicle) cardVehicleEl.textContent = newVehicle.split(' • ')[0];
+
+    const draftPill = document.getElementById('draft-pill');
+    if (draftPill) {
+      draftPill.classList.remove('hidden');
+      const textSpan = draftPill.querySelector('span:nth-child(2)');
+      if (textSpan) textSpan.textContent = 'Route & Driver Updated';
+    }
+
+    window.showSavedToast('Route & Driver Details Saved!', 'Allocations and corridors updated successfully.');
+    window.closeEditRouteModal();
+  };
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

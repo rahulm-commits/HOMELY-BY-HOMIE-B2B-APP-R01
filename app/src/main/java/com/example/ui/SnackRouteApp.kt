@@ -1,0 +1,481 @@
+package com.example.ui
+
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.credentials.CredentialManager
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.R
+import com.example.data.local.ServerConfigStore
+import com.example.data.local.SnackRouteDatabase
+import com.example.data.model.Shop
+import com.example.data.remote.LaptopServerClient
+import com.example.data.repository.LocalTestRepository
+import com.example.data.repository.SnackRouteRepository
+import com.example.data.repository.SyncCoordinatorRepository
+import com.example.ui.auth.AuthScreen
+import com.example.ui.auth.signOutUser
+import com.example.ui.components.AppDestination
+import com.example.ui.components.SnackRouteBottomBar
+import com.example.ui.components.isNetworkAvailable
+import com.example.ui.screens.AddEditShopScreen
+import com.example.ui.screens.DummyModuleScreen
+import com.example.ui.screens.HomeScreen
+import com.example.ui.screens.OrderScreen
+import com.example.ui.screens.PackingScreen
+import com.example.ui.screens.PlaceOrderScreen
+import com.example.ui.screens.RoutePlanScreen
+import com.example.ui.screens.ShopListScreen
+import com.example.ui.screens.SyncServerScreen
+import com.example.ui.screens.TransportScreen
+import com.example.ui.viewmodel.SnackRouteViewModel
+import com.example.ui.viewmodel.UiState
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
+
+const val ROUTE_MAIN = "main"
+const val ROUTE_ADD_EDIT_SHOP = "add_edit_shop?shopId={shopId}"
+const val ROUTE_PLACE_ORDER = "place_order/{shopId}"
+const val ROUTE_SYNC_SERVERS = "sync_servers"
+
+internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
+  val listener = FirebaseAuth.AuthStateListener { auth ->
+    trySend(auth.currentUser)
+  }
+  addAuthStateListener(listener)
+  awaitClose { removeAuthStateListener(listener) }
+}
+
+@Composable
+fun SnackRouteApp(auth: FirebaseAuth = Firebase.auth) {
+  val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
+  var isTestModeBypass by rememberSaveable { mutableStateOf(false) }
+  val user = currentUser
+
+  if (user == null && !isTestModeBypass) {
+    AuthScreen(
+      onAuthSuccess = { isTestModeBypass = false },
+      onSkipForTesting = { isTestModeBypass = true },
+    )
+  } else if (user == null && isTestModeBypass) {
+    androidx.compose.runtime.key(LocalTestRepository.LOCAL_UID) {
+      AuthenticatedAppShell(
+        currentUserId = LocalTestRepository.LOCAL_UID,
+        userDisplayName = "Local Tester (No Login)",
+        isLocalTestMode = true,
+        onExitTestMode = { isTestModeBypass = false },
+      )
+    }
+  } else {
+    val authUser = user!!
+    androidx.compose.runtime.key(authUser.uid) {
+      AuthenticatedAppShell(
+        currentUserId = authUser.uid,
+        userDisplayName = authUser.displayName ?: authUser.email ?: "",
+        isLocalTestMode = false,
+        onExitTestMode = {},
+      )
+    }
+  }
+}
+
+@Composable
+private fun AuthenticatedAppShell(
+  currentUserId: String,
+  userDisplayName: String,
+  isLocalTestMode: Boolean,
+  onExitTestMode: () -> Unit,
+) {
+  val context = LocalContext.current
+  val scope = rememberCoroutineScope()
+  val credentialManager = remember(context) { CredentialManager.create(context) }
+
+  val viewModel: SnackRouteViewModel = viewModel(
+    key = "$currentUserId:$isLocalTestMode",
+    factory = viewModelFactory {
+      initializer {
+        val app = checkNotNull(this[APPLICATION_KEY]) {
+          "APPLICATION_KEY missing from CreationExtras"
+        }
+        val primary = if (isLocalTestMode) {
+          LocalTestRepository()
+        } else {
+          val databaseId = app.getString(R.string.firestore_database_id)
+          val db = FirebaseFirestore.getInstance(databaseId)
+          SnackRouteRepository(db, Firebase.auth)
+        }
+        val roomDb = SnackRouteDatabase.getInstance(app)
+        val coordinator = SyncCoordinatorRepository(
+          appContext = app,
+          primary = primary,
+          dao = roomDb.snackRouteDao(),
+          configStore = ServerConfigStore(app),
+          laptopClient = LaptopServerClient(),
+          currentUserId = currentUserId,
+          isLocalTestMode = isLocalTestMode,
+        )
+        SnackRouteViewModel(coordinator, currentUserId)
+      }
+    },
+  )
+
+  val shopsState by viewModel.shopsState.collectAsStateWithLifecycle()
+  val ordersState by viewModel.ordersState.collectAsStateWithLifecycle()
+  val stocksState by viewModel.stocksState.collectAsStateWithLifecycle()
+  val metaState by viewModel.metaState.collectAsStateWithLifecycle()
+  val routesList by viewModel.routesState.collectAsStateWithLifecycle()
+  val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
+  val pendingShops by viewModel.pendingShops.collectAsStateWithLifecycle()
+  val pendingOrders by viewModel.pendingOrders.collectAsStateWithLifecycle()
+  val pendingStockUpdates by viewModel.pendingStockUpdates.collectAsStateWithLifecycle()
+  val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+  val laptopHealth by viewModel.laptopHealth.collectAsStateWithLifecycle()
+
+  val requireGlobal = serverSettings.globalSyncEnabled && !isLocalTestMode
+  val requireLaptop = serverSettings.laptopServerEnabled && serverSettings.laptopServerUrl.isNotBlank()
+  val pendingUploadCount = remember(pendingShops, pendingOrders, pendingStockUpdates, requireGlobal, requireLaptop) {
+    pendingShops.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
+      pendingOrders.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
+      pendingStockUpdates.count { requireGlobal && !it.globalSynced }
+  }
+
+  // Automatically trigger background sync when network/Wi-Fi becomes available
+  DisposableEffect(context, viewModel) {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    val callback = object : ConnectivityManager.NetworkCallback() {
+      override fun onAvailable(network: Network) {
+        viewModel.onNetworkAvailable()
+      }
+    }
+    if (cm != null) {
+      val req = NetworkRequest.Builder()
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        .build()
+      try {
+        cm.registerNetworkCallback(req, callback)
+      } catch (_: Exception) {
+        // Ignore if permission or OS constraint prevents callback registration
+      }
+    }
+    onDispose {
+      if (cm != null) {
+        try {
+          cm.unregisterNetworkCallback(callback)
+        } catch (_: Exception) {
+        }
+      }
+    }
+  }
+
+  val snackbarHostState = remember { SnackbarHostState() }
+  LaunchedEffect(viewModel) {
+    viewModel.feedback.collect { message ->
+      snackbarHostState.showSnackbar(message)
+    }
+  }
+
+  val navController = rememberNavController()
+  var currentTab by rememberSaveable { mutableStateOf(AppDestination.HOME) }
+  var isMoreExpanded by remember { mutableStateOf(false) }
+
+  val shopsList = (shopsState as? UiState.Success)?.data.orEmpty()
+  val ordersList = (ordersState as? UiState.Success)?.data.orEmpty()
+  val stocksList = (stocksState as? UiState.Success)?.data.orEmpty()
+
+  NavHost(
+    navController = navController,
+    startDestination = ROUTE_MAIN,
+  ) {
+    composable(ROUTE_MAIN) {
+      Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+          SnackRouteBottomBar(
+            currentDestination = currentTab,
+            isMoreExpanded = isMoreExpanded,
+            onToggleMore = { isMoreExpanded = !isMoreExpanded },
+            onSelectDestination = { dest ->
+              currentTab = dest
+              isMoreExpanded = false
+            },
+          )
+        },
+      ) { innerPadding ->
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding),
+        ) {
+          when {
+            shopsState is UiState.Loading && shopsList.isEmpty() -> {
+              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+              }
+            }
+            shopsState is UiState.Error && shopsList.isEmpty() -> {
+              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text((shopsState as UiState.Error).message)
+              }
+            }
+            else -> {
+              when (currentTab) {
+                AppDestination.HOME -> HomeScreen(
+                  shops = shopsList,
+                  orders = ordersList,
+                  stocks = stocksList,
+                  meta = metaState,
+                  userDisplayName = userDisplayName,
+                  isLocalTestMode = isLocalTestMode,
+                  pendingQueueCount = pendingUploadCount,
+                  laptopServerEnabled = serverSettings.laptopServerEnabled,
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                  onSignOut = {
+                    if (isLocalTestMode) {
+                      onExitTestMode()
+                    } else {
+                      signOutUser(credentialManager = credentialManager, scope = scope)
+                    }
+                  },
+                  onUpdateStock = { stockId, newQty, name ->
+                    viewModel.updateStockQuantity(stockId, newQty, name)
+                  },
+                  onNavigateToShops = {
+                    currentTab = AppDestination.SHOPS
+                    isMoreExpanded = false
+                  },
+                  onNavigateToOrders = {
+                    currentTab = AppDestination.ORDERS
+                    isMoreExpanded = false
+                  },
+                )
+
+                AppDestination.SHOPS -> ShopListScreen(
+                  shops = shopsList,
+                  routes = routesList,
+                  pendingQueueCount = pendingShops.size,
+                  laptopServerEnabled = serverSettings.laptopServerEnabled,
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                  onAddShopClick = {
+                    navController.navigate("add_edit_shop")
+                  },
+                  onEditShopClick = { shop ->
+                    navController.navigate("add_edit_shop?shopId=${shop.id}")
+                  },
+                  onChangeShopStatus = { shopId, status, label ->
+                    viewModel.updateShopStatus(shopId, status, label)
+                  },
+                )
+
+                AppDestination.ORDERS -> OrderScreen(
+                  shops = shopsList,
+                  orders = ordersList,
+                  routes = routesList,
+                  onPlaceOrderClick = { shop ->
+                    navController.navigate("place_order/${shop.id}")
+                  },
+                  onMarkInquiryStatus = { shopId, status, label ->
+                    viewModel.updateShopInquiryStatus(shopId, status, label)
+                  },
+                )
+
+                AppDestination.ROUTES -> RoutePlanScreen(
+                  shops = shopsList,
+                  routes = routesList,
+                  onSaveRoute = { route, msg ->
+                    viewModel.saveRoute(route, msg)
+                  },
+                  onUpdateShopRoute = { shopId, newRouteId, msg ->
+                    viewModel.updateShopRoute(shopId, newRouteId, msg)
+                  },
+                  onBulkAssignShopsToRoute = { shopIds, targetRouteId, msg ->
+                    viewModel.bulkAssignShopsToRoute(shopIds, targetRouteId, msg)
+                  },
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                )
+
+                AppDestination.PACKING -> PackingScreen(
+                  shops = shopsList,
+                  orders = ordersList,
+                  routes = routesList,
+                  stocks = stocksList,
+                  onUpdateStock = { stockId, newQty, name ->
+                    viewModel.updateStockQuantity(stockId, newQty, name)
+                  },
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                  onNavigateToRoutes = {
+                    currentTab = AppDestination.ROUTES
+                    isMoreExpanded = false
+                  },
+                  onNavigateToOrders = {
+                    currentTab = AppDestination.ORDERS
+                    isMoreExpanded = false
+                  },
+                  onShowFeedback = { msg ->
+                    scope.launch { snackbarHostState.showSnackbar(msg) }
+                  },
+                  onSaveRoute = { route, msg ->
+                    viewModel.saveRoute(route, msg)
+                  },
+                )
+
+                AppDestination.TRANSPORT -> TransportScreen(
+                  shops = shopsList,
+                  orders = ordersList,
+                  routes = routesList,
+                  userDisplayName = userDisplayName,
+                  onMarkOrderDelivered = { orderId, shopName, podNote ->
+                    viewModel.markOrderDelivered(orderId, shopName, podNote)
+                  },
+                  onNavigateToRoutes = {
+                    currentTab = AppDestination.ROUTES
+                    isMoreExpanded = false
+                  },
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                  onShowFeedback = { msg ->
+                    scope.launch { snackbarHostState.showSnackbar(msg) }
+                  },
+                )
+
+                else -> DummyModuleScreen(destination = currentTab)
+              }
+            }
+          }
+        }
+      }
+    }
+
+    composable(
+      route = ROUTE_ADD_EDIT_SHOP,
+      arguments = listOf(
+        navArgument("shopId") {
+          type = NavType.StringType
+          nullable = true
+          defaultValue = null
+        }
+      ),
+    ) { backStackEntry ->
+      val shopId = backStackEntry.arguments?.getString("shopId")
+      val existingShop: Shop? = remember(shopId, shopsList) {
+        if (shopId.isNullOrBlank()) null else shopsList.firstOrNull { it.id == shopId }
+      }
+      val suggestedCode = remember(shopsList.size) {
+        String.format(java.util.Locale.US, "SHOP-%06d", 107 + shopsList.size)
+      }
+      AddEditShopScreen(
+        existingShop = existingShop,
+        suggestedShopCode = suggestedCode,
+        addedByName = userDisplayName.ifBlank { "Field Officer" },
+        availableRoutes = routesList,
+        onSaveShop = { shop, isOnline ->
+          viewModel.saveShop(shop, isOnline) {
+            navController.popBackStack()
+          }
+        },
+        onBack = { navController.popBackStack() },
+      )
+    }
+
+    composable(
+      route = ROUTE_PLACE_ORDER,
+      arguments = listOf(
+        navArgument("shopId") { type = NavType.StringType }
+      ),
+    ) { backStackEntry ->
+      val shopId = backStackEntry.arguments?.getString("shopId").orEmpty()
+      val shop = remember(shopId, shopsList) {
+        shopsList.firstOrNull { it.id == shopId }
+      }
+      if (shop == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+          Text("Shop not found")
+        }
+      } else {
+        PlaceOrderScreen(
+          shop = shop,
+          onConfirmOrder = { items, note ->
+            viewModel.placeOrder(shop, items, note) {
+              navController.popBackStack()
+            }
+          },
+          onBack = { navController.popBackStack() },
+        )
+      }
+    }
+
+    composable(ROUTE_SYNC_SERVERS) {
+      SyncServerScreen(
+        settings = serverSettings,
+        pendingShops = pendingShops,
+        pendingOrders = pendingOrders,
+        pendingStockUpdates = pendingStockUpdates,
+        isLocalTestMode = isLocalTestMode,
+        isOnline = isNetworkAvailable(context),
+        isSyncing = isSyncing,
+        laptopHealth = laptopHealth,
+        onSaveSettings = { g, l, url, token, autoDel ->
+          viewModel.saveServerSettings(g, l, url, token, autoDel)
+        },
+        onTestLaptopConnection = { url, token ->
+          viewModel.testLaptopConnection(url, token)
+        },
+        onSyncNow = { viewModel.syncNow(silent = false) },
+        onPullFromLaptop = { viewModel.pullFromLaptopServer() },
+        onDeleteSyncedFromPhone = { viewModel.deleteSyncedFromPhone() },
+        onDeletePendingShop = { localId -> viewModel.deletePendingShop(localId) },
+        onDeletePendingOrder = { localId -> viewModel.deletePendingOrder(localId) },
+        onBack = { navController.popBackStack() },
+      )
+    }
+  }
+}
