@@ -15,8 +15,10 @@ import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.ShopStatus
 import com.example.data.model.StockItem
+import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import com.example.data.model.SupplierBillStatus
+import com.example.data.model.SupplierCatalogHelper
 import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -377,6 +379,18 @@ class LocalTestRepository : SnackRouteDataSource {
     }
   )
 
+  private val suppliersFlow = MutableStateFlow(
+    SupplierCatalogHelper.starterSuppliers(
+      userId = LOCAL_UID,
+      today = today,
+      daysAgo = ::daysAgoString,
+    ).mapIndexed { index, sup ->
+      val offsetMs = System.currentTimeMillis() - (index * 3L * 24L * 60L * 60L * 1000L)
+      val ts = Timestamp(Date(offsetMs))
+      sup.copy(createdAt = ts, updatedAt = ts)
+    }
+  )
+
   override fun observeShops(userId: String): Flow<List<Shop>> = shopsFlow.asStateFlow()
 
   override fun observeOrders(userId: String): Flow<List<OrderRecord>> = ordersFlow.asStateFlow()
@@ -388,6 +402,8 @@ class LocalTestRepository : SnackRouteDataSource {
   override fun observePayments(userId: String): Flow<List<PaymentTransaction>> = paymentsFlow.asStateFlow()
 
   override fun observeSupplierBills(userId: String): Flow<List<SupplierBill>> = supplierBillsFlow.asStateFlow()
+
+  override fun observeSuppliers(userId: String): Flow<List<Supplier>> = suppliersFlow.asStateFlow()
 
   override fun observeMeta(userId: String): Flow<OperationsMeta?> = metaFlow.asStateFlow()
 
@@ -663,6 +679,37 @@ class LocalTestRepository : SnackRouteDataSource {
       }
     }
     return Result.success(targetId)
+  }
+
+  override suspend fun saveSupplier(supplier: Supplier): Result<String> {
+    val isUpdate = supplier.id.isNotBlank() && suppliersFlow.value.any { it.id == supplier.id }
+    val targetId = if (supplier.id.isNotBlank()) supplier.id else "local_sup_dir_${UUID.randomUUID().toString().take(8)}"
+    val saved = supplier.copy(
+      id = targetId,
+      userId = LOCAL_UID,
+      addedDate = supplier.addedDate.ifBlank { today },
+      addedBy = supplier.addedBy.ifBlank { "Local Tester" },
+      createdAt = supplier.createdAt ?: Timestamp.now(),
+      updatedAt = Timestamp.now(),
+      isPendingSync = true,
+    )
+    suppliersFlow.update { current ->
+      if (isUpdate) {
+        current.map { if (it.id == targetId) saved else it }
+      } else {
+        listOf(saved) + current
+      }
+    }
+    return Result.success(targetId)
+  }
+
+  override suspend fun updateSupplierStatus(supplierId: String, newStatus: String): Result<Unit> {
+    suppliersFlow.update { current ->
+      current.map {
+        if (it.id == supplierId) it.copy(status = newStatus, updatedAt = Timestamp.now()) else it
+      }
+    }
+    return Result.success(Unit)
   }
 
   private fun daysAgoString(days: Int): String {

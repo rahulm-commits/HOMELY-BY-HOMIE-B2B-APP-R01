@@ -8,6 +8,7 @@ import com.example.data.local.CachedProductEntity
 import com.example.data.local.CachedShopEntity
 import com.example.data.local.CachedStockEntity
 import com.example.data.local.CachedSupplierBillEntity
+import com.example.data.local.CachedSupplierEntity
 import com.example.data.local.DeliveryRouteEntity
 import com.example.data.local.PendingOrderEntity
 import com.example.data.local.PendingPaymentEntity
@@ -15,6 +16,7 @@ import com.example.data.local.PendingProductEntity
 import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
 import com.example.data.local.PendingSupplierBillEntity
+import com.example.data.local.PendingSupplierEntity
 import com.example.data.local.ServerConfigStore
 import com.example.data.local.ServerSettings
 import com.example.data.local.SnackRouteDao
@@ -32,8 +34,10 @@ import com.example.data.model.ProductStatus
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import com.example.data.model.SupplierBillStatus
+import com.example.data.model.SupplierStatus
 import com.example.data.remote.LaptopHealthInfo
 import com.example.data.remote.LaptopServerClient
 import com.example.ui.components.isNetworkAvailable
@@ -102,8 +106,11 @@ interface RemoteCloudAdapter {
   suspend fun fetchProductsOnce(userId: String): Result<List<Product>>
   suspend fun upsertPayment(payment: PaymentTransaction, isUpdate: Boolean): Result<String>
   suspend fun upsertSupplierBill(bill: SupplierBill, isUpdate: Boolean): Result<String>
+  suspend fun upsertSupplier(supplier: Supplier, isUpdate: Boolean): Result<String>
+  suspend fun updateSupplierStatus(supplierId: String, newStatus: String): Result<Unit>
   suspend fun fetchPaymentsOnce(userId: String): Result<List<PaymentTransaction>>
   suspend fun fetchSupplierBillsOnce(userId: String): Result<List<SupplierBill>>
+  suspend fun fetchSuppliersOnce(userId: String): Result<List<Supplier>>
   suspend fun seedStarterDataIfNeeded(): Result<Unit>
 }
 
@@ -188,11 +195,20 @@ private class FirestoreCloudAdapter(
   override suspend fun upsertSupplierBill(bill: SupplierBill, isUpdate: Boolean): Result<String> =
     repo.saveSupplierBillWithId(bill, isUpdate = isUpdate, awaitServerAck = true)
 
+  override suspend fun upsertSupplier(supplier: Supplier, isUpdate: Boolean): Result<String> =
+    repo.saveSupplierWithId(supplier, isUpdate = isUpdate, awaitServerAck = true)
+
+  override suspend fun updateSupplierStatus(supplierId: String, newStatus: String): Result<Unit> =
+    repo.updateSupplierStatusWithAck(supplierId, newStatus, awaitServerAck = true)
+
   override suspend fun fetchPaymentsOnce(userId: String): Result<List<PaymentTransaction>> =
     repo.getPaymentsOnce(userId)
 
   override suspend fun fetchSupplierBillsOnce(userId: String): Result<List<SupplierBill>> =
     repo.getSupplierBillsOnce(userId)
+
+  override suspend fun fetchSuppliersOnce(userId: String): Result<List<Supplier>> =
+    repo.getSuppliersOnce(userId)
 
   override suspend fun seedStarterDataIfNeeded(): Result<Unit> =
     repo.seedStarterDataIfNeeded()
@@ -228,6 +244,8 @@ class SyncCoordinatorRepository(
 
   fun observePendingSupplierBills(): Flow<List<PendingSupplierBillEntity>> = dao.observePendingSupplierBills()
 
+  fun observePendingSuppliers(): Flow<List<PendingSupplierEntity>> = dao.observePendingSuppliers()
+
   suspend fun isShopPending(shopId: String): Boolean {
     val settings = configStore.getCurrentSettings()
     val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
@@ -251,6 +269,15 @@ class SyncCoordinatorRepository(
     val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
     val pending = dao.getPendingPaymentsOnce().firstOrNull {
       it.localId == paymentId || it.remotePaymentId == paymentId
+    } ?: return false
+    return !pending.isFullySynced(requireGlobal)
+  }
+
+  suspend fun isSupplierPending(supplierId: String): Boolean {
+    val settings = configStore.getCurrentSettings()
+    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val pending = dao.getPendingSuppliersOnce().firstOrNull {
+      it.localId == supplierId || it.remoteSupplierId == supplierId
     } ?: return false
     return !pending.isFullySynced(requireGlobal)
   }
@@ -608,6 +635,64 @@ class SyncCoordinatorRepository(
           val existing = byId[key]
           if (existing == null || stillPending || pending.updatedAtMillis >= existing.updatedAtMillis()) {
             byId[key] = domainBill
+          }
+        }
+
+      byId.values.sortedByDescending { it.updatedAt?.seconds ?: 0L }
+    }
+  }
+
+  override fun observeSuppliers(userId: String): Flow<List<Supplier>> {
+    val primaryFlow = primary.observeSuppliers(userId)
+      .onEach { remoteSuppliers ->
+        if (remoteSuppliers.isNotEmpty() && !isLocalTestMode) {
+          val entities = remoteSuppliers
+            .filter { !it.isPendingSync }
+            .map { CachedSupplierEntity.fromDomainSupplier(it, fallbackUserId = userId) }
+          if (entities.isNotEmpty()) {
+            dao.upsertCachedSuppliers(entities)
+          }
+        }
+      }
+      .catch { error ->
+        if (isPureCancellation(error)) throw error
+        emit(emptyList())
+      }
+      .onStart { emit(emptyList()) }
+
+    return combine(
+      primaryFlow,
+      dao.observeCachedSuppliers(),
+      dao.observePendingSuppliers(),
+      configStore.settingsFlow,
+    ) { remoteSuppliers, cachedEntities, pendingEntities, settings ->
+      val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+      val byId = LinkedHashMap<String, Supplier>()
+
+      cachedEntities
+        .filter { it.userId == userId || it.userId.isBlank() }
+        .forEach { entity ->
+          val sup = entity.toDomainSupplier()
+          byId[sup.id.ifBlank { sup.supplierCode }] = sup
+        }
+
+      remoteSuppliers.forEach { sup ->
+        val key = sup.id.ifBlank { sup.supplierCode }
+        val existing = byId[key]
+        if (existing == null || sup.updatedAtMillis() >= existing.updatedAtMillis()) {
+          byId[key] = sup
+        }
+      }
+
+      pendingEntities
+        .filter { it.userId == userId || it.userId.isBlank() }
+        .forEach { pending ->
+          val stillPending = !pending.isFullySynced(requireGlobal)
+          val domainSup = pending.toDomainSupplier(pendingSync = stillPending)
+          val key = domainSup.id.ifBlank { domainSup.supplierCode }
+          val existing = byId[key]
+          if (existing == null || stillPending || pending.updatedAtMillis >= existing.updatedAtMillis()) {
+            byId[key] = domainSup
           }
         }
 
@@ -1361,7 +1446,8 @@ class SyncCoordinatorRepository(
         dao.getPendingStockUpdatesOnce().size +
         dao.getPendingProductsOnce().size +
         dao.getPendingPaymentsOnce().size +
-        dao.getPendingSupplierBillsOnce().size
+        dao.getPendingSupplierBillsOnce().size +
+        dao.getPendingSuppliersOnce().size
       return@withLock SyncRunResult(0, remaining, 0, msg)
     }
 
@@ -1545,6 +1631,35 @@ class SyncCoordinatorRepository(
       }
     }
 
+    // 3e. Sync pending suppliers directory to Cloud Firestore
+    val pendingSuppliers = dao.getPendingSuppliersOnce()
+    for (supEntity in pendingSuppliers) {
+      val needsSync = requireGlobal && !supEntity.globalSynced
+      if (!needsSync && supEntity.isFullySynced(requireGlobal)) {
+        if (settings.autoDeleteSyncedFromPhone) {
+          dao.deletePendingSupplier(supEntity.localId)
+          autoDeleted++
+        }
+        continue
+      }
+      val updated = pushPendingSupplierToServer(supEntity, settings)
+      val done = updated.isFullySynced(requireGlobal)
+      if (done) {
+        syncedItems++
+        dao.upsertCachedSuppliers(
+          listOf(CachedSupplierEntity.fromDomainSupplier(updated.toDomainSupplier(pendingSync = false), fallbackUserId = currentUserId))
+        )
+        if (settings.autoDeleteSyncedFromPhone) {
+          dao.deletePendingSupplier(updated.localId)
+          autoDeleted++
+        } else {
+          dao.upsertPendingSupplier(updated)
+        }
+      } else {
+        dao.upsertPendingSupplier(updated)
+      }
+    }
+
     // 4. Mirror existing primary & cached records across Laptop Server and Global Cloud
     var laptopMirrorCount = 0
     var laptopMirrorError: String? = null
@@ -1676,6 +1791,8 @@ class SyncCoordinatorRepository(
     } + dao.getPendingPaymentsOnce().count {
       !it.isFullySynced(requireGlobal)
     } + dao.getPendingSupplierBillsOnce().count {
+      !it.isFullySynced(requireGlobal)
+    } + dao.getPendingSuppliersOnce().count {
       !it.isFullySynced(requireGlobal)
     }
 
@@ -1842,6 +1959,12 @@ class SyncCoordinatorRepository(
     for (bill in dao.getPendingSupplierBillsOnce()) {
       if (bill.isFullySynced(requireGlobal)) {
         dao.deletePendingSupplierBill(bill.localId)
+        removed++
+      }
+    }
+    for (sup in dao.getPendingSuppliersOnce()) {
+      if (sup.isFullySynced(requireGlobal)) {
+        dao.deletePendingSupplier(sup.localId)
         removed++
       }
     }
@@ -2257,6 +2380,210 @@ class SyncCoordinatorRepository(
     )
   }
 
+  override suspend fun saveSupplier(supplier: Supplier): Result<String> {
+    val isUpdate = supplier.id.isNotBlank()
+    val targetId = if (isUpdate) {
+      supplier.id
+    } else {
+      "supdir_${UUID.randomUUID().toString().replace("-", "").take(16)}"
+    }
+    val today = todayString()
+    val normalizedSupplier = normalizeSupplierForFirestore(
+      supplier.copy(
+        id = targetId,
+        userId = currentUserId,
+        addedDate = supplier.addedDate.ifBlank { today },
+      )
+    )
+
+    val initialPending = PendingSupplierEntity.fromDomainSupplier(
+      supplier = normalizedSupplier,
+      localId = targetId,
+      userId = currentUserId,
+      isUpdate = isUpdate,
+    )
+    dao.upsertPendingSupplier(initialPending)
+    dao.upsertCachedSuppliers(
+      listOf(CachedSupplierEntity.fromDomainSupplier(normalizedSupplier, fallbackUserId = currentUserId))
+    )
+
+    if (isLocalTestMode) {
+      primary.saveSupplier(normalizedSupplier)
+    }
+
+    val settings = configStore.getCurrentSettings()
+    val afterSync = pushPendingSupplierToServer(initialPending, settings)
+    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    if (afterSync.isFullySynced(requireGlobal)) {
+      dao.upsertCachedSuppliers(
+        listOf(CachedSupplierEntity.fromDomainSupplier(afterSync.toDomainSupplier(pendingSync = false), fallbackUserId = currentUserId))
+      )
+      if (settings.autoDeleteSyncedFromPhone) {
+        dao.deletePendingSupplier(afterSync.localId)
+      } else {
+        dao.upsertPendingSupplier(afterSync)
+      }
+    } else {
+      dao.upsertPendingSupplier(afterSync)
+    }
+    return Result.success(targetId)
+  }
+
+  override suspend fun updateSupplierStatus(supplierId: String, newStatus: String): Result<Unit> {
+    val now = System.currentTimeMillis()
+    val settings = configStore.getCurrentSettings()
+    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+
+    if (isLocalTestMode) {
+      primary.updateSupplierStatus(supplierId, newStatus)
+    }
+
+    val pending = dao.getPendingSuppliersOnce().firstOrNull {
+      it.localId == supplierId || it.remoteSupplierId == supplierId
+    }
+    val cached = dao.getCachedSuppliersOnce().firstOrNull { it.id == supplierId }
+    val baseSupplier = pending?.toDomainSupplier(pendingSync = true)
+      ?: cached?.toDomainSupplier()
+      ?: runCatching {
+        withTimeoutOrNull(800L) {
+          primary.observeSuppliers(currentUserId).first().firstOrNull { it.id == supplierId }
+        }
+      }.getOrNull()
+
+    if (baseSupplier == null) {
+      val cloud = cloudAdapter
+      return if (requireGlobal && cloud != null && isOnlineProvider()) {
+        cloud.updateSupplierStatus(supplierId, newStatus)
+      } else if (isLocalTestMode) {
+        primary.updateSupplierStatus(supplierId, newStatus)
+      } else {
+        Result.failure(IllegalStateException("Supplier not cached locally yet"))
+      }
+    }
+
+    val updatedSupplier = normalizeSupplierForFirestore(
+      baseSupplier.copy(
+        userId = currentUserId,
+        status = newStatus,
+        updatedAt = Timestamp(Date(now)),
+      )
+    )
+
+    dao.upsertCachedSuppliers(
+      listOf(CachedSupplierEntity.fromDomainSupplier(updatedSupplier, fallbackUserId = currentUserId).copy(updatedAtMillis = now))
+    )
+
+    var globalOk = pending?.globalSynced ?: false
+    var errorMsg = ""
+    val cloud = cloudAdapter
+    if (requireGlobal && cloud != null) {
+      globalOk = false
+      if (isOnlineProvider()) {
+        val directRes = cloud.updateSupplierStatus(supplierId, newStatus)
+        if (directRes.isSuccess) {
+          globalOk = true
+        } else {
+          val err = directRes.exceptionOrNull()
+          val isNotFound = err is FirebaseFirestoreException && err.code == FirebaseFirestoreException.Code.NOT_FOUND
+          if (isNotFound) {
+            val createRes = cloud.upsertSupplier(updatedSupplier, isUpdate = false)
+            if (createRes.isSuccess) {
+              globalOk = true
+            } else {
+              errorMsg = "Cloud: ${createRes.exceptionOrNull()?.localizedMessage ?: "failed"}"
+            }
+          } else {
+            errorMsg = "Cloud: ${err?.localizedMessage ?: "failed"}"
+          }
+        }
+      } else {
+        errorMsg = "Cloud: No internet"
+      }
+    }
+
+    val needsRetryQueue = requireGlobal && !globalOk
+    if (needsRetryQueue || pending != null) {
+      val entity = PendingSupplierEntity.fromDomainSupplier(
+        supplier = updatedSupplier,
+        localId = pending?.localId ?: supplierId,
+        userId = currentUserId,
+        isUpdate = pending?.isUpdate ?: true,
+      ).copy(
+        remoteSupplierId = pending?.remoteSupplierId?.ifBlank { supplierId } ?: supplierId,
+        globalSynced = globalOk,
+        lastError = errorMsg,
+        createdAtMillis = pending?.createdAtMillis ?: now,
+        updatedAtMillis = now,
+      )
+      val done = entity.isFullySynced(requireGlobal)
+      if (done && settings.autoDeleteSyncedFromPhone && pending != null) {
+        dao.deletePendingSupplier(entity.localId)
+      } else if (!done || pending != null) {
+        dao.upsertPendingSupplier(entity)
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  private suspend fun pushPendingSupplierToServer(
+    entity: PendingSupplierEntity,
+    settings: ServerSettings,
+  ): PendingSupplierEntity {
+    var globalOk = entity.globalSynced
+    var errorMsg = ""
+    val domainSupplier = entity.toDomainSupplier(pendingSync = false)
+    val cloud = cloudAdapter
+    if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
+      if (isOnlineProvider()) {
+        val res = cloud.upsertSupplier(
+          normalizeSupplierForFirestore(domainSupplier),
+          isUpdate = entity.isUpdate,
+        )
+        if (res.isSuccess) {
+          globalOk = true
+        } else {
+          errorMsg = "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
+        }
+      } else {
+        errorMsg = "Cloud: No internet"
+      }
+    }
+    return entity.copy(
+      globalSynced = globalOk,
+      lastError = errorMsg,
+      updatedAtMillis = System.currentTimeMillis(),
+    )
+  }
+
+  private fun normalizeSupplierForFirestore(supplier: Supplier): Supplier {
+    return supplier.copy(
+      supplierCode = supplier.supplierCode.trim().ifBlank { "SUP-000001" }.take(32),
+      name = supplier.name.trim().ifBlank { "Unnamed Supplier" }.take(140),
+      category = supplier.category.trim().ifBlank { "Wholesale Staples & Grains" }.take(80),
+      contactPerson = supplier.contactPerson.trim().ifBlank { "Contact Person" }.take(100),
+      contactRole = supplier.contactRole.trim().take(64),
+      altContactPerson = supplier.altContactPerson.trim().take(100),
+      phone = supplier.phone.trim().let { if (it.length >= 5) it else "00000" }.take(24),
+      altPhone = supplier.altPhone.trim().take(24),
+      email = supplier.email.trim().take(120),
+      address = supplier.address.trim().ifBlank { "Address pending" }.take(300),
+      pinCode = supplier.pinCode.trim().let { if (it.length >= 3) it else "000000" }.take(16),
+      mapsLink = supplier.mapsLink.trim().take(600),
+      photoUri = supplier.photoUri.take(600),
+      gstin = supplier.gstin.trim().take(32),
+      creditTerms = supplier.creditTerms.trim().take(64),
+      confirmedPriceNotes = supplier.confirmedPriceNotes.trim().take(600),
+      notes = supplier.notes.trim().take(600),
+      status = if (supplier.status in listOf(SupplierStatus.ACTIVE, SupplierStatus.INACTIVE, SupplierStatus.DELETED)) {
+        supplier.status
+      } else {
+        SupplierStatus.ACTIVE
+      },
+      addedDate = supplier.addedDate.trim().ifBlank { todayString() }.take(32),
+      addedBy = supplier.addedBy.trim().take(120),
+    )
+  }
+
   private fun isPureCancellation(error: Throwable): Boolean {
     val hasFirestore = generateSequence(error) { it.cause }
       .any { it is FirebaseFirestoreException }
@@ -2274,6 +2601,8 @@ class SyncCoordinatorRepository(
   private fun PaymentTransaction.updatedAtMillis(): Long = updatedAt?.toDate()?.time ?: createdAt?.toDate()?.time ?: 0L
 
   private fun SupplierBill.updatedAtMillis(): Long = updatedAt?.toDate()?.time ?: createdAt?.toDate()?.time ?: 0L
+
+  private fun Supplier.updatedAtMillis(): Long = updatedAt?.toDate()?.time ?: createdAt?.toDate()?.time ?: 0L
 
   private fun todayString(): String {
     return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())

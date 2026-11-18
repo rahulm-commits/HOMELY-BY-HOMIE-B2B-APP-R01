@@ -12,8 +12,10 @@ import com.example.data.model.Product
 import com.example.data.model.ProductStatus
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import com.example.data.model.SupplierBillStatus
+import com.example.data.model.SupplierStatus
 import com.google.firebase.Timestamp
 import java.util.Date
 
@@ -968,4 +970,215 @@ data class CachedSupplierBillEntity(
     }
   }
 }
+
+@Entity(tableName = "pending_suppliers")
+data class PendingSupplierEntity(
+  @PrimaryKey val localId: String,
+  val remoteSupplierId: String = "",
+  val isUpdate: Boolean = false,
+  val userId: String = "",
+  val supplierCode: String,
+  val name: String,
+  val category: String = "Wholesale Staples & Grains",
+  val contactPerson: String = "",
+  val contactRole: String = "",
+  val altContactPerson: String = "",
+  val phone: String = "",
+  val altPhone: String = "",
+  val email: String = "",
+  val address: String = "",
+  val pinCode: String = "",
+  val mapsLink: String = "",
+  val latitude: Double = 0.0,
+  val longitude: Double = 0.0,
+  val photoUri: String = "",
+  val gstin: String = "",
+  val kycVerified: Boolean = true,
+  val creditTerms: String = "Net 15 Days",
+  val confirmedPriceNotes: String = "",
+  val notes: String = "",
+  val status: String = SupplierStatus.ACTIVE,
+  val addedDate: String = "",
+  val addedBy: String = "",
+  val globalSynced: Boolean = false,
+  val lastError: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun isFullySynced(requireGlobal: Boolean): Boolean = !requireGlobal || globalSynced
+
+  fun toDomainSupplier(pendingSync: Boolean = true): Supplier = Supplier(
+    id = remoteSupplierId.ifBlank { localId },
+    userId = userId,
+    supplierCode = supplierCode,
+    name = name,
+    category = category,
+    contactPerson = contactPerson,
+    contactRole = contactRole,
+    altContactPerson = altContactPerson,
+    phone = phone,
+    altPhone = altPhone,
+    email = email,
+    address = address,
+    pinCode = pinCode,
+    mapsLink = mapsLink,
+    latitude = latitude,
+    longitude = longitude,
+    photoUri = photoUri,
+    gstin = gstin,
+    kycVerified = kycVerified,
+    creditTerms = creditTerms,
+    confirmedPriceNotes = confirmedPriceNotes,
+    notes = notes,
+    status = status,
+    addedDate = addedDate,
+    addedBy = addedBy,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = pendingSync,
+  )
+
+  companion object {
+    fun fromDomainSupplier(
+      supplier: Supplier,
+      localId: String,
+      userId: String,
+      isUpdate: Boolean,
+    ): PendingSupplierEntity {
+      val now = System.currentTimeMillis()
+      return PendingSupplierEntity(
+        localId = localId,
+        remoteSupplierId = supplier.id,
+        isUpdate = isUpdate,
+        userId = userId,
+        supplierCode = supplier.supplierCode,
+        name = supplier.name,
+        category = supplier.category,
+        contactPerson = supplier.contactPerson,
+        contactRole = supplier.contactRole,
+        altContactPerson = supplier.altContactPerson,
+        phone = supplier.phone,
+        altPhone = supplier.altPhone,
+        email = supplier.email,
+        address = supplier.address,
+        pinCode = supplier.pinCode,
+        mapsLink = supplier.mapsLink,
+        latitude = supplier.latitude,
+        longitude = supplier.longitude,
+        photoUri = supplier.photoUri,
+        gstin = supplier.gstin,
+        kycVerified = supplier.kycVerified,
+        creditTerms = supplier.creditTerms,
+        confirmedPriceNotes = supplier.confirmedPriceNotes,
+        notes = supplier.notes,
+        status = supplier.status,
+        addedDate = supplier.addedDate,
+        addedBy = supplier.addedBy,
+        createdAtMillis = supplier.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = now,
+      )
+    }
+  }
+}
+
+@Entity(tableName = "cached_suppliers")
+data class CachedSupplierEntity(
+  @PrimaryKey val id: String,
+  val userId: String = "",
+  val supplierCode: String,
+  val name: String,
+  val category: String = "Wholesale Staples & Grains",
+  val contactPerson: String = "",
+  val contactRole: String = "",
+  val altContactPerson: String = "",
+  val phone: String = "",
+  val altPhone: String = "",
+  val email: String = "",
+  val address: String = "",
+  val pinCode: String = "",
+  val mapsLink: String = "",
+  val latitude: Double = 0.0,
+  val longitude: Double = 0.0,
+  val photoUri: String = "",
+  val gstin: String = "",
+  val kycVerified: Boolean = true,
+  val creditTerms: String = "Net 15 Days",
+  val confirmedPriceNotes: String = "",
+  val notes: String = "",
+  val status: String = SupplierStatus.ACTIVE,
+  val addedDate: String = "",
+  val addedBy: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun toDomainSupplier(): Supplier = Supplier(
+    id = id,
+    userId = userId,
+    supplierCode = supplierCode,
+    name = name,
+    category = category,
+    contactPerson = contactPerson,
+    contactRole = contactRole,
+    altContactPerson = altContactPerson,
+    phone = phone,
+    altPhone = altPhone,
+    email = email,
+    address = address,
+    pinCode = pinCode,
+    mapsLink = mapsLink,
+    latitude = latitude,
+    longitude = longitude,
+    photoUri = photoUri,
+    gstin = gstin,
+    kycVerified = kycVerified,
+    creditTerms = creditTerms,
+    confirmedPriceNotes = confirmedPriceNotes,
+    notes = notes,
+    status = status,
+    addedDate = addedDate,
+    addedBy = addedBy,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = false,
+  )
+
+  companion object {
+    fun fromDomainSupplier(
+      supplier: Supplier,
+      fallbackUserId: String = "",
+    ): CachedSupplierEntity {
+      val now = System.currentTimeMillis()
+      return CachedSupplierEntity(
+        id = supplier.id.ifBlank { supplier.supplierCode },
+        userId = supplier.userId.ifBlank { fallbackUserId },
+        supplierCode = supplier.supplierCode,
+        name = supplier.name,
+        category = supplier.category,
+        contactPerson = supplier.contactPerson,
+        contactRole = supplier.contactRole,
+        altContactPerson = supplier.altContactPerson,
+        phone = supplier.phone,
+        altPhone = supplier.altPhone,
+        email = supplier.email,
+        address = supplier.address,
+        pinCode = supplier.pinCode,
+        mapsLink = supplier.mapsLink,
+        latitude = supplier.latitude,
+        longitude = supplier.longitude,
+        photoUri = supplier.photoUri,
+        gstin = supplier.gstin,
+        kycVerified = supplier.kycVerified,
+        creditTerms = supplier.creditTerms,
+        confirmedPriceNotes = supplier.confirmedPriceNotes,
+        notes = supplier.notes,
+        status = supplier.status,
+        addedDate = supplier.addedDate,
+        addedBy = supplier.addedBy,
+        createdAtMillis = supplier.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = supplier.updatedAt?.toDate()?.time ?: now,
+      )
+    }
+  }
+}
+
 

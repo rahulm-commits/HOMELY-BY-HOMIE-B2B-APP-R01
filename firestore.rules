@@ -176,6 +176,35 @@ service cloud.firestore {
         isValidTimestamp(data.updatedAt);
     }
 
+    function isValidSupplier(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.supplierCode is string && data.supplierCode.size() >= 2 && data.supplierCode.size() <= 32 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 140 &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
+        data.contactPerson is string && data.contactPerson.size() >= 1 && data.contactPerson.size() <= 100 &&
+        data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 24 &&
+        data.address is string && data.address.size() >= 1 && data.address.size() <= 300 &&
+        data.pinCode is string && data.pinCode.size() >= 3 && data.pinCode.size() <= 16 &&
+        data.kycVerified is bool &&
+        data.status in ['active', 'inactive', 'deleted'] &&
+        isOptionalString(data, 'contactRole', 64) &&
+        isOptionalString(data, 'altContactPerson', 100) &&
+        isOptionalString(data, 'altPhone', 24) &&
+        isOptionalString(data, 'email', 120) &&
+        isOptionalString(data, 'mapsLink', 600) &&
+        isOptionalString(data, 'photoUri', 600) &&
+        isOptionalString(data, 'gstin', 32) &&
+        isOptionalString(data, 'creditTerms', 64) &&
+        isOptionalString(data, 'confirmedPriceNotes', 600) &&
+        isOptionalString(data, 'notes', 600) &&
+        isOptionalString(data, 'addedDate', 32) &&
+        isOptionalString(data, 'addedBy', 120) &&
+        isOptionalNumber(data, 'latitude') &&
+        isOptionalNumber(data, 'longitude') &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
     match /users/{userId}/shops/{shopId} {
       allow list: if isOwner(userId);
       allow get: if isOwner(userId) && isValidId(shopId);
@@ -378,6 +407,41 @@ service cloud.firestore {
           'dueDate', 'status', 'notes', 'updatedAt'
         ]);
       allow delete: if isOwner(userId) && isValidId(billId);
+    }
+
+    match /users/{userId}/suppliers/{supplierId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(supplierId);
+      allow create: if isOwner(userId) &&
+        isValidId(supplierId) &&
+        incoming().keys().hasAll([
+          'userId', 'supplierCode', 'name', 'category', 'contactPerson',
+          'phone', 'address', 'pinCode', 'kycVerified', 'status',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'supplierCode', 'name', 'category', 'contactPerson',
+          'contactRole', 'altContactPerson', 'phone', 'altPhone', 'email',
+          'address', 'pinCode', 'mapsLink', 'latitude', 'longitude',
+          'photoUri', 'gstin', 'kycVerified', 'creditTerms',
+          'confirmedPriceNotes', 'notes', 'status', 'addedDate', 'addedBy',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidSupplier(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(supplierId) &&
+        isValidSupplier(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'supplierCode', 'name', 'category', 'contactPerson',
+          'contactRole', 'altContactPerson', 'phone', 'altPhone', 'email',
+          'address', 'pinCode', 'mapsLink', 'latitude', 'longitude',
+          'photoUri', 'gstin', 'kycVerified', 'creditTerms',
+          'confirmedPriceNotes', 'notes', 'status', 'addedDate', 'addedBy',
+          'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(supplierId);
     }
   }
 }

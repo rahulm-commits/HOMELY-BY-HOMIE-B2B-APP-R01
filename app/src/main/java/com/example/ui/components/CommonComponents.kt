@@ -99,7 +99,7 @@ enum class AppDestination(
   ORDERS("Orders", Icons.AutoMirrored.Rounded.ReceiptLong, Icons.AutoMirrored.Outlined.ReceiptLong, true, true, "nav_orders"),
   PACKING("Packing", Icons.Rounded.Inventory2, Icons.Outlined.Inventory2, true, true, "nav_packing"),
   TRANSPORT("Transport", Icons.Rounded.LocalShipping, Icons.Outlined.LocalShipping, true, true, "nav_transport"),
-  SUPPLIERS("Suppliers", Icons.Rounded.Factory, Icons.Outlined.Factory, false, false, "nav_suppliers"),
+  SUPPLIERS("Suppliers", Icons.Rounded.Factory, Icons.Outlined.Factory, false, true, "nav_suppliers"),
   ROUTES("Routes", Icons.AutoMirrored.Rounded.AltRoute, Icons.AutoMirrored.Outlined.AltRoute, false, true, "nav_routes"),
   PAYMENTS("Payments", Icons.Rounded.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet, false, true, "nav_payments"),
   PRODUCTS("Products", Icons.Rounded.Warehouse, Icons.Outlined.Warehouse, false, true, "nav_products");

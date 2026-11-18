@@ -155,4 +155,25 @@ interface SnackRouteDao {
 
   @Query("DELETE FROM pending_supplier_bills WHERE localId = :localId")
   suspend fun deletePendingSupplierBill(localId: String)
+
+  @Query("SELECT * FROM cached_suppliers ORDER BY updatedAtMillis DESC")
+  fun observeCachedSuppliers(): Flow<List<CachedSupplierEntity>>
+
+  @Query("SELECT * FROM cached_suppliers ORDER BY updatedAtMillis DESC")
+  suspend fun getCachedSuppliersOnce(): List<CachedSupplierEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertCachedSuppliers(items: List<CachedSupplierEntity>)
+
+  @Query("SELECT * FROM pending_suppliers ORDER BY updatedAtMillis DESC")
+  fun observePendingSuppliers(): Flow<List<PendingSupplierEntity>>
+
+  @Query("SELECT * FROM pending_suppliers ORDER BY createdAtMillis ASC")
+  suspend fun getPendingSuppliersOnce(): List<PendingSupplierEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertPendingSupplier(entity: PendingSupplierEntity)
+
+  @Query("DELETE FROM pending_suppliers WHERE localId = :localId")
+  suspend fun deletePendingSupplier(localId: String)
 }

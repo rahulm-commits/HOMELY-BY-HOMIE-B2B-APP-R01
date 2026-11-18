@@ -8,6 +8,7 @@ import com.example.data.model.PaymentTransaction
 import com.example.data.model.Product
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import kotlinx.coroutines.flow.Flow
 
@@ -18,6 +19,7 @@ interface SnackRouteDataSource {
   fun observeProducts(userId: String): Flow<List<Product>>
   fun observePayments(userId: String): Flow<List<PaymentTransaction>>
   fun observeSupplierBills(userId: String): Flow<List<SupplierBill>>
+  fun observeSuppliers(userId: String): Flow<List<Supplier>>
   fun observeMeta(userId: String): Flow<OperationsMeta?>
   fun observeRoutes(): Flow<List<DeliveryRoute>>
   suspend fun seedStarterDataIfNeeded(): Result<Unit>
@@ -27,6 +29,8 @@ interface SnackRouteDataSource {
   suspend fun saveProduct(product: Product): Result<String>
   suspend fun recordPayment(payment: PaymentTransaction): Result<String>
   suspend fun saveSupplierBill(bill: SupplierBill): Result<String>
+  suspend fun saveSupplier(supplier: Supplier): Result<String>
+  suspend fun updateSupplierStatus(supplierId: String, newStatus: String): Result<Unit>
   suspend fun updateProductStatus(productId: String, newStatus: String): Result<Unit>
   suspend fun updateProductStock(productId: String, newQuantity: Int): Result<Unit>
   suspend fun updateShopRoute(shopId: String, newRouteId: String): Result<Unit>

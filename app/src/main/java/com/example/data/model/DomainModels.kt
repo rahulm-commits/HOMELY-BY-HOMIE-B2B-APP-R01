@@ -1049,3 +1049,215 @@ object PaymentLedgerHelper {
   private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
 }
 
+object SupplierStatus {
+  const val ACTIVE = "active"
+  const val INACTIVE = "inactive"
+  const val DELETED = "deleted"
+}
+
+@IgnoreExtraProperties
+data class Supplier(
+  @DocumentId val id: String = "",
+  val userId: String = "",
+  val supplierCode: String = "",
+  val name: String = "",
+  val category: String = "Wholesale Staples & Grains",
+  val contactPerson: String = "",
+  val contactRole: String = "",
+  val altContactPerson: String = "",
+  val phone: String = "",
+  val altPhone: String = "",
+  val email: String = "",
+  val address: String = "",
+  val pinCode: String = "",
+  val mapsLink: String = "",
+  val latitude: Double = 0.0,
+  val longitude: Double = 0.0,
+  val photoUri: String = "",
+  val gstin: String = "",
+  val kycVerified: Boolean = true,
+  val creditTerms: String = "Net 15 Days",
+  val confirmedPriceNotes: String = "",
+  val notes: String = "",
+  val status: String = SupplierStatus.ACTIVE,
+  val addedDate: String = "",
+  val addedBy: String = "",
+  @ServerTimestamp val createdAt: Timestamp? = null,
+  @ServerTimestamp val updatedAt: Timestamp? = null,
+  @get:Exclude val isPendingSync: Boolean = false,
+)
+
+object SupplierCatalogHelper {
+  val defaultCategories = listOf(
+    "Wholesale Staples & Grains",
+    "Fresh Produce & Dairy",
+    "FMCG & Packaged Goods",
+    "Edible Oils & Spices",
+    "Raw Materials",
+    "Packaging",
+  )
+
+  val creditTermOptions = listOf(
+    "Immediate / Cash",
+    "Net 7 Days",
+    "Net 15 Days",
+    "Net 30 Days",
+    "Net 45 Days",
+  )
+
+  fun isRecentlyAdded(
+    supplier: Supplier,
+    nowMillis: Long = System.currentTimeMillis(),
+  ): Boolean {
+    val cutoff = nowMillis - 14L * 24L * 60L * 60L * 1000L
+    val tsMillis = supplier.createdAt?.toDate()?.time
+    if (tsMillis != null && supplier.addedDate.isBlank()) {
+      return tsMillis >= cutoff
+    }
+    if (supplier.addedDate.isNotBlank()) {
+      return try {
+        val parsed = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(supplier.addedDate)
+        parsed != null && parsed.time >= cutoff
+      } catch (_: Exception) {
+        false
+      }
+    }
+    return tsMillis != null && tsMillis >= cutoff
+  }
+
+  fun isRecentlyUpdated(
+    supplier: Supplier,
+    nowMillis: Long = System.currentTimeMillis(),
+  ): Boolean {
+    val cutoff = nowMillis - 7L * 24L * 60L * 60L * 1000L
+    val tsMillis = supplier.updatedAt?.toDate()?.time ?: return false
+    return tsMillis >= cutoff
+  }
+
+  fun hasMissingDetails(supplier: Supplier): Boolean {
+    return supplier.email.isBlank() ||
+      supplier.gstin.isBlank() ||
+      supplier.address.isBlank() ||
+      supplier.pinCode.isBlank() ||
+      supplier.phone.filter { it.isDigit() }.length < 10
+  }
+
+  fun formatPhoneDisplay(rawPhone: String): String {
+    val digits = rawPhone.filter { it.isDigit() }
+    return when {
+      digits.length == 10 -> "+91 ${digits.substring(0, 5)} ${digits.substring(5)}"
+      digits.length == 12 && digits.startsWith("91") -> "+91 ${digits.substring(2, 7)} ${digits.substring(7)}"
+      rawPhone.isNotBlank() -> rawPhone
+      else -> "No phone"
+    }
+  }
+
+  fun starterSuppliers(
+    userId: String,
+    today: String,
+    daysAgo: (Int) -> String,
+  ): List<Supplier> {
+    return listOf(
+      Supplier(
+        id = "seed_sup_dir_1",
+        userId = userId,
+        supplierCode = "SUP-000044",
+        name = "Malabar Wholesale Distributors",
+        category = "Wholesale Staples & Grains",
+        contactPerson = "Mohammed Shafi",
+        contactRole = "Key Account Mgr",
+        altContactPerson = "Faizal Rahman (Logistics)",
+        phone = "9876554321",
+        altPhone = "9847054321",
+        email = "sales@malabargrocery.com",
+        address = "Plot 45, Industrial Estate, Kalamassery, Ernakulam, Kerala",
+        pinCode = "683104",
+        mapsLink = "https://maps.google.com/?q=10.0518,76.3197",
+        latitude = 10.0518,
+        longitude = 76.3197,
+        gstin = "32AABCM4421K1Z5",
+        kycVerified = true,
+        creditTerms = "Net 15 Days",
+        confirmedPriceNotes = "Matta Rice 50kg: ₹2,450 • Whole Wheat: ₹1,820",
+        notes = "Primary central hub wholesale staples & bulk rice partner",
+        status = SupplierStatus.ACTIVE,
+        addedDate = daysAgo(20),
+        addedBy = "Arun Sharma",
+      ),
+      Supplier(
+        id = "seed_sup_dir_2",
+        userId = userId,
+        supplierCode = "SUP-000045",
+        name = "Kerala Fresh Foods",
+        category = "Fresh Produce & Dairy",
+        contactPerson = "Arun Menon",
+        contactRole = "Partner",
+        phone = "9876554322",
+        email = "contact@keralafreshfoods.in",
+        address = "Aluva, Ernakulam, Kerala",
+        pinCode = "683101",
+        mapsLink = "https://maps.google.com/?q=10.1004,76.3570",
+        latitude = 10.1004,
+        longitude = 76.3570,
+        gstin = "32AABCK8832M1Z2",
+        kycVerified = true,
+        creditTerms = "Net 7 Days",
+        confirmedPriceNotes = "Green Nendran Grade-A: ₹58/kg",
+        notes = "Daily early-morning farm fresh dispatch to Kalamassery hub",
+        status = SupplierStatus.ACTIVE,
+        addedDate = daysAgo(18),
+        addedBy = "Arun Sharma",
+      ),
+      Supplier(
+        id = "seed_sup_dir_3",
+        userId = userId,
+        supplierCode = "SUP-000046",
+        name = "South India Grocery Supplies",
+        category = "FMCG & Packaged Goods",
+        contactPerson = "Suresh Kumar",
+        contactRole = "Sales Director",
+        phone = "9876554323",
+        email = "info@southindiagrocery.in",
+        address = "Thrissur, Kerala",
+        pinCode = "680001",
+        mapsLink = "https://maps.google.com/?q=10.5276,76.2144",
+        latitude = 10.5276,
+        longitude = 76.2144,
+        gstin = "32AABCS9910R1Z9",
+        kycVerified = true,
+        creditTerms = "Net 30 Days",
+        confirmedPriceNotes = "Carton Packaging & FMCG assorted bulk slab 6% discount",
+        notes = "Weekly Thrissur consolidated lorry load",
+        status = SupplierStatus.ACTIVE,
+        addedDate = daysAgo(12),
+        addedBy = "Hub Procurement",
+      ),
+      Supplier(
+        id = "seed_sup_dir_4",
+        userId = userId,
+        supplierCode = "SUP-000047",
+        name = "Cochin Spices & Oil Mill",
+        category = "Edible Oils & Spices",
+        contactPerson = "K. R. Jayesh",
+        contactRole = "Managing Partner",
+        phone = "9847033411",
+        email = "orders@cochinspices.com",
+        address = "Mattancherry, Kochi, Kerala",
+        pinCode = "682002",
+        mapsLink = "https://maps.google.com/?q=9.9579,76.2597",
+        latitude = 9.9579,
+        longitude = 76.2597,
+        gstin = "32AABCC2210P1Z8",
+        kycVerified = true,
+        creditTerms = "Net 15 Days",
+        confirmedPriceNotes = "Sulphur-Free Coconut Oil: ₹162/L • Wayanad Pepper: ₹540/kg",
+        notes = "Cold-filtered coconut oil drums and whole spice sacks",
+        status = SupplierStatus.ACTIVE,
+        addedDate = today,
+        addedBy = "Arun Sharma",
+      ),
+    )
+  }
+}
+
+

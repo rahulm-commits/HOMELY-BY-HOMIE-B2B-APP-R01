@@ -200,6 +200,44 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
       },
       "required": ["userId", "supplierCode", "supplierName", "billNumber", "totalBilled", "paidAmount", "dueDate", "status", "createdAt", "updatedAt"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Registered wholesale supplier or raw material vendor profile.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "supplierCode": { "type": "string", "description": "Unique Supplier ID such as SUP-000044." },
+        "name": { "type": "string", "description": "Supplier or company name." },
+        "category": { "type": "string", "description": "Trade category classification." },
+        "contactPerson": { "type": "string", "description": "Primary contact person name." },
+        "contactRole": { "type": "string", "description": "Role or designation of primary contact." },
+        "altContactPerson": { "type": "string", "description": "Optional alternative contact person." },
+        "phone": { "type": "string", "description": "Primary mobile number." },
+        "altPhone": { "type": "string", "description": "Optional alternative phone number." },
+        "email": { "type": "string", "description": "Optional supplier email address." },
+        "address": { "type": "string", "description": "Complete business address." },
+        "pinCode": { "type": "string", "description": "Postal PIN code." },
+        "mapsLink": { "type": "string", "description": "Google Maps URL." },
+        "latitude": { "type": "number", "description": "Captured GPS latitude." },
+        "longitude": { "type": "number", "description": "Captured GPS longitude." },
+        "photoUri": { "type": "string", "description": "Local file path or URI for supplier facility photo." },
+        "gstin": { "type": "string", "description": "GST identification number." },
+        "kycVerified": { "type": "boolean", "description": "Whether KYC and tax docs are verified." },
+        "creditTerms": { "type": "string", "description": "Negotiated credit period and payment terms." },
+        "confirmedPriceNotes": { "type": "string", "description": "Contracted unit pricing notes." },
+        "notes": { "type": "string", "description": "Internal procurement notes." },
+        "status": {
+          "type": "string",
+          "enum": ["active", "inactive", "deleted"],
+          "description": "Supplier lifecycle status."
+        },
+        "addedDate": { "type": "string", "description": "Date supplier was added (yyyy-MM-dd)." },
+        "addedBy": { "type": "string", "description": "Agent or officer who added the supplier." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "supplierCode", "name", "category", "contactPerson", "phone", "address", "pinCode", "kycVerified", "status", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -230,6 +268,10 @@
     "/users/{userId}/supplierBills/{billId}": {
       "schema": { "$ref": "#/entities/SupplierBill" },
       "description": "Supplier payable bills and settlement tracking for the authenticated user."
+    },
+    "/users/{userId}/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/Supplier" },
+      "description": "Registered supplier directory profiles belonging to the authenticated user."
     }
   }
 }

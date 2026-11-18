@@ -150,6 +150,37 @@ function validSupplierBillPayload(uid) {
   };
 }
 
+function validSupplierPayload(uid) {
+  return {
+    userId: uid,
+    supplierCode: "SUP-000044",
+    name: "Malabar Wholesale Distributors",
+    category: "Wholesale Staples & Grains",
+    contactPerson: "Mohammed Shafi",
+    contactRole: "Key Account Mgr",
+    altContactPerson: "",
+    phone: "9876554321",
+    altPhone: "",
+    email: "sales@malabargrocery.com",
+    address: "Kalamassery, Ernakulam, Kerala",
+    pinCode: "683104",
+    mapsLink: "https://maps.google.com/?q=10.0518,76.3197",
+    latitude: 10.0518,
+    longitude: 76.3197,
+    photoUri: "",
+    gstin: "32AABCM4421K1Z5",
+    kycVerified: true,
+    creditTerms: "Net 15 Days",
+    confirmedPriceNotes: "Matta Rice 50kg: ₹2,450",
+    notes: "Primary wholesale supplier",
+    status: "active",
+    addedDate: "2026-11-19",
+    addedBy: "Field Officer",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
 before(async () => {
   const rules = fs.readFileSync("./firestore.rules", "utf8");
   testEnv = await initializeTestEnvironment({
@@ -258,3 +289,19 @@ test("Owner can record payment and manage supplier bills, non-owner denied", asy
     bobDb.collection("users").doc(ALICE_UID).collection("payments").doc("pay_2").set(validPaymentPayload(BOB_UID))
   );
 });
+
+test("Owner can create, read, and update supplier directory item, non-owner denied", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore(DATABASE_ID);
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore(DATABASE_ID);
+  const supRef = aliceDb.collection("users").doc(ALICE_UID).collection("suppliers").doc("sup_1");
+
+  await assertSucceeds(supRef.set(validSupplierPayload(ALICE_UID)));
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("suppliers").get());
+  await assertSucceeds(supRef.update({ status: "inactive", kycVerified: false, updatedAt: new Date() }));
+
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("suppliers").get());
+  await assertFails(
+    bobDb.collection("users").doc(ALICE_UID).collection("suppliers").doc("sup_2").set(validSupplierPayload(BOB_UID))
+  );
+});
+

@@ -17,6 +17,7 @@ import com.example.data.model.Product
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import com.example.data.remote.LaptopServerClient
 import com.example.data.repository.RemoteCloudAdapter
@@ -62,6 +63,7 @@ class RoomOfflineFirestoreCacheTest {
     val productsStore = ConcurrentHashMap<String, Product>()
     val paymentsStore = ConcurrentHashMap<String, PaymentTransaction>()
     val supplierBillsStore = ConcurrentHashMap<String, SupplierBill>()
+    val suppliersStore = ConcurrentHashMap<String, Supplier>()
     val metaFlow = MutableStateFlow<OperationsMeta?>(null)
     val shopsFlow = MutableStateFlow<List<Shop>>(emptyList())
     val ordersFlow = MutableStateFlow<List<OrderRecord>>(emptyList())
@@ -69,6 +71,7 @@ class RoomOfflineFirestoreCacheTest {
     val productsFlow = MutableStateFlow<List<Product>>(emptyList())
     val paymentsFlow = MutableStateFlow<List<PaymentTransaction>>(emptyList())
     val supplierBillsFlow = MutableStateFlow<List<SupplierBill>>(emptyList())
+    val suppliersFlow = MutableStateFlow<List<Supplier>>(emptyList())
     val routesFlow = MutableStateFlow<List<DeliveryRoute>>(RoutesCatalog.starterRoutes)
 
     fun seedRemoteOnline(
@@ -129,6 +132,13 @@ class RoomOfflineFirestoreCacheTest {
         flow { throw FirebaseFirestoreException("Offline stream error", FirebaseFirestoreException.Code.UNAVAILABLE) }
       } else {
         supplierBillsFlow
+      }
+
+    override fun observeSuppliers(userId: String): Flow<List<Supplier>> =
+      if (failUpstreamStream) {
+        flow { throw FirebaseFirestoreException("Offline stream error", FirebaseFirestoreException.Code.UNAVAILABLE) }
+      } else {
+        suppliersFlow
       }
 
     override fun observeMeta(userId: String): Flow<OperationsMeta?> =
@@ -302,6 +312,27 @@ class RoomOfflineFirestoreCacheTest {
 
     override suspend fun fetchSupplierBillsOnce(userId: String): Result<List<SupplierBill>> =
       Result.success(supplierBillsStore.values.toList())
+
+    override suspend fun saveSupplier(supplier: Supplier): Result<String> =
+      upsertSupplier(supplier, supplier.id.isNotBlank())
+
+    override suspend fun upsertSupplier(supplier: Supplier, isUpdate: Boolean): Result<String> {
+      val id = supplier.id.ifBlank { "remote_sup_dir_${UUID.randomUUID()}" }
+      val saved = supplier.copy(id = id)
+      suppliersStore[id] = saved
+      suppliersFlow.value = suppliersStore.values.toList()
+      return Result.success(id)
+    }
+
+    override suspend fun updateSupplierStatus(supplierId: String, newStatus: String): Result<Unit> {
+      val cur = suppliersStore[supplierId] ?: return Result.failure(IllegalStateException("Missing supplier"))
+      suppliersStore[supplierId] = cur.copy(status = newStatus)
+      suppliersFlow.value = suppliersStore.values.toList()
+      return Result.success(Unit)
+    }
+
+    override suspend fun fetchSuppliersOnce(userId: String): Result<List<Supplier>> =
+      Result.success(suppliersStore.values.toList())
   }
 
   private lateinit var fakeCloud: FakeCloudBackend

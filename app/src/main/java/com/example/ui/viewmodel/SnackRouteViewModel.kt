@@ -8,6 +8,7 @@ import com.example.data.local.PendingProductEntity
 import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
 import com.example.data.local.PendingSupplierBillEntity
+import com.example.data.local.PendingSupplierEntity
 import com.example.data.local.ServerSettings
 import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
@@ -19,6 +20,7 @@ import com.example.data.model.Product
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import com.example.data.remote.LaptopHealthInfo
 import com.example.data.repository.SnackRouteDataSource
@@ -124,6 +126,15 @@ class SnackRouteViewModel(
         initialValue = emptyList(),
       )
 
+  val pendingSuppliers: StateFlow<List<PendingSupplierEntity>> =
+    (coordinator?.observePendingSuppliers() ?: flowOf(emptyList()))
+      .catch { emit(emptyList()) }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyList(),
+      )
+
   val shopsState: StateFlow<UiState<List<Shop>>> =
     repository.observeShops(currentUserId)
       .map<List<Shop>, UiState<List<Shop>>> { UiState.Success(it) }
@@ -213,6 +224,22 @@ class SnackRouteViewModel(
           .firstOrNull()
         if (firestoreError == null && error is CancellationException) throw error
         emit(UiState.Error(firestoreError?.message ?: error.message ?: "Failed to load supplier bills"))
+      }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = UiState.Loading,
+      )
+
+  val suppliersState: StateFlow<UiState<List<Supplier>>> =
+    repository.observeSuppliers(currentUserId)
+      .map<List<Supplier>, UiState<List<Supplier>>> { UiState.Success(it) }
+      .catch { error ->
+        val firestoreError = generateSequence(error) { it.cause }
+          .filterIsInstance<FirebaseFirestoreException>()
+          .firstOrNull()
+        if (firestoreError == null && error is CancellationException) throw error
+        emit(UiState.Error(firestoreError?.message ?: error.message ?: "Failed to load suppliers"))
       }
       .stateIn(
         scope = viewModelScope,
@@ -453,6 +480,40 @@ class SnackRouteViewModel(
         onSaved()
       } else {
         _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to save supplier bill")
+      }
+    }
+  }
+
+  fun saveSupplier(
+    supplier: Supplier,
+    isOnline: Boolean,
+    onSaved: () -> Unit = {},
+  ) {
+    viewModelScope.launch {
+      val result = repository.saveSupplier(supplier)
+      if (result.isSuccess) {
+        val savedId = result.getOrNull().orEmpty()
+        val stillPending = coordinator?.isSupplierPending(savedId) ?: !isOnline
+        val msg = if (stillPending) {
+          "Supplier ${supplier.name} saved offline • Will sync when online"
+        } else {
+          "Supplier ${supplier.supplierCode} saved & synced"
+        }
+        _feedback.tryEmit(msg)
+        onSaved()
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to save supplier")
+      }
+    }
+  }
+
+  fun updateSupplierStatus(supplierId: String, newStatus: String, feedbackLabel: String) {
+    viewModelScope.launch {
+      val result = repository.updateSupplierStatus(supplierId, newStatus)
+      if (result.isSuccess) {
+        _feedback.tryEmit(feedbackLabel)
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Could not update supplier status")
       }
     }
   }

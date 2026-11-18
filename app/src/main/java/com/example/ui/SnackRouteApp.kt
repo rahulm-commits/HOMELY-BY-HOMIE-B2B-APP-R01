@@ -41,9 +41,11 @@ import androidx.navigation.navArgument
 import com.example.R
 import com.example.data.local.ServerConfigStore
 import com.example.data.local.SnackRouteDatabase
+import com.example.data.model.PaymentDirection
 import com.example.data.model.Product
 import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.Shop
+import com.example.data.model.Supplier
 import com.example.data.remote.LaptopServerClient
 import com.example.data.repository.LocalTestRepository
 import com.example.data.repository.SnackRouteRepository
@@ -55,14 +57,17 @@ import com.example.ui.components.SnackRouteBottomBar
 import com.example.ui.components.isNetworkAvailable
 import com.example.ui.screens.AddEditProductScreen
 import com.example.ui.screens.AddEditShopScreen
+import com.example.ui.screens.AddEditSupplierScreen
 import com.example.ui.screens.DummyModuleScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.OrderScreen
 import com.example.ui.screens.PackingScreen
+import com.example.ui.screens.PaymentsScreen
 import com.example.ui.screens.PlaceOrderScreen
 import com.example.ui.screens.ProductsScreen
 import com.example.ui.screens.RoutePlanScreen
 import com.example.ui.screens.ShopListScreen
+import com.example.ui.screens.SuppliersScreen
 import com.example.ui.screens.SyncServerScreen
 import com.example.ui.screens.TransportScreen
 import com.example.ui.viewmodel.SnackRouteViewModel
@@ -80,6 +85,7 @@ import kotlinx.coroutines.launch
 const val ROUTE_MAIN = "main"
 const val ROUTE_ADD_EDIT_SHOP = "add_edit_shop?shopId={shopId}"
 const val ROUTE_ADD_EDIT_PRODUCT = "add_edit_product?productId={productId}"
+const val ROUTE_ADD_EDIT_SUPPLIER = "add_edit_supplier?supplierId={supplierId}"
 const val ROUTE_PLACE_ORDER = "place_order/{shopId}"
 const val ROUTE_SYNC_SERVERS = "sync_servers"
 
@@ -168,6 +174,9 @@ private fun AuthenticatedAppShell(
   val ordersState by viewModel.ordersState.collectAsStateWithLifecycle()
   val stocksState by viewModel.stocksState.collectAsStateWithLifecycle()
   val productsState by viewModel.productsState.collectAsStateWithLifecycle()
+  val paymentsState by viewModel.paymentsState.collectAsStateWithLifecycle()
+  val supplierBillsState by viewModel.supplierBillsState.collectAsStateWithLifecycle()
+  val suppliersState by viewModel.suppliersState.collectAsStateWithLifecycle()
   val metaState by viewModel.metaState.collectAsStateWithLifecycle()
   val routesList by viewModel.routesState.collectAsStateWithLifecycle()
   val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
@@ -175,6 +184,9 @@ private fun AuthenticatedAppShell(
   val pendingOrders by viewModel.pendingOrders.collectAsStateWithLifecycle()
   val pendingStockUpdates by viewModel.pendingStockUpdates.collectAsStateWithLifecycle()
   val pendingProducts by viewModel.pendingProducts.collectAsStateWithLifecycle()
+  val pendingPayments by viewModel.pendingPayments.collectAsStateWithLifecycle()
+  val pendingSupplierBills by viewModel.pendingSupplierBills.collectAsStateWithLifecycle()
+  val pendingSuppliers by viewModel.pendingSuppliers.collectAsStateWithLifecycle()
   val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
   val laptopHealth by viewModel.laptopHealth.collectAsStateWithLifecycle()
 
@@ -185,13 +197,19 @@ private fun AuthenticatedAppShell(
     pendingOrders,
     pendingStockUpdates,
     pendingProducts,
+    pendingPayments,
+    pendingSupplierBills,
+    pendingSuppliers,
     requireGlobal,
     requireLaptop,
   ) {
     pendingShops.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
       pendingOrders.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
       pendingStockUpdates.count { requireGlobal && !it.globalSynced } +
-      pendingProducts.count { !it.isFullySynced(requireGlobal) }
+      pendingProducts.count { !it.isFullySynced(requireGlobal) } +
+      pendingPayments.count { !it.isFullySynced(requireGlobal) } +
+      pendingSupplierBills.count { !it.isFullySynced(requireGlobal) } +
+      pendingSuppliers.count { !it.isFullySynced(requireGlobal) }
   }
 
   // Automatically trigger background sync when network/Wi-Fi becomes available
@@ -232,11 +250,15 @@ private fun AuthenticatedAppShell(
   val navController = rememberNavController()
   var currentTab by rememberSaveable { mutableStateOf(AppDestination.HOME) }
   var isMoreExpanded by remember { mutableStateOf(false) }
+  var paymentInitialDirection by rememberSaveable { mutableStateOf(PaymentDirection.COLLECT) }
 
   val shopsList = (shopsState as? UiState.Success)?.data.orEmpty()
   val ordersList = (ordersState as? UiState.Success)?.data.orEmpty()
   val stocksList = (stocksState as? UiState.Success)?.data.orEmpty()
   val productsList = (productsState as? UiState.Success)?.data.orEmpty()
+  val paymentsList = (paymentsState as? UiState.Success)?.data.orEmpty()
+  val supplierBillsList = (supplierBillsState as? UiState.Success)?.data.orEmpty()
+  val suppliersList = (suppliersState as? UiState.Success)?.data.orEmpty()
 
   NavHost(
     navController = navController,
@@ -304,6 +326,13 @@ private fun AuthenticatedAppShell(
                   },
                   onNavigateToOrders = {
                     currentTab = AppDestination.ORDERS
+                    isMoreExpanded = false
+                  },
+                  payments = paymentsList,
+                  supplierBills = supplierBillsList,
+                  onNavigateToPayments = { direction ->
+                    paymentInitialDirection = direction
+                    currentTab = AppDestination.PAYMENTS
                     isMoreExpanded = false
                   },
                 )
@@ -423,6 +452,49 @@ private fun AuthenticatedAppShell(
                   },
                 )
 
+                AppDestination.PAYMENTS -> PaymentsScreen(
+                  shops = shopsList,
+                  orders = ordersList,
+                  payments = paymentsList,
+                  supplierBills = supplierBillsList,
+                  routes = routesList,
+                  userDisplayName = userDisplayName,
+                  pendingQueueCount = pendingUploadCount,
+                  laptopServerEnabled = serverSettings.laptopServerEnabled,
+                  initialDirection = paymentInitialDirection,
+                  onRecordPayment = { payment, isOnline, onSaved ->
+                    viewModel.recordPayment(payment, isOnline, onSaved)
+                  },
+                  onSaveSupplierBill = { bill, isOnline, onSaved ->
+                    viewModel.saveSupplierBill(bill, isOnline, onSaved)
+                  },
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                )
+
+                AppDestination.SUPPLIERS -> SuppliersScreen(
+                  suppliers = suppliersList,
+                  pendingQueueCount = pendingUploadCount,
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                  onAddSupplierClick = {
+                    navController.navigate("add_edit_supplier")
+                  },
+                  onEditSupplierClick = { supplier ->
+                    navController.navigate("add_edit_supplier?supplierId=${supplier.id}")
+                  },
+                  onChangeSupplierStatus = { supplierId, status, label ->
+                    viewModel.updateSupplierStatus(supplierId, status, label)
+                  },
+                  onNavigateToSupplierPayouts = {
+                    paymentInitialDirection = PaymentDirection.PAY_SUPPLIER
+                    currentTab = AppDestination.PAYMENTS
+                    isMoreExpanded = false
+                  },
+                )
+
                 else -> DummyModuleScreen(destination = currentTab)
               }
             }
@@ -488,6 +560,36 @@ private fun AuthenticatedAppShell(
         availableCategories = availableCats,
         onSaveProduct = { product, isOnline ->
           viewModel.saveProduct(product, isOnline) {
+            navController.popBackStack()
+          }
+        },
+        onBack = { navController.popBackStack() },
+      )
+    }
+
+    composable(
+      route = ROUTE_ADD_EDIT_SUPPLIER,
+      arguments = listOf(
+        navArgument("supplierId") {
+          type = NavType.StringType
+          nullable = true
+          defaultValue = null
+        }
+      ),
+    ) { backStackEntry ->
+      val supplierId = backStackEntry.arguments?.getString("supplierId")
+      val existingSupplier: Supplier? = remember(supplierId, suppliersList) {
+        if (supplierId.isNullOrBlank()) null else suppliersList.firstOrNull { it.id == supplierId }
+      }
+      val suggestedCode = remember(suppliersList.size) {
+        String.format(java.util.Locale.US, "SUP-%06d", 48 + suppliersList.size)
+      }
+      AddEditSupplierScreen(
+        existingSupplier = existingSupplier,
+        suggestedSupplierCode = suggestedCode,
+        addedByName = userDisplayName.ifBlank { "Field Officer" },
+        onSaveSupplier = { supplier, isOnline ->
+          viewModel.saveSupplier(supplier, isOnline) {
             navController.popBackStack()
           }
         },

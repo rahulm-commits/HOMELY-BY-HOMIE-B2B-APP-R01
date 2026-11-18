@@ -23,8 +23,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     PendingPaymentEntity::class,
     CachedSupplierBillEntity::class,
     PendingSupplierBillEntity::class,
+    CachedSupplierEntity::class,
+    PendingSupplierEntity::class,
   ],
-  version = 6,
+  version = 7,
   exportSchema = false,
 )
 abstract class SnackRouteDatabase : RoomDatabase() {
@@ -303,6 +305,83 @@ abstract class SnackRouteDatabase : RoomDatabase() {
       }
     }
 
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          """
+          CREATE TABLE IF NOT EXISTS `cached_suppliers` (
+            `id` TEXT NOT NULL,
+            `userId` TEXT NOT NULL,
+            `supplierCode` TEXT NOT NULL,
+            `name` TEXT NOT NULL,
+            `category` TEXT NOT NULL,
+            `contactPerson` TEXT NOT NULL,
+            `contactRole` TEXT NOT NULL,
+            `altContactPerson` TEXT NOT NULL,
+            `phone` TEXT NOT NULL,
+            `altPhone` TEXT NOT NULL,
+            `email` TEXT NOT NULL,
+            `address` TEXT NOT NULL,
+            `pinCode` TEXT NOT NULL,
+            `mapsLink` TEXT NOT NULL,
+            `latitude` REAL NOT NULL,
+            `longitude` REAL NOT NULL,
+            `photoUri` TEXT NOT NULL,
+            `gstin` TEXT NOT NULL,
+            `kycVerified` INTEGER NOT NULL,
+            `creditTerms` TEXT NOT NULL,
+            `confirmedPriceNotes` TEXT NOT NULL,
+            `notes` TEXT NOT NULL,
+            `status` TEXT NOT NULL,
+            `addedDate` TEXT NOT NULL,
+            `addedBy` TEXT NOT NULL,
+            `createdAtMillis` INTEGER NOT NULL,
+            `updatedAtMillis` INTEGER NOT NULL,
+            PRIMARY KEY(`id`)
+          )
+          """.trimIndent()
+        )
+        db.execSQL(
+          """
+          CREATE TABLE IF NOT EXISTS `pending_suppliers` (
+            `localId` TEXT NOT NULL,
+            `remoteSupplierId` TEXT NOT NULL,
+            `isUpdate` INTEGER NOT NULL,
+            `userId` TEXT NOT NULL,
+            `supplierCode` TEXT NOT NULL,
+            `name` TEXT NOT NULL,
+            `category` TEXT NOT NULL,
+            `contactPerson` TEXT NOT NULL,
+            `contactRole` TEXT NOT NULL,
+            `altContactPerson` TEXT NOT NULL,
+            `phone` TEXT NOT NULL,
+            `altPhone` TEXT NOT NULL,
+            `email` TEXT NOT NULL,
+            `address` TEXT NOT NULL,
+            `pinCode` TEXT NOT NULL,
+            `mapsLink` TEXT NOT NULL,
+            `latitude` REAL NOT NULL,
+            `longitude` REAL NOT NULL,
+            `photoUri` TEXT NOT NULL,
+            `gstin` TEXT NOT NULL,
+            `kycVerified` INTEGER NOT NULL,
+            `creditTerms` TEXT NOT NULL,
+            `confirmedPriceNotes` TEXT NOT NULL,
+            `notes` TEXT NOT NULL,
+            `status` TEXT NOT NULL,
+            `addedDate` TEXT NOT NULL,
+            `addedBy` TEXT NOT NULL,
+            `globalSynced` INTEGER NOT NULL,
+            `lastError` TEXT NOT NULL,
+            `createdAtMillis` INTEGER NOT NULL,
+            `updatedAtMillis` INTEGER NOT NULL,
+            PRIMARY KEY(`localId`)
+          )
+          """.trimIndent()
+        )
+      }
+    }
+
     fun getInstance(context: Context): SnackRouteDatabase {
       return INSTANCE ?: synchronized(this) {
         INSTANCE ?: Room.databaseBuilder(
@@ -310,7 +389,7 @@ abstract class SnackRouteDatabase : RoomDatabase() {
           SnackRouteDatabase::class.java,
           "snackroute_local.db",
         )
-          .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+          .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
           .build()
           .also { INSTANCE = it }
       }
