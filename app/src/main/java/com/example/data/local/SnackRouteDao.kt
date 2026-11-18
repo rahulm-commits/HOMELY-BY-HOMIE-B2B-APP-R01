@@ -92,4 +92,67 @@ interface SnackRouteDao {
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun upsertCachedMeta(entity: CachedMetaEntity)
+
+  @Query("SELECT * FROM cached_products ORDER BY updatedAtMillis DESC")
+  fun observeCachedProducts(): Flow<List<CachedProductEntity>>
+
+  @Query("SELECT * FROM cached_products ORDER BY updatedAtMillis DESC")
+  suspend fun getCachedProductsOnce(): List<CachedProductEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertCachedProducts(items: List<CachedProductEntity>)
+
+  @Query("SELECT * FROM pending_products ORDER BY updatedAtMillis DESC")
+  fun observePendingProducts(): Flow<List<PendingProductEntity>>
+
+  @Query("SELECT * FROM pending_products ORDER BY createdAtMillis ASC")
+  suspend fun getPendingProductsOnce(): List<PendingProductEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertPendingProduct(entity: PendingProductEntity)
+
+  @Query("DELETE FROM pending_products WHERE localId = :localId")
+  suspend fun deletePendingProduct(localId: String)
+
+  @Query("SELECT * FROM cached_payments ORDER BY paymentDate DESC, createdAtMillis DESC")
+  fun observeCachedPayments(): Flow<List<CachedPaymentEntity>>
+
+  @Query("SELECT * FROM cached_payments ORDER BY paymentDate DESC, createdAtMillis DESC")
+  suspend fun getCachedPaymentsOnce(): List<CachedPaymentEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertCachedPayments(items: List<CachedPaymentEntity>)
+
+  @Query("SELECT * FROM pending_payments ORDER BY updatedAtMillis DESC")
+  fun observePendingPayments(): Flow<List<PendingPaymentEntity>>
+
+  @Query("SELECT * FROM pending_payments ORDER BY createdAtMillis ASC")
+  suspend fun getPendingPaymentsOnce(): List<PendingPaymentEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertPendingPayment(entity: PendingPaymentEntity)
+
+  @Query("DELETE FROM pending_payments WHERE localId = :localId")
+  suspend fun deletePendingPayment(localId: String)
+
+  @Query("SELECT * FROM cached_supplier_bills ORDER BY updatedAtMillis DESC")
+  fun observeCachedSupplierBills(): Flow<List<CachedSupplierBillEntity>>
+
+  @Query("SELECT * FROM cached_supplier_bills ORDER BY updatedAtMillis DESC")
+  suspend fun getCachedSupplierBillsOnce(): List<CachedSupplierBillEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertCachedSupplierBills(items: List<CachedSupplierBillEntity>)
+
+  @Query("SELECT * FROM pending_supplier_bills ORDER BY updatedAtMillis DESC")
+  fun observePendingSupplierBills(): Flow<List<PendingSupplierBillEntity>>
+
+  @Query("SELECT * FROM pending_supplier_bills ORDER BY createdAtMillis ASC")
+  suspend fun getPendingSupplierBillsOnce(): List<PendingSupplierBillEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertPendingSupplierBill(entity: PendingSupplierBillEntity)
+
+  @Query("DELETE FROM pending_supplier_bills WHERE localId = :localId")
+  suspend fun deletePendingSupplierBill(localId: String)
 }

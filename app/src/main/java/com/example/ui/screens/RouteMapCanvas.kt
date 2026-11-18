@@ -68,18 +68,10 @@ import com.example.data.model.Shop
 import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.formatCoordinatePair
 import com.example.ui.components.openDialer
-import com.example.ui.theme.CobaltInfo
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.CoralDangerContainer
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
 import com.example.ui.theme.RouteColorDot
 import com.example.ui.theme.RouteColorPalette
 import com.example.ui.theme.RouteColorSpec
+import com.example.ui.theme.semanticColors
 
 @Composable
 fun InteractiveRouteMapViewport(
@@ -169,8 +161,8 @@ fun InteractiveRouteMapViewport(
           Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(12.dp),
-            shadowElevation = 2.5.dp,
-            border = BorderStroke(1.2.dp, MintCardBorder),
+            shadowElevation = 2.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
             modifier = Modifier
               .fillMaxWidth()
               .height(42.dp)
@@ -334,11 +326,11 @@ fun InteractiveRouteMapViewport(
           modifier = Modifier.weight(1f),
         ) {
           Surface(
-            color = if (hasLiveGps) EmeraldSuccessContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            color = if (hasLiveGps) MaterialTheme.semanticColors.successContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
             shape = RoundedCornerShape(999.dp),
             border = BorderStroke(
               1.dp,
-              if (hasLiveGps) EmeraldSuccess.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+              if (hasLiveGps) MaterialTheme.semanticColors.success.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
             ),
             shadowElevation = 1.dp,
             modifier = Modifier
@@ -360,7 +352,7 @@ fun InteractiveRouteMapViewport(
                   .background(
                     when {
                       isFetchingLocation -> MaterialTheme.colorScheme.primary
-                      hasLiveGps -> CobaltInfo
+                      hasLiveGps -> MaterialTheme.semanticColors.info
                       else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                   ),
@@ -373,7 +365,7 @@ fun InteractiveRouteMapViewport(
                 },
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = if (hasLiveGps) EmeraldSuccess else MaterialTheme.colorScheme.onSurface,
+                color = if (hasLiveGps) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
@@ -394,14 +386,14 @@ fun InteractiveRouteMapViewport(
                 Icon(
                   imageVector = Icons.Rounded.CheckCircle,
                   contentDescription = null,
-                  tint = EmeraldSuccess,
+                  tint = MaterialTheme.semanticColors.success,
                   modifier = Modifier.size(14.dp),
                 )
                 Text(
                   text = recentStatusChipText,
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.SemiBold,
-                  color = EmeraldSuccess,
+                  color = MaterialTheme.semanticColors.success,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                 )
@@ -577,9 +569,9 @@ private fun SelectedShopMapPopupCard(
 ) {
   Card(
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-    border = BorderStroke(1.3.dp, MintCardBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -625,7 +617,7 @@ private fun SelectedShopMapPopupCard(
                 modifier = Modifier.weight(1f, fill = false),
               )
               Surface(
-                color = currentSpec?.primary ?: CoralDangerContainer,
+                color = currentSpec?.primary ?: MaterialTheme.semanticColors.dangerContainer,
                 shape = RoundedCornerShape(999.dp),
               ) {
                 Row(
@@ -645,7 +637,7 @@ private fun SelectedShopMapPopupCard(
                     text = currentRoute?.name?.substringAfter(": ")?.take(18) ?: "Unallocated",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = currentSpec?.contrastInk ?: CoralDanger,
+                    color = currentSpec?.contrastInk ?: MaterialTheme.semanticColors.danger,
                     maxLines = 1,
                   )
                 }
@@ -680,9 +672,9 @@ private fun SelectedShopMapPopupCard(
 
       // Details Strip: Address + Phone Call
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Row(
@@ -757,12 +749,12 @@ private fun SelectedShopMapPopupCard(
             val isCurrent = shop.routeId == route.id
             val shortLabel = "+ R${idx + 1} ${route.name.substringAfter(":").trim().take(12)}"
             Surface(
-              color = if (isCurrent) spec.primary else MintBadgeBg,
+              color = if (isCurrent) spec.primary else MaterialTheme.colorScheme.surfaceVariant,
               shape = RoundedCornerShape(9.dp),
               border = if (isCurrent && spec.secondary != null) {
                 BorderStroke(1.5.dp, spec.secondary)
               } else if (!isCurrent) {
-                BorderStroke(1.dp, MintFieldBorder)
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
               } else null,
               modifier = Modifier
                 .height(36.dp)
@@ -789,7 +781,7 @@ private fun SelectedShopMapPopupCard(
 
           val isUnalloc = shop.routeId == RoutesCatalog.UNALLOCATED
           Surface(
-            color = if (isUnalloc) CoralDanger else CoralDangerContainer,
+            color = if (isUnalloc) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.dangerContainer,
             shape = RoundedCornerShape(9.dp),
             modifier = Modifier
               .height(36.dp)
@@ -805,7 +797,7 @@ private fun SelectedShopMapPopupCard(
                 text = "Unassign",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (isUnalloc) Color.White else CoralDanger,
+                color = if (isUnalloc) MaterialTheme.colorScheme.onError else MaterialTheme.semanticColors.danger,
               )
             }
           }

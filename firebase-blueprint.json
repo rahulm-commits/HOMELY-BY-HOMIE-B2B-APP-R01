@@ -103,6 +103,103 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
       },
       "required": ["userId", "shopRegTarget", "vehiclesToDispatch", "vehiclesOnRoad", "returnsCollected", "toCollectAmount", "toCollectShops", "toSuppliersAmount", "toSuppliersCount", "seeded", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Manageable wholesale product SKU with optional pack size variants and stock levels.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "productCode": { "type": "string", "description": "Catalog identifier such as PRD-00101." },
+        "sku": { "type": "string", "description": "Internal SKU code such as SKU-BNC-001." },
+        "barcode": { "type": "string", "description": "EAN/UPC barcode string." },
+        "name": { "type": "string", "description": "Trade name of the product." },
+        "category": { "type": "string", "description": "Product category classification." },
+        "brand": { "type": "string", "description": "Brand affinity name." },
+        "baseUnit": { "type": "string", "description": "Base weight or volume unit." },
+        "sellingUnit": { "type": "string", "description": "Selling package unit type." },
+        "casePack": { "type": "string", "description": "Wholesale shipper case pack description." },
+        "packSize": { "type": "string", "description": "Pack size label or range." },
+        "wholesalePrice": { "type": "number", "description": "Base wholesale price in INR." },
+        "mrp": { "type": "number", "description": "Retail MRP in INR." },
+        "stockQuantity": { "type": "integer", "description": "Available warehouse stock quantity." },
+        "minThreshold": { "type": "integer", "description": "Minimum stock reorder threshold." },
+        "photoUri": { "type": "string", "description": "Local file path or URI for product image." },
+        "notes": { "type": "string", "description": "B2B specifications and notes." },
+        "status": {
+          "type": "string",
+          "enum": ["active", "inactive", "draft"],
+          "description": "Catalog visibility status."
+        },
+        "salesVelocity": { "type": "integer", "description": "Relative sales velocity score." },
+        "hasVariants": { "type": "boolean", "description": "Whether multiple pack variants exist." },
+        "variantsJson": { "type": "string", "description": "Serialized JSON array of ProductVariant entries." },
+        "addedDate": { "type": "string", "description": "Date product was added (yyyy-MM-dd)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "productCode", "sku", "name", "category", "wholesalePrice", "mrp", "stockQuantity", "minThreshold", "status", "hasVariants", "createdAt", "updatedAt"]
+    },
+    "PaymentTransaction": {
+      "title": "PaymentTransaction",
+      "description": "Recorded shop collection receipt or supplier payout voucher.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "receiptCode": { "type": "string", "description": "Unique receipt or payout voucher code." },
+        "direction": {
+          "type": "string",
+          "enum": ["collect", "pay_supplier"],
+          "description": "Whether payment is collected from a shop or paid to a supplier."
+        },
+        "partyId": { "type": "string", "description": "Referenced shop ID or supplier bill ID." },
+        "partyCode": { "type": "string", "description": "Human-readable shop or supplier code." },
+        "partyName": { "type": "string", "description": "Shop or supplier display name." },
+        "contactName": { "type": "string", "description": "Contact person or shop owner name." },
+        "phone": { "type": "string", "description": "Contact phone number." },
+        "invoiceRef": { "type": "string", "description": "Allocated order or supplier bill reference." },
+        "amount": { "type": "number", "description": "Payment amount in INR." },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["cash", "upi", "bank", "cheque"],
+          "description": "Payment instrument used."
+        },
+        "referenceNumber": { "type": "string", "description": "UTR, NEFT, or cheque reference." },
+        "paymentDate": { "type": "string", "description": "Payment date (yyyy-MM-dd)." },
+        "recordedBy": { "type": "string", "description": "Officer or staff member recording the entry." },
+        "note": { "type": "string", "description": "Optional remarks or settlement note." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "receiptCode", "direction", "partyId", "partyName", "amount", "paymentMethod", "paymentDate", "createdAt", "updatedAt"]
+    },
+    "SupplierBill": {
+      "title": "SupplierBill",
+      "description": "Supplier invoice payable tracked for vendor settlements.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "supplierCode": { "type": "string", "description": "Unique supplier code such as SUP-001." },
+        "supplierName": { "type": "string", "description": "Supplier business name." },
+        "contactPerson": { "type": "string", "description": "Supplier contact person." },
+        "phone": { "type": "string", "description": "Supplier contact phone." },
+        "location": { "type": "string", "description": "Supplier hub or city." },
+        "category": { "type": "string", "description": "Supply category such as Cooking Oil or Packaging." },
+        "billNumber": { "type": "string", "description": "Supplier invoice or bill number." },
+        "totalBilled": { "type": "number", "description": "Total bill amount in INR." },
+        "paidAmount": { "type": "number", "description": "Total settled amount so far in INR." },
+        "billDate": { "type": "string", "description": "Invoice issue date (yyyy-MM-dd)." },
+        "dueDate": { "type": "string", "description": "Payment due date (yyyy-MM-dd)." },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "overdue", "settled"],
+          "description": "Settlement status of the supplier bill."
+        },
+        "notes": { "type": "string", "description": "Optional supply description or remarks." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "supplierCode", "supplierName", "billNumber", "totalBilled", "paidAmount", "dueDate", "status", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -121,6 +218,18 @@
     "/users/{userId}/meta/{metaId}": {
       "schema": { "$ref": "#/entities/OperationsMeta" },
       "description": "Dashboard operational counters and receivables/payables summary."
+    },
+    "/users/{userId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Product catalog SKUs managed by the authenticated user."
+    },
+    "/users/{userId}/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentTransaction" },
+      "description": "Shop collection receipts and supplier payouts recorded by the authenticated user."
+    },
+    "/users/{userId}/supplierBills/{billId}": {
+      "schema": { "$ref": "#/entities/SupplierBill" },
+      "description": "Supplier payable bills and settlement tracking for the authenticated user."
     }
   }
 }

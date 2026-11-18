@@ -41,6 +41,8 @@ import androidx.navigation.navArgument
 import com.example.R
 import com.example.data.local.ServerConfigStore
 import com.example.data.local.SnackRouteDatabase
+import com.example.data.model.Product
+import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.Shop
 import com.example.data.remote.LaptopServerClient
 import com.example.data.repository.LocalTestRepository
@@ -51,12 +53,14 @@ import com.example.ui.auth.signOutUser
 import com.example.ui.components.AppDestination
 import com.example.ui.components.SnackRouteBottomBar
 import com.example.ui.components.isNetworkAvailable
+import com.example.ui.screens.AddEditProductScreen
 import com.example.ui.screens.AddEditShopScreen
 import com.example.ui.screens.DummyModuleScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.OrderScreen
 import com.example.ui.screens.PackingScreen
 import com.example.ui.screens.PlaceOrderScreen
+import com.example.ui.screens.ProductsScreen
 import com.example.ui.screens.RoutePlanScreen
 import com.example.ui.screens.ShopListScreen
 import com.example.ui.screens.SyncServerScreen
@@ -75,6 +79,7 @@ import kotlinx.coroutines.launch
 
 const val ROUTE_MAIN = "main"
 const val ROUTE_ADD_EDIT_SHOP = "add_edit_shop?shopId={shopId}"
+const val ROUTE_ADD_EDIT_PRODUCT = "add_edit_product?productId={productId}"
 const val ROUTE_PLACE_ORDER = "place_order/{shopId}"
 const val ROUTE_SYNC_SERVERS = "sync_servers"
 
@@ -162,21 +167,31 @@ private fun AuthenticatedAppShell(
   val shopsState by viewModel.shopsState.collectAsStateWithLifecycle()
   val ordersState by viewModel.ordersState.collectAsStateWithLifecycle()
   val stocksState by viewModel.stocksState.collectAsStateWithLifecycle()
+  val productsState by viewModel.productsState.collectAsStateWithLifecycle()
   val metaState by viewModel.metaState.collectAsStateWithLifecycle()
   val routesList by viewModel.routesState.collectAsStateWithLifecycle()
   val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
   val pendingShops by viewModel.pendingShops.collectAsStateWithLifecycle()
   val pendingOrders by viewModel.pendingOrders.collectAsStateWithLifecycle()
   val pendingStockUpdates by viewModel.pendingStockUpdates.collectAsStateWithLifecycle()
+  val pendingProducts by viewModel.pendingProducts.collectAsStateWithLifecycle()
   val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
   val laptopHealth by viewModel.laptopHealth.collectAsStateWithLifecycle()
 
   val requireGlobal = serverSettings.globalSyncEnabled && !isLocalTestMode
   val requireLaptop = serverSettings.laptopServerEnabled && serverSettings.laptopServerUrl.isNotBlank()
-  val pendingUploadCount = remember(pendingShops, pendingOrders, pendingStockUpdates, requireGlobal, requireLaptop) {
+  val pendingUploadCount = remember(
+    pendingShops,
+    pendingOrders,
+    pendingStockUpdates,
+    pendingProducts,
+    requireGlobal,
+    requireLaptop,
+  ) {
     pendingShops.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
       pendingOrders.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
-      pendingStockUpdates.count { requireGlobal && !it.globalSynced }
+      pendingStockUpdates.count { requireGlobal && !it.globalSynced } +
+      pendingProducts.count { !it.isFullySynced(requireGlobal) }
   }
 
   // Automatically trigger background sync when network/Wi-Fi becomes available
@@ -221,6 +236,7 @@ private fun AuthenticatedAppShell(
   val shopsList = (shopsState as? UiState.Success)?.data.orEmpty()
   val ordersList = (ordersState as? UiState.Success)?.data.orEmpty()
   val stocksList = (stocksState as? UiState.Success)?.data.orEmpty()
+  val productsList = (productsState as? UiState.Success)?.data.orEmpty()
 
   NavHost(
     navController = navController,
@@ -387,6 +403,26 @@ private fun AuthenticatedAppShell(
                   },
                 )
 
+                AppDestination.PRODUCTS -> ProductsScreen(
+                  products = productsList,
+                  pendingQueueCount = pendingProducts.size,
+                  onOpenSyncServers = {
+                    navController.navigate(ROUTE_SYNC_SERVERS)
+                  },
+                  onAddProductClick = {
+                    navController.navigate("add_edit_product")
+                  },
+                  onEditProductClick = { product ->
+                    navController.navigate("add_edit_product?productId=${product.id}")
+                  },
+                  onChangeProductStatus = { productId, status, label ->
+                    viewModel.updateProductStatus(productId, status, label)
+                  },
+                  onUpdateProductStock = { productId, newQty, name ->
+                    viewModel.updateProductStock(productId, newQty, name)
+                  },
+                )
+
                 else -> DummyModuleScreen(destination = currentTab)
               }
             }
@@ -427,6 +463,39 @@ private fun AuthenticatedAppShell(
     }
 
     composable(
+      route = ROUTE_ADD_EDIT_PRODUCT,
+      arguments = listOf(
+        navArgument("productId") {
+          type = NavType.StringType
+          nullable = true
+          defaultValue = null
+        }
+      ),
+    ) { backStackEntry ->
+      val productId = backStackEntry.arguments?.getString("productId")
+      val existingProduct: Product? = remember(productId, productsList) {
+        if (productId.isNullOrBlank()) null else productsList.firstOrNull { it.id == productId }
+      }
+      val suggestedCode = remember(productsList.size) {
+        String.format(java.util.Locale.US, "PRD-%05d", 107 + productsList.size)
+      }
+      val availableCats = remember(productsList) {
+        (ProductCatalogHelper.defaultCategories + productsList.map { it.category }).distinct()
+      }
+      AddEditProductScreen(
+        existingProduct = existingProduct,
+        suggestedProductCode = suggestedCode,
+        availableCategories = availableCats,
+        onSaveProduct = { product, isOnline ->
+          viewModel.saveProduct(product, isOnline) {
+            navController.popBackStack()
+          }
+        },
+        onBack = { navController.popBackStack() },
+      )
+    }
+
+    composable(
       route = ROUTE_PLACE_ORDER,
       arguments = listOf(
         navArgument("shopId") { type = NavType.StringType }
@@ -441,8 +510,12 @@ private fun AuthenticatedAppShell(
           Text("Shop not found")
         }
       } else {
+        val liveCatalogProducts = remember(productsList) {
+          ProductCatalogHelper.toCatalogProducts(productsList)
+        }
         PlaceOrderScreen(
           shop = shop,
+          catalogProducts = liveCatalogProducts,
           onConfirmOrder = { items, note ->
             viewModel.placeOrder(shop, items, note) {
               navController.popBackStack()

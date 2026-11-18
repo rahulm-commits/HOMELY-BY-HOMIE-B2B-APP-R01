@@ -8,7 +8,7 @@ const fs = require("node:fs");
 
 let testEnv;
 const PROJECT_ID = process.env.GCP_PROJECT || "demo-no-project";
-const DATABASE_ID = "ai-studio-android-snackrou-17f8b2d0-faf2-4987-b293-b1960e9298c8";
+const DATABASE_ID = "ai-studio-android-homelyby-56f8fea5-6b10-44b9-b72f-c951929d1e51";
 const ALICE_UID = "alice_123";
 const BOB_UID = "bob_456";
 
@@ -73,6 +73,78 @@ function validStockPayload(uid) {
     quantity: 120,
     minThreshold: 40,
     unitPrice: 45.0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function validProductPayload(uid) {
+  return {
+    userId: uid,
+    productCode: "PRD-00101",
+    sku: "SKU-BNC-001",
+    barcode: "8901234567890",
+    name: "Kerala Special Banana Chips",
+    category: "Banana Chips",
+    brand: "Homely Gold",
+    baseUnit: "Gram (g)",
+    sellingUnit: "Pouch / Packet",
+    casePack: "24 packets per box",
+    packSize: "100g",
+    wholesalePrice: 42.0,
+    mrp: 50.0,
+    stockQuantity: 120,
+    minThreshold: 30,
+    photoUri: "",
+    notes: "Nendran chips",
+    status: "active",
+    salesVelocity: 90,
+    hasVariants: false,
+    variantsJson: "",
+    addedDate: "2026-11-18",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function validPaymentPayload(uid) {
+  return {
+    userId: uid,
+    receiptCode: "RCPT-2026-9901",
+    direction: "collect",
+    partyId: "shop_1",
+    partyCode: "SHP-101",
+    partyName: "Malabar Bakery & Snacks",
+    contactName: "Suresh Nair",
+    phone: "9847012345",
+    invoiceRef: "ORD-2040",
+    amount: 4500.0,
+    paymentMethod: "upi",
+    referenceNumber: "UPI/AXIS/4092188492",
+    paymentDate: "2026-11-18",
+    recordedBy: "Field Officer",
+    note: "Counter UPI settlement",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function validSupplierBillPayload(uid) {
+  return {
+    userId: uid,
+    supplierCode: "SUP-001",
+    supplierName: "Kera Pure Coconut Mills",
+    contactPerson: "Ramesh Menon",
+    phone: "9846077123",
+    location: "Edappally, Kochi",
+    category: "Cooking Oil",
+    billNumber: "BILL-402",
+    totalBilled: 18500.0,
+    paidAmount: 6500.0,
+    billDate: "2026-11-08",
+    dueDate: "2026-11-15",
+    status: "overdue",
+    notes: "Wood-pressed coconut oil 200L batch",
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -156,4 +228,33 @@ test("Owner can create and update stock item quantity", async () => {
   const ref = aliceDb.collection("users").doc(ALICE_UID).collection("stocks").doc("stk_1");
   await assertSucceeds(ref.set(validStockPayload(ALICE_UID)));
   await assertSucceeds(ref.update({ quantity: 200, updatedAt: new Date() }));
+});
+
+test("Owner can create and update product catalog item, non-owner denied", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore(DATABASE_ID);
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore(DATABASE_ID);
+  const ref = aliceDb.collection("users").doc(ALICE_UID).collection("products").doc("prd_1");
+  await assertSucceeds(ref.set(validProductPayload(ALICE_UID)));
+  await assertSucceeds(ref.update({ stockQuantity: 250, status: "inactive", updatedAt: new Date() }));
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("products").get());
+  await assertFails(
+    bobDb.collection("users").doc(ALICE_UID).collection("products").doc("prd_2").set(validProductPayload(BOB_UID))
+  );
+});
+
+test("Owner can record payment and manage supplier bills, non-owner denied", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore(DATABASE_ID);
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore(DATABASE_ID);
+  const payRef = aliceDb.collection("users").doc(ALICE_UID).collection("payments").doc("pay_1");
+  const billRef = aliceDb.collection("users").doc(ALICE_UID).collection("supplierBills").doc("bill_1");
+
+  await assertSucceeds(payRef.set(validPaymentPayload(ALICE_UID)));
+  await assertSucceeds(billRef.set(validSupplierBillPayload(ALICE_UID)));
+  await assertSucceeds(billRef.update({ paidAmount: 18500.0, status: "settled", updatedAt: new Date() }));
+
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("payments").get());
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("supplierBills").get());
+  await assertFails(
+    bobDb.collection("users").doc(ALICE_UID).collection("payments").doc("pay_2").set(validPaymentPayload(BOB_UID))
+  );
 });

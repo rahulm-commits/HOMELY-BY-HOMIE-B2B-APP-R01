@@ -6,10 +6,17 @@ import com.example.data.model.InquiryStatus
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
+import com.example.data.model.PaymentDirection
+import com.example.data.model.PaymentLedgerHelper
+import com.example.data.model.PaymentTransaction
+import com.example.data.model.Product
+import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.ShopStatus
 import com.example.data.model.StockItem
+import com.example.data.model.SupplierBill
+import com.example.data.model.SupplierBillStatus
 import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -331,11 +338,56 @@ class LocalTestRepository : SnackRouteDataSource {
 
   private val routesFlow = MutableStateFlow(RoutesCatalog.starterRoutes)
 
+  private val productsFlow = MutableStateFlow(
+    ProductCatalogHelper.starterProducts(
+      userId = LOCAL_UID,
+      today = today,
+      daysAgo = ::daysAgoString,
+    ).map {
+      it.copy(
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      )
+    }
+  )
+
+  private val paymentsFlow = MutableStateFlow(
+    PaymentLedgerHelper.starterPayments(
+      userId = LOCAL_UID,
+      today = today,
+      yesterday = yesterday,
+    ).map {
+      it.copy(
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      )
+    }
+  )
+
+  private val supplierBillsFlow = MutableStateFlow(
+    PaymentLedgerHelper.starterSupplierBills(
+      userId = LOCAL_UID,
+      today = today,
+      daysOffset = ::daysOffsetString,
+    ).map {
+      it.copy(
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now(),
+      )
+    }
+  )
+
   override fun observeShops(userId: String): Flow<List<Shop>> = shopsFlow.asStateFlow()
 
   override fun observeOrders(userId: String): Flow<List<OrderRecord>> = ordersFlow.asStateFlow()
 
   override fun observeStocks(userId: String): Flow<List<StockItem>> = stocksFlow.asStateFlow()
+
+  override fun observeProducts(userId: String): Flow<List<Product>> = productsFlow.asStateFlow()
+
+  override fun observePayments(userId: String): Flow<List<PaymentTransaction>> = paymentsFlow.asStateFlow()
+
+  override fun observeSupplierBills(userId: String): Flow<List<SupplierBill>> = supplierBillsFlow.asStateFlow()
 
   override fun observeMeta(userId: String): Flow<OperationsMeta?> = metaFlow.asStateFlow()
 
@@ -500,9 +552,126 @@ class LocalTestRepository : SnackRouteDataSource {
     return Result.success(Unit)
   }
 
+  override suspend fun saveProduct(product: Product): Result<String> {
+    val isUpdate = product.id.isNotBlank() && productsFlow.value.any { it.id == product.id }
+    val targetId = if (product.id.isNotBlank()) product.id else "local_prd_${UUID.randomUUID().toString().take(8)}"
+    val saved = product.copy(
+      id = targetId,
+      userId = LOCAL_UID,
+      addedDate = product.addedDate.ifBlank { today },
+      createdAt = product.createdAt ?: Timestamp.now(),
+      updatedAt = Timestamp.now(),
+      isPendingSync = true,
+    )
+    productsFlow.update { current ->
+      if (isUpdate) {
+        current.map { if (it.id == targetId) saved else it }
+      } else {
+        listOf(saved) + current
+      }
+    }
+    return Result.success(targetId)
+  }
+
+  override suspend fun updateProductStatus(productId: String, newStatus: String): Result<Unit> {
+    productsFlow.update { current ->
+      current.map {
+        if (it.id == productId) it.copy(status = newStatus, updatedAt = Timestamp.now()) else it
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun updateProductStock(productId: String, newQuantity: Int): Result<Unit> {
+    val safeQty = newQuantity.coerceAtLeast(0)
+    productsFlow.update { current ->
+      current.map {
+        if (it.id == productId) it.copy(stockQuantity = safeQty, updatedAt = Timestamp.now()) else it
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun recordPayment(payment: PaymentTransaction): Result<String> {
+    if (payment.amount <= 0.0) {
+      return Result.failure(IllegalArgumentException("Payment amount must be greater than zero."))
+    }
+    val targetId = payment.id.ifBlank { "local_pay_${UUID.randomUUID().toString().take(8)}" }
+    val saved = payment.copy(
+      id = targetId,
+      userId = LOCAL_UID,
+      receiptCode = payment.receiptCode.ifBlank {
+        val prefix = if (payment.direction == PaymentDirection.PAY_SUPPLIER) "PAYOUT" else "RCPT"
+        "$prefix-2026-${(System.currentTimeMillis() % 9000 + 1000)}"
+      },
+      paymentDate = payment.paymentDate.ifBlank { today },
+      createdAt = payment.createdAt ?: Timestamp.now(),
+      updatedAt = Timestamp.now(),
+      isPendingSync = true,
+    )
+    paymentsFlow.update { current ->
+      val idx = current.indexOfFirst { it.id == targetId }
+      if (idx >= 0) {
+        current.toMutableList().apply { set(idx, saved) }
+      } else {
+        listOf(saved) + current
+      }
+    }
+    if (saved.direction == PaymentDirection.PAY_SUPPLIER) {
+      supplierBillsFlow.update { bills ->
+        bills.map { bill ->
+          if (bill.id == saved.partyId || (saved.partyCode.isNotBlank() && bill.supplierCode == saved.partyCode && bill.billNumber == saved.invoiceRef)) {
+            val newPaid = (bill.paidAmount + saved.amount).coerceAtMost(bill.totalBilled)
+            val newStatus = if (newPaid >= bill.totalBilled - 0.5) {
+              SupplierBillStatus.SETTLED
+            } else {
+              PaymentLedgerHelper.effectiveSupplierStatus(bill.copy(paidAmount = newPaid))
+            }
+            bill.copy(
+              paidAmount = newPaid,
+              status = newStatus,
+              updatedAt = Timestamp.now(),
+            )
+          } else {
+            bill
+          }
+        }
+      }
+    }
+    return Result.success(targetId)
+  }
+
+  override suspend fun saveSupplierBill(bill: SupplierBill): Result<String> {
+    val isUpdate = bill.id.isNotBlank() && supplierBillsFlow.value.any { it.id == bill.id }
+    val targetId = if (bill.id.isNotBlank()) bill.id else "local_sup_${UUID.randomUUID().toString().take(8)}"
+    val computedStatus = PaymentLedgerHelper.effectiveSupplierStatus(bill)
+    val saved = bill.copy(
+      id = targetId,
+      userId = LOCAL_UID,
+      billDate = bill.billDate.ifBlank { today },
+      dueDate = bill.dueDate.ifBlank { daysOffsetString(7) },
+      status = computedStatus,
+      createdAt = bill.createdAt ?: Timestamp.now(),
+      updatedAt = Timestamp.now(),
+      isPendingSync = true,
+    )
+    supplierBillsFlow.update { current ->
+      if (isUpdate) {
+        current.map { if (it.id == targetId) saved else it }
+      } else {
+        listOf(saved) + current
+      }
+    }
+    return Result.success(targetId)
+  }
+
   private fun daysAgoString(days: Int): String {
+    return daysOffsetString(-days)
+  }
+
+  private fun daysOffsetString(offsetDays: Int): String {
     val cal = Calendar.getInstance()
-    cal.add(Calendar.DAY_OF_YEAR, -days)
+    cal.add(Calendar.DAY_OF_YEAR, offsetDays)
     return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
   }
 

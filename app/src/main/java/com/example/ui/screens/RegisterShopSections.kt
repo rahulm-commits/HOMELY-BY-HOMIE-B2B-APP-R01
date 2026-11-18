@@ -94,19 +94,7 @@ import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import com.example.ui.components.RealOsmMapView
 import com.example.data.model.SnackCatalog
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.CoralDangerContainer
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.ForestContainer
-import com.example.ui.theme.ForestSecondary
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
-import com.example.ui.theme.MintHeaderTint
+import com.example.ui.theme.semanticColors
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -139,7 +127,7 @@ fun SectionCardHeader(
       modifier = Modifier.weight(1f),
     ) {
       Surface(
-        color = MintBadgeBg,
+        color = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.size(30.dp),
       ) {
@@ -147,7 +135,7 @@ fun SectionCardHeader(
           Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = ForestSecondary,
+            tint = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.size(18.dp),
           )
         }
@@ -160,14 +148,14 @@ fun SectionCardHeader(
       )
     }
     Surface(
-      color = MintBadgeBg,
+      color = MaterialTheme.colorScheme.secondaryContainer,
       shape = RoundedCornerShape(999.dp),
-      border = BorderStroke(1.dp, MintFieldBorder),
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)),
     ) {
       Text(
         text = badgeText,
         style = MaterialTheme.typography.labelSmall,
-        color = ForestSecondary,
+        color = MaterialTheme.colorScheme.secondary,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
       )
@@ -193,9 +181,9 @@ fun ShopInfoSectionCard(
 
   Card(
     shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -218,10 +206,10 @@ fun ShopInfoSectionCard(
           Text(
             text = "Unique Shop ID",
             style = MaterialTheme.typography.labelLarge,
-            color = ForestSecondary,
+            color = MaterialTheme.colorScheme.secondary,
           )
           Surface(
-            color = ForestContainer.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
             shape = RoundedCornerShape(999.dp),
           ) {
             Row(
@@ -232,13 +220,13 @@ fun ShopInfoSectionCard(
               Icon(
                 imageVector = Icons.Rounded.Verified,
                 contentDescription = null,
-                tint = ForestSecondary,
+                tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(13.dp),
               )
               Text(
                 text = "Auto Generated (System)",
                 style = MaterialTheme.typography.labelSmall,
-                color = ForestSecondary,
+                color = MaterialTheme.colorScheme.secondary,
               )
             }
           }
@@ -252,7 +240,7 @@ fun ShopInfoSectionCard(
             shape = RoundedCornerShape(12.dp),
             trailingIcon = {
               IconButton(onClick = onToggleShopCodeEditable) {
-                Icon(Icons.Rounded.Check, contentDescription = "Lock Shop ID", tint = ForestSecondary)
+                Icon(Icons.Rounded.Check, contentDescription = "Lock Shop ID", tint = MaterialTheme.colorScheme.secondary)
               }
             },
             modifier = Modifier
@@ -261,9 +249,9 @@ fun ShopInfoSectionCard(
           )
         } else {
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MintFieldBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
             modifier = Modifier
               .fillMaxWidth()
               .clip(RoundedCornerShape(12.dp))
@@ -282,7 +270,7 @@ fun ShopInfoSectionCard(
                 Icon(
                   imageVector = Icons.Rounded.Lock,
                   contentDescription = null,
-                  tint = ForestSecondary,
+                  tint = MaterialTheme.colorScheme.secondary,
                   modifier = Modifier.size(18.dp),
                 )
                 Text(
@@ -290,7 +278,7 @@ fun ShopInfoSectionCard(
                   style = MaterialTheme.typography.titleMedium,
                   fontFamily = FontFamily.Monospace,
                   fontWeight = FontWeight.Bold,
-                  color = ForestSecondary,
+                  color = MaterialTheme.colorScheme.secondary,
                 )
               }
               Row(
@@ -334,7 +322,7 @@ fun ShopInfoSectionCard(
               fontWeight = FontWeight.SemiBold,
               color = MaterialTheme.colorScheme.onSurface,
             )
-            Text("*", color = CoralDanger, fontWeight = FontWeight.Bold)
+            Text("*", color = MaterialTheme.semanticColors.danger, fontWeight = FontWeight.Bold)
           }
           if (isNameValid) {
             Row(
@@ -344,13 +332,13 @@ fun ShopInfoSectionCard(
               Icon(
                 imageVector = Icons.Rounded.CheckCircle,
                 contentDescription = null,
-                tint = EmeraldSuccess,
+                tint = MaterialTheme.semanticColors.success,
                 modifier = Modifier.size(14.dp),
               )
               Text(
                 text = "Valid",
                 style = MaterialTheme.typography.labelSmall,
-                color = EmeraldSuccess,
+                color = MaterialTheme.semanticColors.success,
               )
             }
           }
@@ -364,16 +352,16 @@ fun ShopInfoSectionCard(
             Icon(
               imageVector = Icons.Rounded.Business,
               contentDescription = null,
-              tint = ForestSecondary,
+              tint = MaterialTheme.colorScheme.secondary,
             )
           },
           singleLine = true,
           shape = RoundedCornerShape(12.dp),
           colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MintFieldFill,
-            focusedContainerColor = Color.White,
-            unfocusedBorderColor = MintFieldBorder,
-            focusedBorderColor = ForestSecondary,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+            focusedBorderColor = MaterialTheme.colorScheme.secondary,
           ),
           modifier = Modifier
             .fillMaxWidth()
@@ -397,14 +385,14 @@ fun ShopInfoSectionCard(
           Text(
             text = "Optional / Recommended",
             style = MaterialTheme.typography.labelSmall,
-            color = ForestSecondary,
+            color = MaterialTheme.colorScheme.secondary,
           )
         }
 
         Surface(
-          color = MintFieldFill,
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
           shape = RoundedCornerShape(14.dp),
-          border = BorderStroke(1.dp, MintFieldBorder),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
@@ -506,7 +494,7 @@ fun ShopInfoSectionCard(
 
                     if (hasCustomPhoto) {
                       Surface(
-                        color = CoralDangerContainer,
+                        color = MaterialTheme.semanticColors.dangerContainer,
                         shape = RoundedCornerShape(999.dp),
                         modifier = Modifier
                           .clip(RoundedCornerShape(999.dp))
@@ -515,7 +503,7 @@ fun ShopInfoSectionCard(
                         Icon(
                           imageVector = Icons.Rounded.Delete,
                           contentDescription = "Remove photo",
-                          tint = CoralDanger,
+                          tint = MaterialTheme.semanticColors.danger,
                           modifier = Modifier
                             .padding(horizontal = 8.dp, vertical = 5.dp)
                             .size(15.dp),
@@ -536,7 +524,7 @@ fun ShopInfoSectionCard(
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                   containerColor = MaterialTheme.colorScheme.surface,
-                  contentColor = ForestSecondary,
+                  contentColor = MaterialTheme.colorScheme.secondary,
                 ),
                 modifier = Modifier
                   .weight(1f)
@@ -590,9 +578,9 @@ fun OwnerContactSectionCard(
 ) {
   Card(
     shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -613,22 +601,22 @@ fun OwnerContactSectionCard(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
           )
-          Text("*", color = CoralDanger, fontWeight = FontWeight.Bold)
+          Text("*", color = MaterialTheme.semanticColors.danger, fontWeight = FontWeight.Bold)
         }
         OutlinedTextField(
           value = ownerName,
           onValueChange = onOwnerNameChange,
           placeholder = { Text("Rajesh Kumar") },
           trailingIcon = {
-            Icon(Icons.Rounded.Badge, contentDescription = null, tint = ForestSecondary)
+            Icon(Icons.Rounded.Badge, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
           },
           singleLine = true,
           shape = RoundedCornerShape(12.dp),
           colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MintFieldFill,
-            focusedContainerColor = Color.White,
-            unfocusedBorderColor = MintFieldBorder,
-            focusedBorderColor = ForestSecondary,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+            focusedBorderColor = MaterialTheme.colorScheme.secondary,
           ),
           modifier = Modifier
             .fillMaxWidth()
@@ -686,7 +674,7 @@ private fun PhoneWithCountryPrefixField(
           color = MaterialTheme.colorScheme.onSurface,
         )
         if (required) {
-          Text("*", color = CoralDanger, fontWeight = FontWeight.Bold)
+          Text("*", color = MaterialTheme.semanticColors.danger, fontWeight = FontWeight.Bold)
         }
       }
       if (!required) {
@@ -721,17 +709,17 @@ private fun PhoneWithCountryPrefixField(
         Icon(
           imageVector = trailingIcon,
           contentDescription = null,
-          tint = if (required) ForestSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
+          tint = if (required) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
       },
       singleLine = true,
       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
       shape = RoundedCornerShape(12.dp),
       colors = OutlinedTextFieldDefaults.colors(
-        unfocusedContainerColor = MintFieldFill,
-        focusedContainerColor = Color.White,
-        unfocusedBorderColor = MintFieldBorder,
-        focusedBorderColor = ForestSecondary,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        focusedContainerColor = MaterialTheme.colorScheme.surface,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+        focusedBorderColor = MaterialTheme.colorScheme.secondary,
       ),
       modifier = Modifier
         .fillMaxWidth()
@@ -741,7 +729,7 @@ private fun PhoneWithCountryPrefixField(
     Text(
       text = helperText,
       style = MaterialTheme.typography.labelSmall,
-      color = ForestSecondary,
+      color = MaterialTheme.colorScheme.secondary,
     )
   }
 }
@@ -771,9 +759,9 @@ fun ShopLocationSectionCard(
 
   Card(
     shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -788,9 +776,9 @@ fun ShopLocationSectionCard(
 
       // Use Current GPS Location Button
       Surface(
-        color = MintBadgeBg,
+        color = MaterialTheme.colorScheme.secondaryContainer,
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MintCardBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)),
         modifier = Modifier
           .fillMaxWidth()
           .minimumInteractiveComponentSize()
@@ -807,20 +795,20 @@ fun ShopLocationSectionCard(
             CircularProgressIndicator(
               modifier = Modifier.size(18.dp),
               strokeWidth = 2.dp,
-              color = ForestSecondary,
+              color = MaterialTheme.colorScheme.secondary,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
               text = "Fetching GPS Lock...",
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.SemiBold,
-              color = ForestSecondary,
+              color = MaterialTheme.colorScheme.secondary,
             )
           } else {
             Icon(
               imageVector = if (hasCoordinates) Icons.Rounded.CheckCircle else Icons.Rounded.MyLocation,
               contentDescription = null,
-              tint = ForestSecondary,
+              tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -828,7 +816,7 @@ fun ShopLocationSectionCard(
               text = if (hasCoordinates) "Update Current GPS Location" else "Use Current GPS Location",
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.SemiBold,
-              color = ForestSecondary,
+              color = MaterialTheme.colorScheme.secondary,
             )
           }
         }
@@ -838,7 +826,7 @@ fun ShopLocationSectionCard(
         Text(
           text = gpsStatusText,
           style = MaterialTheme.typography.bodySmall,
-          color = if (hasCoordinates) EmeraldSuccess else MaterialTheme.colorScheme.onSurfaceVariant,
+          color = if (hasCoordinates) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
 
@@ -851,7 +839,7 @@ fun ShopLocationSectionCard(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
           )
-          Text("*", color = CoralDanger, fontWeight = FontWeight.Bold)
+          Text("*", color = MaterialTheme.semanticColors.danger, fontWeight = FontWeight.Bold)
         }
         OutlinedTextField(
           value = address,
@@ -860,10 +848,10 @@ fun ShopLocationSectionCard(
           minLines = 3,
           shape = RoundedCornerShape(12.dp),
           colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MintFieldFill,
-            focusedContainerColor = Color.White,
-            unfocusedBorderColor = MintFieldBorder,
-            focusedBorderColor = ForestSecondary,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+            focusedBorderColor = MaterialTheme.colorScheme.secondary,
           ),
           modifier = Modifier
             .fillMaxWidth()
@@ -885,10 +873,10 @@ fun ShopLocationSectionCard(
           singleLine = true,
           shape = RoundedCornerShape(12.dp),
           colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MintFieldFill,
-            focusedContainerColor = Color.White,
-            unfocusedBorderColor = MintFieldBorder,
-            focusedBorderColor = ForestSecondary,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+            focusedBorderColor = MaterialTheme.colorScheme.secondary,
           ),
           modifier = Modifier
             .weight(0.78f)
@@ -907,10 +895,10 @@ fun ShopLocationSectionCard(
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-              unfocusedContainerColor = MintFieldFill,
-              focusedContainerColor = Color.White,
-              unfocusedBorderColor = MintFieldBorder,
-              focusedBorderColor = ForestSecondary,
+              unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+              focusedContainerColor = MaterialTheme.colorScheme.surface,
+              unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+              focusedBorderColor = MaterialTheme.colorScheme.secondary,
             ),
             modifier = Modifier.fillMaxWidth(),
           )
@@ -963,7 +951,7 @@ fun ShopLocationSectionCard(
           onValueChange = onMapsLinkChange,
           placeholder = { Text("Paste Google Maps location link") },
           leadingIcon = {
-            Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = ForestSecondary)
+            Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
           },
           trailingIcon = {
             Surface(
@@ -983,12 +971,12 @@ fun ShopLocationSectionCard(
                   text = "Open",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.SemiBold,
-                  color = ForestSecondary,
+                  color = MaterialTheme.colorScheme.secondary,
                 )
                 Icon(
                   imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
                   contentDescription = "Open in Google Maps",
-                  tint = ForestSecondary,
+                  tint = MaterialTheme.colorScheme.secondary,
                   modifier = Modifier.size(13.dp),
                 )
               }
@@ -997,10 +985,10 @@ fun ShopLocationSectionCard(
           singleLine = true,
           shape = RoundedCornerShape(12.dp),
           colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MintFieldFill,
-            focusedContainerColor = Color.White,
-            unfocusedBorderColor = MintFieldBorder,
-            focusedBorderColor = ForestSecondary,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+            focusedBorderColor = MaterialTheme.colorScheme.secondary,
           ),
           modifier = Modifier
             .fillMaxWidth()
@@ -1075,7 +1063,7 @@ private fun MapPinVisualizerCard(
         Icon(
           imageVector = Icons.Rounded.PinDrop,
           contentDescription = null,
-          tint = ForestSecondary,
+          tint = MaterialTheme.colorScheme.secondary,
           modifier = Modifier.size(16.dp),
         )
         Text(
@@ -1109,9 +1097,9 @@ fun ConfirmedPricingSectionCard(
 ) {
   Card(
     shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -1126,9 +1114,9 @@ fun ConfirmedPricingSectionCard(
 
       // Interactive Toggle Card
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Row(
@@ -1137,7 +1125,7 @@ fun ConfirmedPricingSectionCard(
           horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
           Surface(
-            color = ForestContainer,
+            color = MaterialTheme.colorScheme.secondaryContainer,
             shape = CircleShape,
             modifier = Modifier.size(36.dp),
           ) {
@@ -1145,7 +1133,7 @@ fun ConfirmedPricingSectionCard(
               Icon(
                 imageVector = Icons.Rounded.Payments,
                 contentDescription = null,
-                tint = ForestSecondary,
+                tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(18.dp),
               )
             }
@@ -1171,8 +1159,8 @@ fun ConfirmedPricingSectionCard(
             checked = enabled,
             onCheckedChange = onToggleEnabled,
             colors = SwitchDefaults.colors(
-              checkedThumbColor = Color.White,
-              checkedTrackColor = ForestSecondary,
+              checkedThumbColor = MaterialTheme.colorScheme.onSecondary,
+              checkedTrackColor = MaterialTheme.colorScheme.secondary,
             ),
             modifier = Modifier.testTag("confirmed_pricing_switch"),
           )
@@ -1192,10 +1180,10 @@ fun ConfirmedPricingSectionCard(
         OutlinedButton(
           onClick = onAddRow,
           shape = RoundedCornerShape(12.dp),
-          border = BorderStroke(1.dp, ForestSecondary.copy(alpha = 0.35f)),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)),
           colors = ButtonDefaults.outlinedButtonColors(
             containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = ForestSecondary,
+            contentColor = MaterialTheme.colorScheme.secondary,
           ),
           modifier = Modifier
             .fillMaxWidth()
@@ -1254,9 +1242,9 @@ private fun ConfirmedProductRateCard(
   }
 
   Surface(
-    color = MintFieldFill,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
     shape = RoundedCornerShape(14.dp),
-    border = BorderStroke(1.dp, MintFieldBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -1275,7 +1263,7 @@ private fun ConfirmedProductRateCard(
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
           )
-          Text("*", color = CoralDanger, fontWeight = FontWeight.Bold)
+          Text("*", color = MaterialTheme.semanticColors.danger, fontWeight = FontWeight.Bold)
         }
         Row(
           verticalAlignment = Alignment.CenterVertically,
@@ -1291,7 +1279,7 @@ private fun ConfirmedProductRateCard(
             Icon(
               imageVector = Icons.Rounded.Delete,
               contentDescription = "Remove product rate",
-              tint = CoralDanger,
+              tint = MaterialTheme.semanticColors.danger,
               modifier = Modifier
                 .size(18.dp)
                 .clickable(onClick = onRemove),
@@ -1357,7 +1345,7 @@ private fun ConfirmedProductRateCard(
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
           )
-          Text("*", color = CoralDanger, fontWeight = FontWeight.Bold)
+          Text("*", color = MaterialTheme.semanticColors.danger, fontWeight = FontWeight.Bold)
         }
         Text(
           text = String.format(Locale.US, "Std Wholesale: ₹%.2f", stdWholesale),
@@ -1426,10 +1414,10 @@ private fun ConfirmedProductRateCard(
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.SemiBold,
             )
-            Text("*", color = CoralDanger, fontWeight = FontWeight.Bold)
+            Text("*", color = MaterialTheme.semanticColors.danger, fontWeight = FontWeight.Bold)
           }
           Surface(
-            color = ForestContainer.copy(alpha = 0.8f),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
             shape = RoundedCornerShape(999.dp),
           ) {
             Row(
@@ -1440,13 +1428,13 @@ private fun ConfirmedProductRateCard(
               Icon(
                 imageVector = Icons.Rounded.TrendingDown,
                 contentDescription = null,
-                tint = ForestSecondary,
+                tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(12.dp),
               )
               Text(
                 text = marginNote,
                 style = MaterialTheme.typography.labelSmall,
-                color = ForestSecondary,
+                color = MaterialTheme.colorScheme.secondary,
               )
             }
           }
@@ -1508,7 +1496,7 @@ private fun ConfirmedProductRateCard(
           Text(
             text = "${rate.activeDays} Days Active",
             style = MaterialTheme.typography.labelSmall,
-            color = ForestSecondary,
+            color = MaterialTheme.colorScheme.secondary,
           )
         }
         OutlinedTextField(
@@ -1516,7 +1504,7 @@ private fun ConfirmedProductRateCard(
           onValueChange = { onUpdate(rate.copy(validityRange = it)) },
           leadingIcon = {
             IconButton(onClick = { showValidityDialog = true }) {
-              Icon(Icons.Rounded.CalendarMonth, contentDescription = "Select validity preset", tint = ForestSecondary)
+              Icon(Icons.Rounded.CalendarMonth, contentDescription = "Select validity preset", tint = MaterialTheme.colorScheme.secondary)
             }
           },
           trailingIcon = {
@@ -1574,9 +1562,9 @@ fun RegistrationMetadataCard(
 ) {
   Card(
     shape = RoundedCornerShape(18.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -1618,9 +1606,9 @@ fun RegistrationMetadataCard(
       )
 
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Row(
@@ -1635,13 +1623,13 @@ fun RegistrationMetadataCard(
             Icon(
               imageVector = Icons.Rounded.Badge,
               contentDescription = null,
-              tint = ForestSecondary,
+              tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(16.dp),
             )
             Text(
               text = "Added By",
               style = MaterialTheme.typography.labelMedium,
-              color = ForestSecondary,
+              color = MaterialTheme.colorScheme.secondary,
             )
           }
           Row(
@@ -1655,14 +1643,14 @@ fun RegistrationMetadataCard(
               color = MaterialTheme.colorScheme.onSurface,
             )
             Surface(
-              color = MintBadgeBg,
+              color = MaterialTheme.colorScheme.secondaryContainer,
               shape = RoundedCornerShape(6.dp),
             ) {
               Text(
                 text = "#FO-402",
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = FontFamily.Monospace,
-                color = ForestSecondary,
+                color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
               )
             }
@@ -1671,9 +1659,9 @@ fun RegistrationMetadataCard(
       }
 
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Row(
@@ -1688,17 +1676,17 @@ fun RegistrationMetadataCard(
             Icon(
               imageVector = Icons.Rounded.Sync,
               contentDescription = null,
-              tint = ForestSecondary,
+              tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(16.dp),
             )
             Text(
               text = "Sync Status",
               style = MaterialTheme.typography.labelMedium,
-              color = ForestSecondary,
+              color = MaterialTheme.colorScheme.secondary,
             )
           }
           Surface(
-            color = if (isOnline) EmeraldSuccessContainer else AmberWarningContainer,
+            color = if (isOnline) MaterialTheme.semanticColors.successContainer else MaterialTheme.semanticColors.warningContainer,
             shape = RoundedCornerShape(999.dp),
           ) {
             Row(
@@ -1710,13 +1698,13 @@ fun RegistrationMetadataCard(
                 modifier = Modifier
                   .size(6.dp)
                   .clip(CircleShape)
-                  .background(if (isOnline) EmeraldSuccess else AmberWarning),
+                  .background(if (isOnline) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning),
               )
               Text(
                 text = if (isOnline) "Ready to Cloud Sync" else "Draft / Saved Locally",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isOnline) EmeraldSuccess else AmberWarning,
+                color = if (isOnline) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
               )
             }
           }
@@ -1733,9 +1721,9 @@ private fun MetadataRowItem(
   value: String,
 ) {
   Surface(
-    color = MintFieldFill,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
     shape = RoundedCornerShape(10.dp),
-    border = BorderStroke(1.dp, MintFieldBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Row(

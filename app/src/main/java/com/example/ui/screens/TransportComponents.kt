@@ -86,25 +86,7 @@ import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.StopPinState
 import com.example.ui.components.formatDistanceShort
 import com.example.ui.components.formatInr
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.EmeraldDeepContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
-import com.example.ui.theme.MintHeaderTint
-import com.example.ui.theme.MintInk
-import com.example.ui.theme.MintMutedInk
-import com.example.ui.theme.MintOutlineVariant
-import com.example.ui.theme.MintSurfaceBackground
-import com.example.ui.theme.MintSurfaceContainer
-import com.example.ui.theme.MintSurfaceHigh
-import com.example.ui.theme.MintSurfaceHighest
-import com.example.ui.theme.MintSurfaceLow
+import com.example.ui.theme.semanticColors
 
 @Composable
 fun TransportTopBar(
@@ -120,7 +102,7 @@ fun TransportTopBar(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    color = Color.White,
+    color = MaterialTheme.colorScheme.surface,
     shadowElevation = 2.dp,
     modifier = modifier.fillMaxWidth(),
   ) {
@@ -140,7 +122,7 @@ fun TransportTopBar(
               letterSpacing = 0.8.sp,
             ),
             fontWeight = FontWeight.Bold,
-            color = EmeraldDeepContainer,
+            color = MaterialTheme.colorScheme.primary,
           )
           Spacer(modifier = Modifier.height(2.dp))
           Row(
@@ -151,7 +133,7 @@ fun TransportTopBar(
               text = partnerTitle,
               style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
               fontWeight = FontWeight.Bold,
-              color = MintInk,
+              color = MaterialTheme.colorScheme.onSurface,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
               modifier = Modifier.weight(1f, fill = false),
@@ -160,7 +142,7 @@ fun TransportTopBar(
               text = "• $hubSubtitle",
               style = MaterialTheme.typography.labelMedium,
               fontWeight = FontWeight.Medium,
-              color = EmeraldDeepContainer,
+              color = MaterialTheme.colorScheme.secondary,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -183,7 +165,7 @@ fun TransportTopBar(
             Icon(
               imageVector = Icons.Rounded.Search,
               contentDescription = "Search route stops",
-              tint = if (showSearch) EmeraldDeepPrimary else MintInk,
+              tint = if (showSearch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(22.dp),
             )
           }
@@ -200,14 +182,14 @@ fun TransportTopBar(
             Icon(
               imageVector = Icons.Rounded.Notifications,
               contentDescription = "Pending delivery stops",
-              tint = MintInk,
+              tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(22.dp),
             )
             if (pendingCount > 0) {
               Surface(
-                color = CoralDanger,
+                color = MaterialTheme.colorScheme.error,
                 shape = CircleShape,
-                border = BorderStroke(1.5.dp, Color.White),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.surface),
                 modifier = Modifier
                   .align(Alignment.TopEnd)
                   .offset(x = (-4).dp, y = 4.dp)
@@ -218,7 +200,7 @@ fun TransportTopBar(
                     text = pendingCount.coerceAtMost(99).toString(),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onError,
                   )
                 }
               }
@@ -226,7 +208,7 @@ fun TransportTopBar(
           }
 
           Surface(
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.colorScheme.primary,
             shape = CircleShape,
             shadowElevation = 2.dp,
             modifier = Modifier
@@ -241,7 +223,7 @@ fun TransportTopBar(
               Icon(
                 imageVector = Icons.Rounded.Person,
                 contentDescription = "Sync & Partner Account",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(20.dp),
               )
             }
@@ -267,8 +249,8 @@ fun TransportTopBar(
           singleLine = true,
           shape = RoundedCornerShape(12.dp),
           colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = Color.White,
-            focusedContainerColor = Color.White,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
           ),
           modifier = Modifier
             .fillMaxWidth()
@@ -277,7 +259,7 @@ fun TransportTopBar(
         )
       }
 
-      HorizontalDivider(color = MintSurfaceContainer)
+      HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
     }
   }
 }
@@ -290,10 +272,10 @@ fun ActiveRouteTriggerCard(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    color = Color.White,
+    color = MaterialTheme.colorScheme.surface,
     shape = RoundedCornerShape(16.dp),
-    shadowElevation = 2.5.dp,
-    border = BorderStroke(1.2.dp, MintCardBorder),
+    shadowElevation = 2.dp,
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = modifier
       .fillMaxWidth()
       .minimumInteractiveComponentSize()
@@ -309,7 +291,7 @@ fun ActiveRouteTriggerCard(
       horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
       Surface(
-        color = EmeraldDeepPrimary,
+        color = MaterialTheme.colorScheme.primary,
         shape = RoundedCornerShape(11.dp),
         modifier = Modifier.size(38.dp),
       ) {
@@ -317,7 +299,7 @@ fun ActiveRouteTriggerCard(
           Icon(
             imageVector = Icons.AutoMirrored.Rounded.AltRoute,
             contentDescription = "Active Route",
-            tint = Color.White,
+            tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(20.dp),
           )
         }
@@ -332,21 +314,21 @@ fun ActiveRouteTriggerCard(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Surface(
-            color = MintSurfaceContainer,
+            color = MaterialTheme.colorScheme.primaryContainer,
             shape = RoundedCornerShape(4.dp),
           ) {
             Text(
               text = "ACTIVE ROUTE",
               style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
               fontWeight = FontWeight.Bold,
-              color = EmeraldDeepContainer,
+              color = MaterialTheme.colorScheme.primary,
               modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
           }
           Text(
             text = route?.id ?: "ALL ROUTES",
             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-            color = MintMutedInk,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
@@ -355,7 +337,7 @@ fun ActiveRouteTriggerCard(
           text = route?.name ?: "Select Delivery Route",
           style = MaterialTheme.typography.titleSmall,
           fontWeight = FontWeight.Bold,
-          color = MintInk,
+          color = MaterialTheme.colorScheme.onSurface,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
         )
@@ -366,21 +348,21 @@ fun ActiveRouteTriggerCard(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
       ) {
         Surface(
-          color = MintSurfaceContainer,
+          color = MaterialTheme.colorScheme.secondaryContainer,
           shape = RoundedCornerShape(999.dp),
         ) {
           Text(
             text = "$stopCount stops",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = EmeraldDeepContainer,
+            color = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
           )
         }
         Icon(
           imageVector = Icons.Rounded.ExpandMore,
           contentDescription = "Switch delivery route",
-          tint = EmeraldDeepContainer,
+          tint = MaterialTheme.colorScheme.secondary,
           modifier = Modifier.size(20.dp),
         )
       }
@@ -400,10 +382,10 @@ fun VehicleProgressCard(
   } ?: if (planState.totalStops > 0) "All Stops Done" else "No Stops"
 
   Surface(
-    color = Color.White,
+    color = MaterialTheme.colorScheme.surface,
     shape = RoundedCornerShape(14.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    shadowElevation = 2.5.dp,
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    shadowElevation = 2.dp,
     modifier = modifier.fillMaxWidth(),
   ) {
     Column(
@@ -421,7 +403,7 @@ fun VehicleProgressCard(
           verticalAlignment = Alignment.Top,
         ) {
           Surface(
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.colorScheme.secondary,
             shape = CircleShape,
             modifier = Modifier
               .padding(top = 2.dp)
@@ -431,7 +413,7 @@ fun VehicleProgressCard(
               Icon(
                 imageVector = Icons.Rounded.LocalShipping,
                 contentDescription = null,
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSecondary,
                 modifier = Modifier.size(16.dp),
               )
             }
@@ -445,17 +427,17 @@ fun VehicleProgressCard(
                 text = vehicleSummary.modelName,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                color = MintInk,
+                color = MaterialTheme.colorScheme.onSurface,
               )
               Surface(
-                color = MintAccentChip,
+                color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(999.dp),
               ) {
                 Text(
                   text = vehicleSummary.vehicleTypeTag,
                   style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                   fontWeight = FontWeight.SemiBold,
-                  color = EmeraldDeepPrimary,
+                  color = MaterialTheme.colorScheme.secondary,
                   modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                 )
               }
@@ -464,12 +446,12 @@ fun VehicleProgressCard(
               text = vehicleSummary.plateNumber,
               style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
               fontWeight = FontWeight.SemiBold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.secondary,
             )
             Text(
               text = "Driver: ${route?.driverName ?: "Assigned"} | ${route?.dispatchWindow ?: "Morning Run"}",
               style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-              color = MintMutedInk,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -478,14 +460,14 @@ fun VehicleProgressCard(
 
         Column(horizontalAlignment = Alignment.End) {
           Surface(
-            color = MintSurfaceContainer,
+            color = MaterialTheme.colorScheme.primaryContainer,
             shape = RoundedCornerShape(999.dp),
           ) {
             Text(
               text = route?.id?.substringBefore("-") ?: "ROUTE",
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.primary,
               modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
             )
           }
@@ -493,16 +475,16 @@ fun VehicleProgressCard(
           Text(
             text = route?.stagingBay ?: "Bay #03",
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = MintMutedInk,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
           )
         }
       }
 
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Column(
@@ -522,27 +504,27 @@ fun VehicleProgressCard(
                 Icon(
                   imageVector = Icons.Rounded.Storefront,
                   contentDescription = null,
-                  tint = EmeraldDeepContainer,
+                  tint = MaterialTheme.colorScheme.primary,
                   modifier = Modifier.size(15.dp),
                 )
                 Text(
                   text = "${planState.completedCount} of ${planState.totalStops} Stops Completed",
                   style = MaterialTheme.typography.labelMedium,
                   fontWeight = FontWeight.SemiBold,
-                  color = MintInk,
+                  color = MaterialTheme.colorScheme.onSurface,
                 )
               }
               Text(
                 text = "${planState.completionPercent}% • ${planState.estimatedFinishText}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.primary,
               )
             }
             LinearProgressIndicator(
               progress = { (planState.completionPercent / 100f).coerceIn(0f, 1f) },
-              color = EmeraldDeepContainer,
-              trackColor = MintSurfaceHighest,
+              color = MaterialTheme.colorScheme.primary,
+              trackColor = MaterialTheme.colorScheme.surfaceVariant,
               strokeCap = StrokeCap.Round,
               modifier = Modifier
                 .fillMaxWidth()
@@ -556,9 +538,9 @@ fun VehicleProgressCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             Surface(
-              color = Color.White,
+              color = MaterialTheme.colorScheme.surface,
               shape = RoundedCornerShape(9.dp),
-              border = BorderStroke(1.dp, MintFieldBorder),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
               shadowElevation = 1.dp,
               modifier = Modifier.weight(1f),
             ) {
@@ -569,22 +551,22 @@ fun VehicleProgressCard(
                 Text(
                   text = "Cash to Collect",
                   style = MaterialTheme.typography.labelSmall,
-                  color = MintMutedInk,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                   text = formatInr(planState.cashToCollect),
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
-                  color = EmeraldDeepPrimary,
+                  color = MaterialTheme.colorScheme.secondary,
                 )
               }
             }
 
             Surface(
-              color = Color.White,
+              color = MaterialTheme.colorScheme.surface,
               shape = RoundedCornerShape(9.dp),
-              border = BorderStroke(1.dp, MintFieldBorder),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
               shadowElevation = 1.dp,
               modifier = Modifier.weight(1f),
             ) {
@@ -595,14 +577,14 @@ fun VehicleProgressCard(
                 Text(
                   text = "Next Destination",
                   style = MaterialTheme.typography.labelSmall,
-                  color = MintMutedInk,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                   text = nextStopLabel,
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
-                  color = EmeraldDeepContainer,
+                  color = MaterialTheme.colorScheme.primary,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                   textAlign = TextAlign.Center,
@@ -639,9 +621,9 @@ fun StopFilterChipsRow(
         TransportStopFilter.COMPLETED -> completedCount
       }
       Surface(
-        color = if (selected) EmeraldDeepPrimary else Color.White,
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(999.dp),
-        border = if (selected) null else BorderStroke(1.dp, MintCardBorder),
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
         shadowElevation = if (selected) 2.dp else 0.5.dp,
         modifier = Modifier
           .clip(RoundedCornerShape(999.dp))
@@ -657,17 +639,17 @@ fun StopFilterChipsRow(
             text = filter.label,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = if (selected) Color.White else MintInk,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
           )
           Surface(
-            color = if (selected) Color.White.copy(alpha = 0.22f) else MintSurfaceHighest,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(999.dp),
           ) {
             Text(
               text = count.toString(),
               style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
               fontWeight = FontWeight.Bold,
-              color = if (selected) Color.White else MintMutedInk,
+              color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
             )
           }
@@ -748,8 +730,8 @@ fun TransportMapCard(
 
   Card(
     shape = RoundedCornerShape(14.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
     modifier = modifier
       .fillMaxWidth()
       .height(260.dp),
@@ -790,7 +772,7 @@ fun TransportMapCard(
 
       // Top-left live corridor / priority leg pill
       Surface(
-        color = Color.White.copy(alpha = 0.95f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
         shape = RoundedCornerShape(999.dp),
         shadowElevation = 3.dp,
         modifier = Modifier
@@ -806,13 +788,13 @@ fun TransportMapCard(
             modifier = Modifier
               .size(8.dp)
               .clip(CircleShape)
-              .background(if (hasLocationPermission && userLatitude != null) EmeraldSuccess else AmberWarning),
+              .background(if (hasLocationPermission && userLatitude != null) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning),
           )
           Text(
             text = legSummaryPill,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = MintInk,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
@@ -827,7 +809,7 @@ fun TransportMapCard(
         verticalArrangement = Arrangement.spacedBy(6.dp),
       ) {
         Surface(
-          color = if (followUserLocation) EmeraldDeepPrimary else Color.White.copy(alpha = 0.96f),
+          color = if (followUserLocation) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
           shape = RoundedCornerShape(10.dp),
           shadowElevation = 3.dp,
           modifier = Modifier
@@ -841,14 +823,14 @@ fun TransportMapCard(
             Icon(
               imageVector = Icons.Rounded.MyLocation,
               contentDescription = "Center on my GPS location",
-              tint = if (followUserLocation) Color.White else EmeraldDeepPrimary,
+              tint = if (followUserLocation) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
               modifier = Modifier.size(19.dp),
             )
           }
         }
 
         Surface(
-          color = Color.White.copy(alpha = 0.96f),
+          color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
           shape = RoundedCornerShape(10.dp),
           shadowElevation = 3.dp,
           modifier = Modifier
@@ -862,7 +844,7 @@ fun TransportMapCard(
             Icon(
               imageVector = Icons.Rounded.Fullscreen,
               contentDescription = "Expand fullscreen navigation map",
-              tint = EmeraldDeepContainer,
+              tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(20.dp),
             )
           }
@@ -871,7 +853,7 @@ fun TransportMapCard(
 
       // Bottom Turn-by-Turn Instruction Banner inside Map
       Surface(
-        color = Color.White.copy(alpha = 0.96f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
         shape = RoundedCornerShape(11.dp),
         shadowElevation = 5.dp,
         modifier = Modifier
@@ -890,7 +872,7 @@ fun TransportMapCard(
           horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
           Surface(
-            color = EmeraldDeepContainer,
+            color = MaterialTheme.colorScheme.primary,
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.size(32.dp),
           ) {
@@ -898,7 +880,7 @@ fun TransportMapCard(
               Icon(
                 imageVector = maneuverIconFor(firstStep),
                 contentDescription = "Next turn",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(19.dp),
               )
             }
@@ -909,14 +891,14 @@ fun TransportMapCard(
               text = instructionTitle,
               style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
               fontWeight = FontWeight.Bold,
-              color = MintInk,
+              color = MaterialTheme.colorScheme.onSurface,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
             Text(
               text = instructionSub,
               style = MaterialTheme.typography.labelSmall,
-              color = MintMutedInk,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -934,7 +916,7 @@ fun TransportMapCard(
             Icon(
               imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
               contentDescription = "Open external Google Maps navigation",
-              tint = EmeraldDeepPrimary,
+              tint = MaterialTheme.colorScheme.primary,
               modifier = Modifier.size(20.dp),
             )
           }
@@ -954,15 +936,15 @@ fun UpcomingStopCard(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    color = Color.White,
+    color = MaterialTheme.colorScheme.surface,
     shape = RoundedCornerShape(14.dp),
     shadowElevation = if (stop.isActiveTarget || isSelected) 3.dp else 2.dp,
     border = if (stop.isActiveTarget) {
-      BorderStroke(1.6.dp, EmeraldDeepPrimary)
+      BorderStroke(1.6.dp, MaterialTheme.colorScheme.primary)
     } else if (isSelected) {
-      BorderStroke(1.5.dp, EmeraldDeepContainer)
+      BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary)
     } else {
-      BorderStroke(1.2.dp, MintCardBorder)
+      BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
     },
     modifier = modifier
       .fillMaxWidth()
@@ -985,7 +967,7 @@ fun UpcomingStopCard(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Surface(
-            color = if (stop.isActiveTarget) EmeraldDeepPrimary else MintSurfaceHighest,
+            color = if (stop.isActiveTarget) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
             shape = CircleShape,
             modifier = Modifier.size(30.dp),
           ) {
@@ -994,7 +976,7 @@ fun UpcomingStopCard(
                 text = stop.formattedStopNum,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (stop.isActiveTarget) Color.White else MintInk,
+                color = if (stop.isActiveTarget) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
               )
             }
           }
@@ -1004,7 +986,7 @@ fun UpcomingStopCard(
               text = stop.shop.name,
               style = MaterialTheme.typography.titleSmall,
               fontWeight = FontWeight.Bold,
-              color = MintInk,
+              color = MaterialTheme.colorScheme.onSurface,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -1016,13 +998,13 @@ fun UpcomingStopCard(
                 text = stop.shop.shopCode,
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                 fontWeight = FontWeight.SemiBold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.primary,
               )
-              Text("•", style = MaterialTheme.typography.labelSmall, color = MintMutedInk)
+              Text("•", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
               Text(
                 text = stop.shop.address,
                 style = MaterialTheme.typography.labelSmall,
-                color = MintMutedInk,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
@@ -1031,23 +1013,23 @@ fun UpcomingStopCard(
         }
 
         Surface(
-          color = if (stop.isActiveTarget) MintAccentChip else MintSurfaceContainer,
+          color = if (stop.isActiveTarget) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
           shape = RoundedCornerShape(999.dp),
         ) {
           Text(
             text = if (stop.isActiveTarget) "Next Target" else "Queued",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = if (stop.isActiveTarget) EmeraldDeepPrimary else EmeraldDeepContainer,
+            color = if (stop.isActiveTarget) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
           )
         }
       }
 
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(9.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Row(
@@ -1066,7 +1048,7 @@ fun UpcomingStopCard(
           Text(
             text = orderText,
             style = MaterialTheme.typography.labelSmall,
-            color = MintMutedInk,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -1079,14 +1061,14 @@ fun UpcomingStopCard(
             Icon(
               imageVector = if (stop.isCod) Icons.Rounded.CurrencyRupee else Icons.Rounded.Verified,
               contentDescription = null,
-              tint = if (stop.isCod) CoralDanger else EmeraldDeepPrimary,
+              tint = if (stop.isCod) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
               modifier = Modifier.size(14.dp),
             )
             Text(
               text = stop.paymentLabel,
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = if (stop.isCod) CoralDanger else EmeraldDeepPrimary,
+              color = if (stop.isCod) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
             )
           }
         }
@@ -1098,9 +1080,9 @@ fun UpcomingStopCard(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Surface(
-            color = MintBadgeBg,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
             shape = RoundedCornerShape(9.dp),
-            border = BorderStroke(1.dp, MintCardBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
             modifier = Modifier
               .weight(1f)
               .clip(RoundedCornerShape(9.dp))
@@ -1114,7 +1096,7 @@ fun UpcomingStopCard(
               Icon(
                 imageVector = Icons.Rounded.Call,
                 contentDescription = "Call shop",
-                tint = EmeraldDeepPrimary,
+                tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(15.dp),
               )
               Spacer(modifier = Modifier.width(4.dp))
@@ -1122,13 +1104,13 @@ fun UpcomingStopCard(
                 text = "Call Shop",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.secondary,
               )
             }
           }
 
           Surface(
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.colorScheme.primary,
             shape = RoundedCornerShape(9.dp),
             modifier = Modifier
               .weight(1.4f)
@@ -1144,7 +1126,7 @@ fun UpcomingStopCard(
               Icon(
                 imageVector = Icons.Rounded.TaskAlt,
                 contentDescription = "Mark Delivered",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(15.dp),
               )
               Spacer(modifier = Modifier.width(4.dp))
@@ -1152,7 +1134,7 @@ fun UpcomingStopCard(
                 text = "Mark Delivered",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
               )
             }
           }
@@ -1169,9 +1151,9 @@ fun DeliveredStopCard(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    color = Color.White,
+    color = MaterialTheme.colorScheme.surface,
     shape = RoundedCornerShape(14.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     shadowElevation = 2.dp,
     modifier = modifier
       .fillMaxWidth()
@@ -1194,7 +1176,7 @@ fun DeliveredStopCard(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Surface(
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.semanticColors.success,
             shape = CircleShape,
             modifier = Modifier.size(25.dp),
           ) {
@@ -1202,7 +1184,7 @@ fun DeliveredStopCard(
               Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = "Delivered",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSecondary,
                 modifier = Modifier.size(15.dp),
               )
             }
@@ -1212,14 +1194,14 @@ fun DeliveredStopCard(
               text = stop.shop.name,
               style = MaterialTheme.typography.titleSmall,
               fontWeight = FontWeight.SemiBold,
-              color = MintInk,
+              color = MaterialTheme.colorScheme.onSurface,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
             Text(
               text = "${stop.shop.shopCode} • Stop ${stop.formattedStopNum} Delivered",
               style = MaterialTheme.typography.labelSmall,
-              color = MintMutedInk,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -1227,14 +1209,14 @@ fun DeliveredStopCard(
         }
 
         Surface(
-          color = MintSurfaceContainer,
+          color = MaterialTheme.semanticColors.successContainer,
           shape = RoundedCornerShape(6.dp),
         ) {
           Text(
             text = stop.paymentLabel,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.semanticColors.success,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
           )
         }
@@ -1249,13 +1231,13 @@ fun DeliveredStopCard(
           Icon(
             imageVector = Icons.Rounded.Edit,
             contentDescription = null,
-            tint = EmeraldDeepPrimary,
+            tint = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.size(13.dp),
           )
           Text(
             text = stop.podNote,
             style = MaterialTheme.typography.bodySmall,
-            color = MintMutedInk,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
@@ -1280,12 +1262,12 @@ fun TransportActionDock(
   }
 
   Surface(
-    color = Color.White.copy(alpha = 0.96f),
+    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
     shadowElevation = 8.dp,
     modifier = modifier.fillMaxWidth(),
   ) {
     Column {
-      HorizontalDivider(color = MintSurfaceContainer)
+      HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
       Row(
         modifier = Modifier
           .fillMaxWidth()
@@ -1294,7 +1276,7 @@ fun TransportActionDock(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         Surface(
-          color = MintSurfaceHigh,
+          color = MaterialTheme.colorScheme.surfaceVariant,
           shape = RoundedCornerShape(12.dp),
           modifier = Modifier
             .minimumInteractiveComponentSize()
@@ -1307,14 +1289,14 @@ fun TransportActionDock(
             Icon(
               imageVector = Icons.Rounded.HeadsetMic,
               contentDescription = "Call Dispatch or Driver",
-              tint = MintInk,
+              tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(22.dp),
             )
           }
         }
 
         Surface(
-          color = EmeraldDeepPrimary,
+          color = MaterialTheme.colorScheme.primary,
           shape = RoundedCornerShape(12.dp),
           shadowElevation = 3.dp,
           modifier = Modifier
@@ -1334,7 +1316,7 @@ fun TransportActionDock(
             Icon(
               imageVector = Icons.Rounded.Navigation,
               contentDescription = null,
-              tint = Color.White,
+              tint = MaterialTheme.colorScheme.onPrimary,
               modifier = Modifier.size(19.dp),
             )
             Spacer(modifier = Modifier.width(7.dp))
@@ -1342,7 +1324,7 @@ fun TransportActionDock(
               text = primaryLabel,
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.Bold,
-              color = Color.White,
+              color = MaterialTheme.colorScheme.onPrimary,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -1350,7 +1332,7 @@ fun TransportActionDock(
         }
 
         Surface(
-          color = MintAccentChip,
+          color = MaterialTheme.colorScheme.secondaryContainer,
           shape = RoundedCornerShape(12.dp),
           shadowElevation = 1.dp,
           modifier = Modifier
@@ -1364,7 +1346,7 @@ fun TransportActionDock(
             Icon(
               imageVector = if (activeStop != null) Icons.Rounded.TaskAlt else Icons.Rounded.QrCodeScanner,
               contentDescription = "Complete current delivery stop",
-              tint = EmeraldDeepPrimary,
+              tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(22.dp),
             )
           }

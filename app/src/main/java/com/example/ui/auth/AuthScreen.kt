@@ -58,11 +58,6 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.example.R
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -230,7 +225,7 @@ fun AuthScreen(
       Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.3.dp, MintCardBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         modifier = Modifier.fillMaxWidth(),
       ) {
@@ -249,14 +244,14 @@ fun AuthScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
           ) {
             Surface(
-              color = MintAccentChip,
+              color = MaterialTheme.colorScheme.primaryContainer,
               shape = RoundedCornerShape(8.dp),
             ) {
               Text(
                 text = "DISTRIBUTION OPERATIONS",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
               )
             }
@@ -391,9 +386,9 @@ private fun FeaturePill(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    color = MintFieldFill,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
     shape = RoundedCornerShape(12.dp),
-    border = BorderStroke(1.dp, MintFieldBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = modifier,
   ) {
     Column(
@@ -404,7 +399,7 @@ private fun FeaturePill(
       Icon(
         imageVector = icon,
         contentDescription = null,
-        tint = EmeraldDeepPrimary,
+        tint = MaterialTheme.colorScheme.primary,
         modifier = Modifier.size(20.dp),
       )
       Text(

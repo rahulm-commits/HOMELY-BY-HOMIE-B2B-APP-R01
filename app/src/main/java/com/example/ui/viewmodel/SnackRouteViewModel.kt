@@ -3,19 +3,27 @@ package com.example.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.PendingOrderEntity
+import com.example.data.local.PendingPaymentEntity
+import com.example.data.local.PendingProductEntity
 import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
+import com.example.data.local.PendingSupplierBillEntity
 import com.example.data.local.ServerSettings
 import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
+import com.example.data.model.PaymentDirection
+import com.example.data.model.PaymentTransaction
+import com.example.data.model.Product
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.SupplierBill
 import com.example.data.remote.LaptopHealthInfo
 import com.example.data.repository.SnackRouteDataSource
 import com.example.data.repository.SyncCoordinatorRepository
+import com.example.ui.components.formatInr
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -89,6 +97,33 @@ class SnackRouteViewModel(
         initialValue = emptyList(),
       )
 
+  val pendingProducts: StateFlow<List<PendingProductEntity>> =
+    (coordinator?.observePendingProducts() ?: flowOf(emptyList()))
+      .catch { emit(emptyList()) }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyList(),
+      )
+
+  val pendingPayments: StateFlow<List<PendingPaymentEntity>> =
+    (coordinator?.observePendingPayments() ?: flowOf(emptyList()))
+      .catch { emit(emptyList()) }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyList(),
+      )
+
+  val pendingSupplierBills: StateFlow<List<PendingSupplierBillEntity>> =
+    (coordinator?.observePendingSupplierBills() ?: flowOf(emptyList()))
+      .catch { emit(emptyList()) }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyList(),
+      )
+
   val shopsState: StateFlow<UiState<List<Shop>>> =
     repository.observeShops(currentUserId)
       .map<List<Shop>, UiState<List<Shop>>> { UiState.Success(it) }
@@ -130,6 +165,54 @@ class SnackRouteViewModel(
           .firstOrNull()
         if (firestoreError == null && error is CancellationException) throw error
         emit(UiState.Error(firestoreError?.message ?: error.message ?: "Failed to load stocks"))
+      }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = UiState.Loading,
+      )
+
+  val productsState: StateFlow<UiState<List<Product>>> =
+    repository.observeProducts(currentUserId)
+      .map<List<Product>, UiState<List<Product>>> { UiState.Success(it) }
+      .catch { error ->
+        val firestoreError = generateSequence(error) { it.cause }
+          .filterIsInstance<FirebaseFirestoreException>()
+          .firstOrNull()
+        if (firestoreError == null && error is CancellationException) throw error
+        emit(UiState.Error(firestoreError?.message ?: error.message ?: "Failed to load products"))
+      }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = UiState.Loading,
+      )
+
+  val paymentsState: StateFlow<UiState<List<PaymentTransaction>>> =
+    repository.observePayments(currentUserId)
+      .map<List<PaymentTransaction>, UiState<List<PaymentTransaction>>> { UiState.Success(it) }
+      .catch { error ->
+        val firestoreError = generateSequence(error) { it.cause }
+          .filterIsInstance<FirebaseFirestoreException>()
+          .firstOrNull()
+        if (firestoreError == null && error is CancellationException) throw error
+        emit(UiState.Error(firestoreError?.message ?: error.message ?: "Failed to load payments"))
+      }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = UiState.Loading,
+      )
+
+  val supplierBillsState: StateFlow<UiState<List<SupplierBill>>> =
+    repository.observeSupplierBills(currentUserId)
+      .map<List<SupplierBill>, UiState<List<SupplierBill>>> { UiState.Success(it) }
+      .catch { error ->
+        val firestoreError = generateSequence(error) { it.cause }
+          .filterIsInstance<FirebaseFirestoreException>()
+          .firstOrNull()
+        if (firestoreError == null && error is CancellationException) throw error
+        emit(UiState.Error(firestoreError?.message ?: error.message ?: "Failed to load supplier bills"))
       }
       .stateIn(
         scope = viewModelScope,
@@ -278,6 +361,98 @@ class SnackRouteViewModel(
         _feedback.tryEmit("$productName stock updated to $newQuantity")
       } else {
         _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to update stock")
+      }
+    }
+  }
+
+  fun saveProduct(product: Product, isOnline: Boolean, onSaved: () -> Unit) {
+    viewModelScope.launch {
+      val result = repository.saveProduct(product)
+      if (result.isSuccess) {
+        val savedId = result.getOrNull().orEmpty()
+        val stillPending = coordinator?.isProductPending(savedId) ?: !isOnline
+        val msg = if (product.status == com.example.data.model.ProductStatus.DRAFT) {
+          "Draft ${product.productCode} saved on device"
+        } else if (stillPending) {
+          "Product ${product.name} saved offline • Will sync when online"
+        } else {
+          "Product ${product.name} registered & synced"
+        }
+        _feedback.tryEmit(msg)
+        onSaved()
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to save product")
+      }
+    }
+  }
+
+  fun updateProductStatus(productId: String, newStatus: String, feedbackLabel: String) {
+    viewModelScope.launch {
+      val result = repository.updateProductStatus(productId, newStatus)
+      if (result.isSuccess) {
+        _feedback.tryEmit(feedbackLabel)
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Could not update product status")
+      }
+    }
+  }
+
+  fun updateProductStock(productId: String, newQuantity: Int, productName: String) {
+    viewModelScope.launch {
+      val result = repository.updateProductStock(productId, newQuantity)
+      if (result.isSuccess) {
+        _feedback.tryEmit("$productName stock updated to $newQuantity")
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to update product stock")
+      }
+    }
+  }
+
+  fun recordPayment(
+    payment: PaymentTransaction,
+    isOnline: Boolean,
+    onSaved: (String) -> Unit = {},
+  ) {
+    viewModelScope.launch {
+      val result = repository.recordPayment(payment)
+      if (result.isSuccess) {
+        val savedId = result.getOrNull().orEmpty()
+        val stillPending = coordinator?.isPaymentPending(savedId) ?: !isOnline
+        val actionLabel = if (payment.direction == PaymentDirection.PAY_SUPPLIER) {
+          "Paid ${formatInr(payment.amount)} to ${payment.partyName}"
+        } else {
+          "Collected ${formatInr(payment.amount)} from ${payment.partyName}"
+        }
+        val msg = if (stillPending) {
+          "$actionLabel • Saved offline (will sync)"
+        } else {
+          "$actionLabel • Synced"
+        }
+        _feedback.tryEmit(msg)
+        onSaved(savedId)
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to record payment")
+      }
+    }
+  }
+
+  fun saveSupplierBill(
+    bill: SupplierBill,
+    isOnline: Boolean,
+    onSaved: () -> Unit = {},
+  ) {
+    viewModelScope.launch {
+      val result = repository.saveSupplierBill(bill)
+      if (result.isSuccess) {
+        val msg = if (isOnline) {
+          "Supplier bill ${bill.billNumber} (${bill.supplierName}) saved"
+        } else {
+          "Supplier bill ${bill.billNumber} saved offline"
+        }
+        _feedback.tryEmit(msg)
+        onSaved()
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to save supplier bill")
       }
     }
   }

@@ -5,8 +5,15 @@ import androidx.room.PrimaryKey
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
+import com.example.data.model.PaymentDirection
+import com.example.data.model.PaymentMethod
+import com.example.data.model.PaymentTransaction
+import com.example.data.model.Product
+import com.example.data.model.ProductStatus
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.SupplierBill
+import com.example.data.model.SupplierBillStatus
 import com.google.firebase.Timestamp
 import java.util.Date
 
@@ -460,3 +467,505 @@ data class CachedMetaEntity(
     )
   }
 }
+
+@Entity(tableName = "pending_products")
+data class PendingProductEntity(
+  @PrimaryKey val localId: String,
+  val remoteProductId: String = "",
+  val isUpdate: Boolean = false,
+  val userId: String = "",
+  val productCode: String,
+  val sku: String,
+  val barcode: String = "",
+  val name: String,
+  val category: String,
+  val brand: String = "",
+  val baseUnit: String = "Gram (g)",
+  val sellingUnit: String = "Pouch / Packet",
+  val casePack: String = "",
+  val packSize: String = "",
+  val wholesalePrice: Double = 0.0,
+  val mrp: Double = 0.0,
+  val stockQuantity: Int = 0,
+  val minThreshold: Int = 30,
+  val photoUri: String = "",
+  val notes: String = "",
+  val status: String = ProductStatus.ACTIVE,
+  val salesVelocity: Int = 0,
+  val hasVariants: Boolean = false,
+  val variantsJson: String = "",
+  val addedDate: String = "",
+  val globalSynced: Boolean = false,
+  val lastError: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun isFullySynced(requireGlobal: Boolean): Boolean = !requireGlobal || globalSynced
+
+  fun toDomainProduct(pendingSync: Boolean = true): Product = Product(
+    id = remoteProductId.ifBlank { localId },
+    userId = userId,
+    productCode = productCode,
+    sku = sku,
+    barcode = barcode,
+    name = name,
+    category = category,
+    brand = brand,
+    baseUnit = baseUnit,
+    sellingUnit = sellingUnit,
+    casePack = casePack,
+    packSize = packSize,
+    wholesalePrice = wholesalePrice,
+    mrp = mrp,
+    stockQuantity = stockQuantity,
+    minThreshold = minThreshold,
+    photoUri = photoUri,
+    notes = notes,
+    status = status,
+    salesVelocity = salesVelocity,
+    hasVariants = hasVariants,
+    variantsJson = variantsJson,
+    addedDate = addedDate,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = pendingSync,
+  )
+
+  companion object {
+    fun fromDomainProduct(
+      product: Product,
+      localId: String,
+      userId: String,
+      isUpdate: Boolean,
+    ): PendingProductEntity {
+      val now = System.currentTimeMillis()
+      return PendingProductEntity(
+        localId = localId,
+        remoteProductId = product.id,
+        isUpdate = isUpdate,
+        userId = userId,
+        productCode = product.productCode,
+        sku = product.sku,
+        barcode = product.barcode,
+        name = product.name,
+        category = product.category,
+        brand = product.brand,
+        baseUnit = product.baseUnit,
+        sellingUnit = product.sellingUnit,
+        casePack = product.casePack,
+        packSize = product.packSize,
+        wholesalePrice = product.wholesalePrice,
+        mrp = product.mrp,
+        stockQuantity = product.stockQuantity,
+        minThreshold = product.minThreshold,
+        photoUri = product.photoUri,
+        notes = product.notes,
+        status = product.status,
+        salesVelocity = product.salesVelocity,
+        hasVariants = product.hasVariants,
+        variantsJson = product.variantsJson,
+        addedDate = product.addedDate,
+        createdAtMillis = product.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = now,
+      )
+    }
+  }
+}
+
+@Entity(tableName = "cached_products")
+data class CachedProductEntity(
+  @PrimaryKey val id: String,
+  val userId: String = "",
+  val productCode: String,
+  val sku: String,
+  val barcode: String = "",
+  val name: String,
+  val category: String,
+  val brand: String = "",
+  val baseUnit: String = "Gram (g)",
+  val sellingUnit: String = "Pouch / Packet",
+  val casePack: String = "",
+  val packSize: String = "",
+  val wholesalePrice: Double = 0.0,
+  val mrp: Double = 0.0,
+  val stockQuantity: Int = 0,
+  val minThreshold: Int = 30,
+  val photoUri: String = "",
+  val notes: String = "",
+  val status: String = ProductStatus.ACTIVE,
+  val salesVelocity: Int = 0,
+  val hasVariants: Boolean = false,
+  val variantsJson: String = "",
+  val addedDate: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun toDomainProduct(): Product = Product(
+    id = id,
+    userId = userId,
+    productCode = productCode,
+    sku = sku,
+    barcode = barcode,
+    name = name,
+    category = category,
+    brand = brand,
+    baseUnit = baseUnit,
+    sellingUnit = sellingUnit,
+    casePack = casePack,
+    packSize = packSize,
+    wholesalePrice = wholesalePrice,
+    mrp = mrp,
+    stockQuantity = stockQuantity,
+    minThreshold = minThreshold,
+    photoUri = photoUri,
+    notes = notes,
+    status = status,
+    salesVelocity = salesVelocity,
+    hasVariants = hasVariants,
+    variantsJson = variantsJson,
+    addedDate = addedDate,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = false,
+  )
+
+  companion object {
+    fun fromDomainProduct(product: Product, fallbackUserId: String = ""): CachedProductEntity {
+      val now = System.currentTimeMillis()
+      return CachedProductEntity(
+        id = product.id.ifBlank { product.productCode },
+        userId = product.userId.ifBlank { fallbackUserId },
+        productCode = product.productCode,
+        sku = product.sku,
+        barcode = product.barcode,
+        name = product.name,
+        category = product.category,
+        brand = product.brand,
+        baseUnit = product.baseUnit,
+        sellingUnit = product.sellingUnit,
+        casePack = product.casePack,
+        packSize = product.packSize,
+        wholesalePrice = product.wholesalePrice,
+        mrp = product.mrp,
+        stockQuantity = product.stockQuantity,
+        minThreshold = product.minThreshold,
+        photoUri = product.photoUri,
+        notes = product.notes,
+        status = product.status,
+        salesVelocity = product.salesVelocity,
+        hasVariants = product.hasVariants,
+        variantsJson = product.variantsJson,
+        addedDate = product.addedDate,
+        createdAtMillis = product.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = product.updatedAt?.toDate()?.time ?: now,
+      )
+    }
+  }
+}
+
+@Entity(tableName = "pending_payments")
+data class PendingPaymentEntity(
+  @PrimaryKey val localId: String,
+  val remotePaymentId: String = "",
+  val isUpdate: Boolean = false,
+  val userId: String = "",
+  val receiptCode: String,
+  val direction: String = PaymentDirection.COLLECT,
+  val partyId: String,
+  val partyCode: String = "",
+  val partyName: String,
+  val contactName: String = "",
+  val phone: String = "",
+  val invoiceRef: String = "",
+  val amount: Double = 0.0,
+  val paymentMethod: String = PaymentMethod.UPI,
+  val referenceNumber: String = "",
+  val paymentDate: String = "",
+  val recordedBy: String = "",
+  val note: String = "",
+  val globalSynced: Boolean = false,
+  val lastError: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun isFullySynced(requireGlobal: Boolean): Boolean = !requireGlobal || globalSynced
+
+  fun toDomainPayment(pendingSync: Boolean = true): PaymentTransaction = PaymentTransaction(
+    id = remotePaymentId.ifBlank { localId },
+    userId = userId,
+    receiptCode = receiptCode,
+    direction = direction,
+    partyId = partyId,
+    partyCode = partyCode,
+    partyName = partyName,
+    contactName = contactName,
+    phone = phone,
+    invoiceRef = invoiceRef,
+    amount = amount,
+    paymentMethod = paymentMethod,
+    referenceNumber = referenceNumber,
+    paymentDate = paymentDate,
+    recordedBy = recordedBy,
+    note = note,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = pendingSync,
+  )
+
+  companion object {
+    fun fromDomainPayment(
+      payment: PaymentTransaction,
+      localId: String,
+      userId: String,
+      isUpdate: Boolean,
+    ): PendingPaymentEntity {
+      val now = System.currentTimeMillis()
+      return PendingPaymentEntity(
+        localId = localId,
+        remotePaymentId = payment.id,
+        isUpdate = isUpdate,
+        userId = userId,
+        receiptCode = payment.receiptCode,
+        direction = payment.direction,
+        partyId = payment.partyId,
+        partyCode = payment.partyCode,
+        partyName = payment.partyName,
+        contactName = payment.contactName,
+        phone = payment.phone,
+        invoiceRef = payment.invoiceRef,
+        amount = payment.amount,
+        paymentMethod = payment.paymentMethod,
+        referenceNumber = payment.referenceNumber,
+        paymentDate = payment.paymentDate,
+        recordedBy = payment.recordedBy,
+        note = payment.note,
+        createdAtMillis = payment.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = now,
+      )
+    }
+  }
+}
+
+@Entity(tableName = "cached_payments")
+data class CachedPaymentEntity(
+  @PrimaryKey val id: String,
+  val userId: String = "",
+  val receiptCode: String,
+  val direction: String = PaymentDirection.COLLECT,
+  val partyId: String,
+  val partyCode: String = "",
+  val partyName: String,
+  val contactName: String = "",
+  val phone: String = "",
+  val invoiceRef: String = "",
+  val amount: Double = 0.0,
+  val paymentMethod: String = PaymentMethod.UPI,
+  val referenceNumber: String = "",
+  val paymentDate: String = "",
+  val recordedBy: String = "",
+  val note: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun toDomainPayment(): PaymentTransaction = PaymentTransaction(
+    id = id,
+    userId = userId,
+    receiptCode = receiptCode,
+    direction = direction,
+    partyId = partyId,
+    partyCode = partyCode,
+    partyName = partyName,
+    contactName = contactName,
+    phone = phone,
+    invoiceRef = invoiceRef,
+    amount = amount,
+    paymentMethod = paymentMethod,
+    referenceNumber = referenceNumber,
+    paymentDate = paymentDate,
+    recordedBy = recordedBy,
+    note = note,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = false,
+  )
+
+  companion object {
+    fun fromDomainPayment(
+      payment: PaymentTransaction,
+      fallbackUserId: String = "",
+    ): CachedPaymentEntity {
+      val now = System.currentTimeMillis()
+      return CachedPaymentEntity(
+        id = payment.id.ifBlank { payment.receiptCode },
+        userId = payment.userId.ifBlank { fallbackUserId },
+        receiptCode = payment.receiptCode,
+        direction = payment.direction,
+        partyId = payment.partyId,
+        partyCode = payment.partyCode,
+        partyName = payment.partyName,
+        contactName = payment.contactName,
+        phone = payment.phone,
+        invoiceRef = payment.invoiceRef,
+        amount = payment.amount,
+        paymentMethod = payment.paymentMethod,
+        referenceNumber = payment.referenceNumber,
+        paymentDate = payment.paymentDate,
+        recordedBy = payment.recordedBy,
+        note = payment.note,
+        createdAtMillis = payment.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = payment.updatedAt?.toDate()?.time ?: now,
+      )
+    }
+  }
+}
+
+@Entity(tableName = "pending_supplier_bills")
+data class PendingSupplierBillEntity(
+  @PrimaryKey val localId: String,
+  val remoteBillId: String = "",
+  val isUpdate: Boolean = false,
+  val userId: String = "",
+  val supplierCode: String,
+  val supplierName: String,
+  val contactPerson: String = "",
+  val phone: String = "",
+  val location: String = "",
+  val category: String = "Raw Materials",
+  val billNumber: String,
+  val totalBilled: Double = 0.0,
+  val paidAmount: Double = 0.0,
+  val billDate: String = "",
+  val dueDate: String = "",
+  val status: String = SupplierBillStatus.PENDING,
+  val notes: String = "",
+  val globalSynced: Boolean = false,
+  val lastError: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun isFullySynced(requireGlobal: Boolean): Boolean = !requireGlobal || globalSynced
+
+  fun toDomainBill(pendingSync: Boolean = true): SupplierBill = SupplierBill(
+    id = remoteBillId.ifBlank { localId },
+    userId = userId,
+    supplierCode = supplierCode,
+    supplierName = supplierName,
+    contactPerson = contactPerson,
+    phone = phone,
+    location = location,
+    category = category,
+    billNumber = billNumber,
+    totalBilled = totalBilled,
+    paidAmount = paidAmount,
+    billDate = billDate,
+    dueDate = dueDate,
+    status = status,
+    notes = notes,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = pendingSync,
+  )
+
+  companion object {
+    fun fromDomainBill(
+      bill: SupplierBill,
+      localId: String,
+      userId: String,
+      isUpdate: Boolean,
+    ): PendingSupplierBillEntity {
+      val now = System.currentTimeMillis()
+      return PendingSupplierBillEntity(
+        localId = localId,
+        remoteBillId = bill.id,
+        isUpdate = isUpdate,
+        userId = userId,
+        supplierCode = bill.supplierCode,
+        supplierName = bill.supplierName,
+        contactPerson = bill.contactPerson,
+        phone = bill.phone,
+        location = bill.location,
+        category = bill.category,
+        billNumber = bill.billNumber,
+        totalBilled = bill.totalBilled,
+        paidAmount = bill.paidAmount,
+        billDate = bill.billDate,
+        dueDate = bill.dueDate,
+        status = bill.status,
+        notes = bill.notes,
+        createdAtMillis = bill.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = now,
+      )
+    }
+  }
+}
+
+@Entity(tableName = "cached_supplier_bills")
+data class CachedSupplierBillEntity(
+  @PrimaryKey val id: String,
+  val userId: String = "",
+  val supplierCode: String,
+  val supplierName: String,
+  val contactPerson: String = "",
+  val phone: String = "",
+  val location: String = "",
+  val category: String = "Raw Materials",
+  val billNumber: String,
+  val totalBilled: Double = 0.0,
+  val paidAmount: Double = 0.0,
+  val billDate: String = "",
+  val dueDate: String = "",
+  val status: String = SupplierBillStatus.PENDING,
+  val notes: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun toDomainBill(): SupplierBill = SupplierBill(
+    id = id,
+    userId = userId,
+    supplierCode = supplierCode,
+    supplierName = supplierName,
+    contactPerson = contactPerson,
+    phone = phone,
+    location = location,
+    category = category,
+    billNumber = billNumber,
+    totalBilled = totalBilled,
+    paidAmount = paidAmount,
+    billDate = billDate,
+    dueDate = dueDate,
+    status = status,
+    notes = notes,
+    createdAt = Timestamp(Date(createdAtMillis)),
+    updatedAt = Timestamp(Date(updatedAtMillis)),
+    isPendingSync = false,
+  )
+
+  companion object {
+    fun fromDomainBill(
+      bill: SupplierBill,
+      fallbackUserId: String = "",
+    ): CachedSupplierBillEntity {
+      val now = System.currentTimeMillis()
+      return CachedSupplierBillEntity(
+        id = bill.id.ifBlank { bill.billNumber },
+        userId = bill.userId.ifBlank { fallbackUserId },
+        supplierCode = bill.supplierCode,
+        supplierName = bill.supplierName,
+        contactPerson = bill.contactPerson,
+        phone = bill.phone,
+        location = bill.location,
+        category = bill.category,
+        billNumber = bill.billNumber,
+        totalBilled = bill.totalBilled,
+        paidAmount = bill.paidAmount,
+        billDate = bill.billDate,
+        dueDate = bill.dueDate,
+        status = bill.status,
+        notes = bill.notes,
+        createdAtMillis = bill.createdAt?.toDate()?.time ?: now,
+        updatedAtMillis = bill.updatedAt?.toDate()?.time ?: now,
+      )
+    }
+  }
+}
+

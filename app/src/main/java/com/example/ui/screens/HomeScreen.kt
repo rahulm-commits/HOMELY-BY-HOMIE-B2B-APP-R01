@@ -79,26 +79,16 @@ import com.example.data.model.InquiryStatus
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
+import com.example.data.model.PaymentDirection
+import com.example.data.model.PaymentLedgerHelper
+import com.example.data.model.PaymentTransaction
 import com.example.data.model.Shop
 import com.example.data.model.ShopStatus
 import com.example.data.model.StockItem
+import com.example.data.model.SupplierBill
 import com.example.ui.components.formatInr
 import com.example.ui.components.isNetworkAvailable
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.CobaltInfo
-import com.example.ui.theme.CobaltInfoContainer
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.CoralDangerContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
-import com.example.ui.theme.MintHeaderTint
+import com.example.ui.theme.semanticColors
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -140,6 +130,9 @@ fun HomeScreen(
   onUpdateStock: (stockId: String, newQty: Int, productName: String) -> Unit,
   onNavigateToShops: () -> Unit,
   onNavigateToOrders: () -> Unit,
+  payments: List<PaymentTransaction> = emptyList(),
+  supplierBills: List<SupplierBill> = emptyList(),
+  onNavigateToPayments: (String) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -185,6 +178,23 @@ fun HomeScreen(
   }
 
   val opsMeta = meta ?: OperationsMeta()
+  val liveToCollectStats = remember(shops, orders, payments) {
+    if (shops.isEmpty() && payments.isEmpty()) {
+      null
+    } else {
+      val ledgers = PaymentLedgerHelper.computeShopLedgers(shops, orders, payments)
+      val outstandingShops = ledgers.filter { it.outstandingBalance > 0.5 }
+      outstandingShops.sumOf { it.outstandingBalance } to outstandingShops.size
+    }
+  }
+  val liveToSuppliersStats = remember(supplierBills) {
+    if (supplierBills.isEmpty()) {
+      null
+    } else {
+      val pendingBills = supplierBills.filter { it.outstandingAmount > 0.5 }
+      pendingBills.sumOf { it.outstandingAmount } to pendingBills.size
+    }
+  }
 
   LazyColumn(
     modifier = modifier
@@ -197,9 +207,9 @@ fun HomeScreen(
     item {
       Card(
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.3.dp, MintCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Box(
@@ -208,9 +218,9 @@ fun HomeScreen(
             .background(
               Brush.horizontalGradient(
                 colors = listOf(
-                  MintBadgeBg,
-                  MintHeaderTint,
-                  Color.White,
+                  MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                  MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.20f),
+                  MaterialTheme.colorScheme.surface,
                 )
               )
             )
@@ -242,7 +252,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
               ) {
                 Surface(
-                  color = if (isOnline && pendingSyncCount == 0) EmeraldSuccessContainer else AmberWarningContainer,
+                  color = if (isOnline && pendingSyncCount == 0) MaterialTheme.semanticColors.successContainer else MaterialTheme.semanticColors.warningContainer,
                   shape = RoundedCornerShape(20.dp),
                   modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
@@ -257,7 +267,7 @@ fun HomeScreen(
                     Icon(
                       imageVector = if (isOnline) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff,
                       contentDescription = "Open Phone Queue and Server Settings",
-                      tint = if (isOnline && pendingSyncCount == 0) EmeraldSuccess else AmberWarning,
+                      tint = if (isOnline && pendingSyncCount == 0) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
                       modifier = Modifier.size(14.dp),
                     )
                     Text(
@@ -270,7 +280,7 @@ fun HomeScreen(
                         else -> "Offline Queue"
                       },
                       style = MaterialTheme.typography.labelMedium,
-                      color = if (isOnline && pendingSyncCount == 0) EmeraldSuccess else AmberWarning,
+                      color = if (isOnline && pendingSyncCount == 0) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
                     )
                   }
                 }
@@ -288,9 +298,9 @@ fun HomeScreen(
             }
 
             Surface(
-              color = MintFieldFill,
+              color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
               shape = RoundedCornerShape(12.dp),
-              border = BorderStroke(1.dp, MintFieldBorder),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
               modifier = Modifier.fillMaxWidth(),
             ) {
               Row(
@@ -338,14 +348,14 @@ fun HomeScreen(
             val selected = pagerState.currentPage == index
             Surface(
               color = if (selected) {
-                EmeraldDeepPrimary
+                MaterialTheme.colorScheme.primary
               } else {
-                Color.White
+                MaterialTheme.colorScheme.surface
               },
               shape = RoundedCornerShape(12.dp),
               tonalElevation = 0.dp,
               shadowElevation = if (selected) 2.dp else 1.dp,
-              border = if (selected) null else BorderStroke(1.2.dp, MintCardBorder),
+              border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
               modifier = Modifier
                 .weight(1f)
                 .minimumInteractiveComponentSize()
@@ -382,10 +392,23 @@ fun HomeScreen(
           pageSpacing = 12.dp,
         ) { pageIndex ->
           val period = periods[pageIndex]
-          val metrics = remember(period, orders, opsMeta, todayStr, yesterdayStr) {
-            computePeriodMetrics(period, orders, opsMeta, todayStr, yesterdayStr)
+          val metrics = remember(period, orders, opsMeta, todayStr, yesterdayStr, liveToCollectStats, liveToSuppliersStats) {
+            computePeriodMetrics(
+              period = period,
+              orders = orders,
+              meta = opsMeta,
+              todayStr = todayStr,
+              yesterdayStr = yesterdayStr,
+              liveToCollect = liveToCollectStats,
+              liveToSuppliers = liveToSuppliersStats,
+            )
           }
-          DashboardQuadGrid(period = period, metrics = metrics)
+          DashboardQuadGrid(
+            period = period,
+            metrics = metrics,
+            onCollectClick = { onNavigateToPayments(PaymentDirection.COLLECT) },
+            onSuppliersClick = { onNavigateToPayments(PaymentDirection.PAY_SUPPLIER) },
+          )
         }
       }
     }
@@ -394,9 +417,9 @@ fun HomeScreen(
     item {
       Card(
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.2.dp, MintCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Column(
@@ -414,15 +437,14 @@ fun HomeScreen(
               color = MaterialTheme.colorScheme.onSurface,
             )
             Surface(
-              color = MintBadgeBg,
+              color = MaterialTheme.colorScheme.primaryContainer,
               shape = RoundedCornerShape(999.dp),
-              border = BorderStroke(1.dp, MintFieldBorder),
             ) {
               Text(
                 text = "Live Field Status",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
               )
             }
@@ -433,9 +455,9 @@ fun HomeScreen(
           val regProgress = (completedRegs.toFloat() / targetRegs.toFloat()).coerceIn(0f, 1f)
 
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, MintFieldBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
             modifier = Modifier
               .fillMaxWidth()
               .clickable(onClick = onNavigateToShops),
@@ -491,8 +513,8 @@ fun HomeScreen(
               icon = Icons.Rounded.Call,
               label = "Inquiry Calls Due",
               value = "$pendingInquiryCount",
-              accent = AmberWarning,
-              container = AmberWarningContainer,
+              accent = MaterialTheme.semanticColors.warning,
+              container = MaterialTheme.semanticColors.warningContainer,
               onClick = onNavigateToOrders,
               modifier = Modifier.weight(1f),
             )
@@ -500,8 +522,8 @@ fun HomeScreen(
               icon = Icons.AutoMirrored.Rounded.ReceiptLong,
               label = "Total Orders Placed",
               value = "${orders.size}",
-              accent = EmeraldSuccess,
-              container = EmeraldSuccessContainer,
+              accent = MaterialTheme.semanticColors.success,
+              container = MaterialTheme.semanticColors.successContainer,
               onClick = onNavigateToOrders,
               modifier = Modifier.weight(1f),
             )
@@ -515,8 +537,8 @@ fun HomeScreen(
               icon = Icons.Rounded.LocalShipping,
               label = "To Dispatch",
               value = "${opsMeta.vehiclesToDispatch} Vans",
-              accent = CobaltInfo,
-              container = CobaltInfoContainer,
+              accent = MaterialTheme.semanticColors.info,
+              container = MaterialTheme.semanticColors.infoContainer,
               onClick = null,
               modifier = Modifier.weight(1f),
             )
@@ -532,9 +554,9 @@ fun HomeScreen(
           }
 
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MintFieldBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
             modifier = Modifier.fillMaxWidth(),
           ) {
             Row(
@@ -583,7 +605,7 @@ fun HomeScreen(
           Icon(
             imageVector = Icons.Rounded.WarningAmber,
             contentDescription = null,
-            tint = CoralDanger,
+            tint = MaterialTheme.semanticColors.danger,
             modifier = Modifier.size(20.dp),
           )
           Text(
@@ -595,13 +617,13 @@ fun HomeScreen(
         val lowCount = stocks.count { it.quantity <= it.minThreshold }
         if (lowCount > 0) {
           Surface(
-            color = CoralDangerContainer,
+            color = MaterialTheme.semanticColors.dangerContainer,
             shape = RoundedCornerShape(8.dp),
           ) {
             Text(
               text = "$lowCount Low Stock",
               style = MaterialTheme.typography.labelMedium,
-              color = CoralDanger,
+              color = MaterialTheme.semanticColors.danger,
               modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
           }
@@ -614,13 +636,13 @@ fun HomeScreen(
       Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-          containerColor = if (isLow) Color(0xFFFFF8F7) else Color.White,
+          containerColor = if (isLow) MaterialTheme.semanticColors.dangerContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface,
         ),
         border = BorderStroke(
-          1.2.dp,
-          if (isLow) CoralDanger.copy(alpha = 0.45f) else MintCardBorder,
+          1.dp,
+          if (isLow) MaterialTheme.semanticColors.danger.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Row(
@@ -639,13 +661,13 @@ fun HomeScreen(
               modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (isLow) CoralDangerContainer else EmeraldSuccessContainer),
+                .background(if (isLow) MaterialTheme.semanticColors.dangerContainer else MaterialTheme.semanticColors.successContainer),
               contentAlignment = Alignment.Center,
             ) {
               Icon(
                 imageVector = Icons.Rounded.Inventory,
                 contentDescription = null,
-                tint = if (isLow) CoralDanger else EmeraldSuccess,
+                tint = if (isLow) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
                 modifier = Modifier.size(22.dp),
               )
             }
@@ -677,7 +699,7 @@ fun HomeScreen(
                   "Healthy: ${stock.quantity} pkts in store"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (isLow) CoralDanger else EmeraldSuccess,
+                color = if (isLow) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
               )
             }
           }
@@ -717,6 +739,8 @@ fun HomeScreen(
 private fun DashboardQuadGrid(
   period: ReportPeriod,
   metrics: PeriodDashboardMetrics,
+  onCollectClick: () -> Unit = {},
+  onSuppliersClick: () -> Unit = {},
 ) {
   Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
     Row(
@@ -726,110 +750,99 @@ private fun DashboardQuadGrid(
       // Card 1: Total Sales in Rupees
       Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.3.dp, EmeraldSuccess.copy(alpha = 0.45f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
         modifier = Modifier.weight(1f),
       ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-          Surface(color = EmeraldSuccessContainer.copy(alpha = 0.65f)) {
-            Row(
+        Column(
+          modifier = Modifier.padding(14.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Box(
               modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(7.dp),
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+              contentAlignment = Alignment.Center,
             ) {
-              Box(
-                modifier = Modifier
-                  .size(26.dp)
-                  .clip(CircleShape)
-                  .background(EmeraldSuccess),
-                contentAlignment = Alignment.Center,
-              ) {
-                Icon(
-                  imageVector = Icons.Rounded.CurrencyRupee,
-                  contentDescription = null,
-                  tint = Color.White,
-                  modifier = Modifier.size(15.dp),
-                )
-              }
-              Text(
-                text = "Total Sales",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = EmeraldDeepPrimary,
+              Icon(
+                imageVector = Icons.Rounded.CurrencyRupee,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
               )
             }
-          }
-          Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
             Text(
-              text = formatInr(metrics.totalSales),
-              style = MaterialTheme.typography.headlineSmall,
-              fontWeight = FontWeight.Bold,
-              color = EmeraldDeepPrimary,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-              text = period.subtitle,
-              style = MaterialTheme.typography.bodySmall,
+              text = "Total Sales",
+              style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.SemiBold,
-              color = EmeraldSuccess,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
+          Text(
+            text = formatInr(metrics.totalSales),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+          Text(
+            text = period.subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
         }
       }
 
       // Card 2: Orders Breakdown (Total, Pending, Delivered, Rejected)
       Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.3.dp, MintCardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
         modifier = Modifier.weight(1f),
       ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-          Surface(color = MintBadgeBg.copy(alpha = 0.72f)) {
-            Row(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically,
+        Column(
+          modifier = Modifier.padding(14.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+              text = "Total Orders",
+              style = MaterialTheme.typography.labelLarge,
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Surface(
+              color = MaterialTheme.colorScheme.secondaryContainer,
+              shape = RoundedCornerShape(999.dp),
             ) {
               Text(
-                text = "Total Orders",
+                text = "${metrics.totalOrders}",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
               )
-              Surface(
-                color = EmeraldDeepPrimary,
-                shape = RoundedCornerShape(999.dp),
-              ) {
-                Text(
-                  text = "${metrics.totalOrders}",
-                  style = MaterialTheme.typography.labelLarge,
-                  fontWeight = FontWeight.Bold,
-                  color = Color.White,
-                  modifier = Modifier.padding(horizontal = 9.dp, vertical = 2.dp),
-                )
-              }
             }
           }
           Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 10.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
           ) {
-            MiniOrderStat("Pend", metrics.pendingOrders, AmberWarning, AmberWarningContainer, Modifier.weight(1f))
-            MiniOrderStat("Deliv", metrics.deliveredOrders, EmeraldSuccess, EmeraldSuccessContainer, Modifier.weight(1f))
-            MiniOrderStat("Rej", metrics.rejectedOrders, CoralDanger, CoralDangerContainer, Modifier.weight(1f))
+            MiniOrderStat("Pend", metrics.pendingOrders, MaterialTheme.semanticColors.warning, MaterialTheme.semanticColors.warningContainer, Modifier.weight(1f))
+            MiniOrderStat("Deliv", metrics.deliveredOrders, MaterialTheme.semanticColors.success, MaterialTheme.semanticColors.successContainer, Modifier.weight(1f))
+            MiniOrderStat("Rej", metrics.rejectedOrders, MaterialTheme.semanticColors.danger, MaterialTheme.semanticColors.dangerContainer, Modifier.weight(1f))
           }
         }
       }
@@ -842,122 +855,116 @@ private fun DashboardQuadGrid(
       // Card 3: To Collect
       Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.3.dp, CobaltInfo.copy(alpha = 0.42f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-        modifier = Modifier.weight(1f),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+        modifier = Modifier
+          .weight(1f)
+          .clip(RoundedCornerShape(18.dp))
+          .clickable(onClick = onCollectClick)
+          .testTag("home_to_collect_card"),
       ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-          Surface(color = CobaltInfoContainer.copy(alpha = 0.7f)) {
-            Row(
+        Column(
+          modifier = Modifier.padding(14.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Box(
               modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(7.dp),
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.semanticColors.infoContainer),
+              contentAlignment = Alignment.Center,
             ) {
-              Box(
-                modifier = Modifier
-                  .size(26.dp)
-                  .clip(CircleShape)
-                  .background(CobaltInfo),
-                contentAlignment = Alignment.Center,
-              ) {
-                Icon(
-                  imageVector = Icons.Rounded.AccountBalanceWallet,
-                  contentDescription = null,
-                  tint = Color.White,
-                  modifier = Modifier.size(15.dp),
-                )
-              }
-              Text(
-                text = "To Collect",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = CobaltInfo,
+              Icon(
+                imageVector = Icons.Rounded.AccountBalanceWallet,
+                contentDescription = null,
+                tint = MaterialTheme.semanticColors.info,
+                modifier = Modifier.size(16.dp),
               )
             }
-          }
-          Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
             Text(
-              text = formatInr(metrics.toCollectAmount),
-              style = MaterialTheme.typography.titleLarge,
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onSurface,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-              text = "From ${metrics.toCollectShops} shops",
-              style = MaterialTheme.typography.bodySmall,
+              text = "To Collect",
+              style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.SemiBold,
-              color = CobaltInfo,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
+          Text(
+            text = formatInr(metrics.toCollectAmount),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+          Text(
+            text = "From ${metrics.toCollectShops} shops",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.semanticColors.info,
+            fontWeight = FontWeight.Medium,
+          )
         }
       }
 
       // Card 4: To Suppliers
       Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.3.dp, AmberWarning.copy(alpha = 0.48f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-        modifier = Modifier.weight(1f),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+        modifier = Modifier
+          .weight(1f)
+          .clip(RoundedCornerShape(18.dp))
+          .clickable(onClick = onSuppliersClick)
+          .testTag("home_to_suppliers_card"),
       ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-          Surface(color = AmberWarningContainer.copy(alpha = 0.72f)) {
-            Row(
+        Column(
+          modifier = Modifier.padding(14.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Box(
               modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(7.dp),
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.semanticColors.warningContainer),
+              contentAlignment = Alignment.Center,
             ) {
-              Box(
-                modifier = Modifier
-                  .size(26.dp)
-                  .clip(CircleShape)
-                  .background(AmberWarning),
-                contentAlignment = Alignment.Center,
-              ) {
-                Icon(
-                  imageVector = Icons.Rounded.Factory,
-                  contentDescription = null,
-                  tint = Color.White,
-                  modifier = Modifier.size(15.dp),
-                )
-              }
-              Text(
-                text = "To Suppliers",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = AmberWarning,
+              Icon(
+                imageVector = Icons.Rounded.Factory,
+                contentDescription = null,
+                tint = MaterialTheme.semanticColors.warning,
+                modifier = Modifier.size(16.dp),
               )
             }
-          }
-          Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
             Text(
-              text = formatInr(metrics.toSuppliersAmount),
-              style = MaterialTheme.typography.titleLarge,
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onSurface,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-              text = "${metrics.toSuppliersCount} suppliers due",
-              style = MaterialTheme.typography.bodySmall,
+              text = "To Suppliers",
+              style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.SemiBold,
-              color = AmberWarning,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
+          Text(
+            text = formatInr(metrics.toSuppliersAmount),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+          Text(
+            text = "${metrics.toSuppliersCount} suppliers due",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.semanticColors.warning,
+            fontWeight = FontWeight.Medium,
+          )
         }
       }
     }
@@ -1021,7 +1028,7 @@ private fun WorkMetricTile(
       horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
       Surface(
-        color = Color.White.copy(alpha = 0.85f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
         shape = CircleShape,
         modifier = Modifier.size(32.dp),
       ) {
@@ -1136,7 +1143,13 @@ private fun computePeriodMetrics(
   meta: OperationsMeta,
   todayStr: String,
   yesterdayStr: String,
+  liveToCollect: Pair<Double, Int>? = null,
+  liveToSuppliers: Pair<Double, Int>? = null,
 ): PeriodDashboardMetrics {
+  val baseCollectAmt = liveToCollect?.first ?: meta.toCollectAmount
+  val baseCollectCount = liveToCollect?.second ?: meta.toCollectShops
+  val baseSupplierAmt = liveToSuppliers?.first ?: meta.toSuppliersAmount
+  val baseSupplierCount = liveToSuppliers?.second ?: meta.toSuppliersCount
   return when (period) {
     ReportPeriod.TODAY -> {
       val todayOrders = orders.filter { it.orderDate == todayStr }
@@ -1146,10 +1159,10 @@ private fun computePeriodMetrics(
         pendingOrders = todayOrders.count { it.status == OrderStatus.PENDING || it.status == OrderStatus.CONFIRMED },
         deliveredOrders = todayOrders.count { it.status == OrderStatus.DELIVERED },
         rejectedOrders = todayOrders.count { it.status == OrderStatus.REJECTED },
-        toCollectAmount = meta.toCollectAmount,
-        toCollectShops = meta.toCollectShops,
-        toSuppliersAmount = meta.toSuppliersAmount,
-        toSuppliersCount = meta.toSuppliersCount,
+        toCollectAmount = baseCollectAmt,
+        toCollectShops = baseCollectCount,
+        toSuppliersAmount = baseSupplierAmt,
+        toSuppliersCount = baseSupplierCount,
       )
     }
     ReportPeriod.YESTERDAY -> {
@@ -1160,10 +1173,10 @@ private fun computePeriodMetrics(
         pendingOrders = yOrders.count { it.status == OrderStatus.PENDING },
         deliveredOrders = yOrders.count { it.status == OrderStatus.DELIVERED }.coerceAtLeast(1),
         rejectedOrders = yOrders.count { it.status == OrderStatus.REJECTED },
-        toCollectAmount = (meta.toCollectAmount * 0.85),
-        toCollectShops = (meta.toCollectShops - 2).coerceAtLeast(1),
-        toSuppliersAmount = meta.toSuppliersAmount,
-        toSuppliersCount = meta.toSuppliersCount,
+        toCollectAmount = (baseCollectAmt * 0.85),
+        toCollectShops = (baseCollectCount - 1).coerceAtLeast(if (baseCollectCount > 0) 1 else 0),
+        toSuppliersAmount = baseSupplierAmt,
+        toSuppliersCount = baseSupplierCount,
       )
     }
     ReportPeriod.WEEK -> {
@@ -1173,10 +1186,10 @@ private fun computePeriodMetrics(
         pendingOrders = orders.count { it.status == OrderStatus.PENDING || it.status == OrderStatus.CONFIRMED },
         deliveredOrders = orders.count { it.status == OrderStatus.DELIVERED } + 13,
         rejectedOrders = orders.count { it.status == OrderStatus.REJECTED },
-        toCollectAmount = meta.toCollectAmount,
-        toCollectShops = meta.toCollectShops,
-        toSuppliersAmount = meta.toSuppliersAmount + 12000.0,
-        toSuppliersCount = meta.toSuppliersCount,
+        toCollectAmount = baseCollectAmt,
+        toCollectShops = baseCollectCount,
+        toSuppliersAmount = baseSupplierAmt + 12000.0,
+        toSuppliersCount = baseSupplierCount,
       )
     }
     ReportPeriod.MONTH -> {
@@ -1186,10 +1199,10 @@ private fun computePeriodMetrics(
         pendingOrders = orders.count { it.status == OrderStatus.PENDING || it.status == OrderStatus.CONFIRMED },
         deliveredOrders = orders.count { it.status == OrderStatus.DELIVERED } + 58,
         rejectedOrders = orders.count { it.status == OrderStatus.REJECTED } + 3,
-        toCollectAmount = meta.toCollectAmount + 19500.0,
-        toCollectShops = meta.toCollectShops + 4,
-        toSuppliersAmount = meta.toSuppliersAmount + 42000.0,
-        toSuppliersCount = meta.toSuppliersCount + 2,
+        toCollectAmount = baseCollectAmt + 19500.0,
+        toCollectShops = baseCollectCount + 4,
+        toSuppliersAmount = baseSupplierAmt + 42000.0,
+        toSuppliersCount = baseSupplierCount + 2,
       )
     }
   }

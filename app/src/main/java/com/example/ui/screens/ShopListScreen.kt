@@ -74,17 +74,7 @@ import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.StandardRouteDropdown
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
+import com.example.ui.theme.semanticColors
 import java.io.File
 
 private enum class ShopSectionTab(val label: String) {
@@ -193,14 +183,14 @@ fun ShopListScreen(
                 }
                 if (offlinePendingCount > 0) {
                   Surface(
-                    color = AmberWarningContainer,
+                    color = MaterialTheme.semanticColors.warningContainer,
                     shape = RoundedCornerShape(999.dp),
                   ) {
                     Text(
                       text = "$offlinePendingCount pending",
                       style = MaterialTheme.typography.labelSmall,
                       fontWeight = FontWeight.SemiBold,
-                      color = AmberWarning,
+                      color = MaterialTheme.semanticColors.warning,
                       modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                     )
                   }
@@ -208,7 +198,7 @@ fun ShopListScreen(
               }
 
               Surface(
-                color = if (offlinePendingCount > 0) AmberWarningContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+                color = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warningContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
                 shape = RoundedCornerShape(999.dp),
                 modifier = Modifier
                   .clip(RoundedCornerShape(999.dp))
@@ -223,7 +213,7 @@ fun ShopListScreen(
                   Icon(
                     imageVector = Icons.Rounded.Sync,
                     contentDescription = "Open Phone Queue and Servers",
-                    tint = if (offlinePendingCount > 0) AmberWarning else MaterialTheme.colorScheme.primary,
+                    tint = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warning else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(14.dp),
                   )
                   Text(
@@ -236,7 +226,7 @@ fun ShopListScreen(
                     },
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (offlinePendingCount > 0) AmberWarning else MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warning else MaterialTheme.colorScheme.onPrimaryContainer,
                   )
                 }
               }
@@ -271,15 +261,15 @@ fun ShopListScreen(
                   selected = isSelected,
                   onClick = { selectedTab = tab },
                   colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = EmeraldDeepPrimary,
-                    selectedLabelColor = Color.White,
-                    containerColor = MintFieldFill,
-                    labelColor = EmeraldDeepPrimary,
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                   ),
                   border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = isSelected,
-                    borderColor = MintCardBorder,
+                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
                   ),
                   label = {
                     Text(
@@ -387,9 +377,9 @@ private fun ShopCardItem(
 
   Card(
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -404,8 +394,8 @@ private fun ShopCardItem(
         // Small shop photo thumbnail
         Surface(
           shape = RoundedCornerShape(14.dp),
-          border = BorderStroke(1.dp, MintFieldBorder),
-          color = MintFieldFill,
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          color = MaterialTheme.colorScheme.surfaceVariant,
           modifier = Modifier.size(68.dp),
         ) {
           if (shop.photoUri.isNotBlank() && File(shop.photoUri).exists()) {
@@ -434,20 +424,20 @@ private fun ShopCardItem(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
             Surface(
-              color = MintAccentChip,
+              color = MaterialTheme.colorScheme.primaryContainer,
               shape = RoundedCornerShape(6.dp),
             ) {
               Text(
                 text = shop.shopCode,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
               )
             }
             if (shop.isPendingSync) {
               Surface(
-                color = AmberWarningContainer,
+                color = MaterialTheme.semanticColors.warningContainer,
                 shape = RoundedCornerShape(6.dp),
               ) {
                 Row(
@@ -458,13 +448,13 @@ private fun ShopCardItem(
                   Icon(
                     imageVector = Icons.Rounded.CloudOff,
                     contentDescription = null,
-                    tint = AmberWarning,
+                    tint = MaterialTheme.semanticColors.warning,
                     modifier = Modifier.size(11.dp),
                   )
                   Text(
                     text = "Offline Pending",
                     style = MaterialTheme.typography.labelMedium,
-                    color = AmberWarning,
+                    color = MaterialTheme.semanticColors.warning,
                   )
                 }
               }
@@ -546,8 +536,8 @@ private fun ShopCardItem(
                 },
               )
               DropdownMenuItem(
-                text = { Text("Move to Recently Deleted", color = CoralDanger) },
-                leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = CoralDanger) },
+                text = { Text("Move to Recently Deleted", color = MaterialTheme.semanticColors.danger) },
+                leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MaterialTheme.semanticColors.danger) },
                 onClick = {
                   menuOpen = false
                   onChangeStatus(shop.id, ShopStatus.DELETED, "${shop.name} moved to Recently Deleted")
@@ -565,9 +555,9 @@ private fun ShopCardItem(
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Surface(
-          color = EmeraldSuccessContainer,
+          color = MaterialTheme.semanticColors.successContainer,
           shape = RoundedCornerShape(10.dp),
-          border = BorderStroke(1.dp, EmeraldSuccess.copy(alpha = 0.45f)),
+          border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.45f)),
           modifier = Modifier
             .weight(1f)
             .clip(RoundedCornerShape(10.dp))
@@ -581,7 +571,7 @@ private fun ShopCardItem(
             Icon(
               imageVector = Icons.Rounded.Call,
               contentDescription = "Call ${shop.name}",
-              tint = EmeraldSuccess,
+              tint = MaterialTheme.semanticColors.success,
               modifier = Modifier.size(16.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -589,15 +579,15 @@ private fun ShopCardItem(
               text = "Call",
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.Bold,
-              color = EmeraldSuccess,
+              color = MaterialTheme.semanticColors.success,
             )
           }
         }
 
         Surface(
-          color = MintBadgeBg,
+          color = MaterialTheme.colorScheme.secondaryContainer,
           shape = RoundedCornerShape(10.dp),
-          border = BorderStroke(1.dp, MintCardBorder),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)),
           modifier = Modifier
             .weight(1f)
             .clip(RoundedCornerShape(10.dp))
@@ -611,7 +601,7 @@ private fun ShopCardItem(
             Icon(
               imageVector = Icons.AutoMirrored.Rounded.Chat,
               contentDescription = "WhatsApp ${shop.name}",
-              tint = EmeraldDeepPrimary,
+              tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(16.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -619,15 +609,15 @@ private fun ShopCardItem(
               text = "WhatsApp",
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.Bold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
           }
         }
 
         Surface(
-          color = MintFieldFill,
+          color = MaterialTheme.colorScheme.surfaceVariant,
           shape = RoundedCornerShape(10.dp),
-          border = BorderStroke(1.dp, MintFieldBorder),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
           modifier = Modifier
             .height(40.dp)
             .clip(RoundedCornerShape(10.dp))
@@ -641,7 +631,7 @@ private fun ShopCardItem(
             Icon(
               imageVector = Icons.Rounded.Edit,
               contentDescription = "Edit ${shop.name}",
-              tint = EmeraldDeepPrimary,
+              tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(16.dp),
             )
             Spacer(modifier = Modifier.width(4.dp))
@@ -649,7 +639,7 @@ private fun ShopCardItem(
               text = "Edit",
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.Bold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.onSurface,
             )
           }
         }

@@ -80,17 +80,7 @@ import com.example.ui.components.StandardRouteDropdown
 import com.example.ui.components.formatInr
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
-import com.example.ui.theme.MintHeaderTint
+import com.example.ui.theme.semanticColors
 import java.io.File
 import java.util.Locale
 
@@ -232,15 +222,15 @@ fun OrderScreen(
               selected = isSelected,
               onClick = { selectedSection = tab },
               colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = EmeraldDeepPrimary,
-                selectedLabelColor = Color.White,
-                containerColor = MintFieldFill,
-                labelColor = EmeraldDeepPrimary,
+                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.surface,
+                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
               ),
               border = FilterChipDefaults.filterChipBorder(
                 enabled = true,
                 selected = isSelected,
-                borderColor = MintCardBorder,
+                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
               ),
               label = {
                 Text(
@@ -373,14 +363,14 @@ private fun PendingInquiryShopCard(
 ) {
   Card(
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    border = BorderStroke(1.2.dp, MintCardBorder),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(modifier = Modifier.fillMaxWidth()) {
       // Tinted Dates Header Strip
-      Surface(color = MintHeaderTint) {
+      Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)) {
         Row(
           modifier = Modifier
             .fillMaxWidth()
@@ -395,20 +385,20 @@ private fun PendingInquiryShopCard(
             Icon(
               imageVector = Icons.Rounded.Event,
               contentDescription = null,
-              tint = EmeraldDeepPrimary,
+              tint = MaterialTheme.colorScheme.primary,
               modifier = Modifier.size(14.dp),
             )
             Text(
               text = "Enquiry: ${shop.enquiryDate.ifBlank { "Today" }}",
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.SemiBold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.onSurface,
             )
           }
           Surface(
-            color = AmberWarningContainer,
+            color = MaterialTheme.semanticColors.warningContainer,
             shape = RoundedCornerShape(999.dp),
-            border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.35f)),
+            border = BorderStroke(1.dp, MaterialTheme.semanticColors.warning.copy(alpha = 0.35f)),
           ) {
             Row(
               modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -418,20 +408,20 @@ private fun PendingInquiryShopCard(
               Icon(
                 imageVector = Icons.Rounded.NotificationsActive,
                 contentDescription = null,
-                tint = AmberWarning,
+                tint = MaterialTheme.semanticColors.warning,
                 modifier = Modifier.size(12.dp),
               )
               Text(
                 text = "Call Due: ${shop.callDate.ifBlank { "Today" }}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = AmberWarning,
+                color = MaterialTheme.semanticColors.warning,
               )
             }
           }
         }
       }
-      HorizontalDivider(color = MintFieldBorder)
+      HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
       Column(
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -445,8 +435,8 @@ private fun PendingInquiryShopCard(
       ) {
         Surface(
           shape = RoundedCornerShape(10.dp),
-          border = BorderStroke(1.dp, MintFieldBorder),
-          color = MintFieldFill,
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          color = MaterialTheme.colorScheme.surfaceVariant,
           modifier = Modifier.size(58.dp),
         ) {
           if (shop.photoUri.isNotBlank() && File(shop.photoUri).exists()) {
@@ -475,14 +465,14 @@ private fun PendingInquiryShopCard(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
             Surface(
-              color = MintAccentChip,
+              color = MaterialTheme.colorScheme.primaryContainer,
               shape = RoundedCornerShape(6.dp),
             ) {
               Text(
                 text = shop.shopCode,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
               )
             }
@@ -542,9 +532,9 @@ private fun PendingInquiryShopCard(
 
       // Coordinates + Last Order Date + Last Call Date
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Column(
@@ -600,7 +590,7 @@ private fun PendingInquiryShopCard(
               Icon(
                 imageVector = Icons.Rounded.PhoneInTalk,
                 contentDescription = null,
-                tint = EmeraldSuccess,
+                tint = MaterialTheme.semanticColors.success,
                 modifier = Modifier.size(12.dp),
               )
               Text(
@@ -619,9 +609,9 @@ private fun PendingInquiryShopCard(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
       ) {
         Surface(
-          color = EmeraldSuccessContainer,
+          color = MaterialTheme.semanticColors.successContainer,
           shape = RoundedCornerShape(9.dp),
-          border = BorderStroke(1.dp, EmeraldSuccess.copy(alpha = 0.4f)),
+          border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.4f)),
           modifier = Modifier
             .weight(0.9f)
             .clip(RoundedCornerShape(9.dp))
@@ -633,9 +623,9 @@ private fun PendingInquiryShopCard(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            Icon(Icons.Rounded.Call, contentDescription = "Call", tint = EmeraldSuccess, modifier = Modifier.size(16.dp))
+            Icon(Icons.Rounded.Call, contentDescription = "Call", tint = MaterialTheme.semanticColors.success, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Call", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = EmeraldSuccess)
+            Text("Call", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.semanticColors.success)
           }
         }
 
@@ -670,9 +660,9 @@ private fun PendingInquiryShopCard(
         }
 
         Surface(
-          color = MintBadgeBg,
+          color = MaterialTheme.colorScheme.secondaryContainer,
           shape = RoundedCornerShape(9.dp),
-          border = BorderStroke(1.dp, MintCardBorder),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)),
           modifier = Modifier
             .weight(0.9f)
             .clip(RoundedCornerShape(9.dp))
@@ -686,7 +676,7 @@ private fun PendingInquiryShopCard(
             Icon(
               Icons.AutoMirrored.Rounded.Chat,
               contentDescription = "WhatsApp",
-              tint = EmeraldDeepPrimary,
+              tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(16.dp),
             )
             Spacer(modifier = Modifier.width(4.dp))
@@ -694,7 +684,7 @@ private fun PendingInquiryShopCard(
               "WA",
               style = MaterialTheme.typography.labelMedium,
               fontWeight = FontWeight.Bold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
           }
         }
@@ -707,9 +697,9 @@ private fun PendingInquiryShopCard(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
             shape = RoundedCornerShape(8.dp),
-            border = BorderStroke(1.dp, MintFieldBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
             modifier = Modifier
               .weight(1f)
               .clip(RoundedCornerShape(8.dp))
@@ -723,7 +713,7 @@ private fun PendingInquiryShopCard(
               Icon(
                 imageVector = Icons.Rounded.Schedule,
                 contentDescription = null,
-                tint = EmeraldDeepPrimary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp),
               )
               Spacer(modifier = Modifier.width(4.dp))
@@ -731,16 +721,16 @@ private fun PendingInquiryShopCard(
                 text = "Mark Unattended",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
             }
           }
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
             shape = RoundedCornerShape(8.dp),
-            border = BorderStroke(1.dp, MintFieldBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
             modifier = Modifier
               .weight(1f)
               .clip(RoundedCornerShape(8.dp))
@@ -754,7 +744,7 @@ private fun PendingInquiryShopCard(
               Icon(
                 imageVector = Icons.Rounded.Block,
                 contentDescription = null,
-                tint = EmeraldDeepPrimary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp),
               )
               Spacer(modifier = Modifier.width(4.dp))
@@ -762,7 +752,7 @@ private fun PendingInquiryShopCard(
                 text = "No Order Today",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = EmeraldDeepPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
@@ -771,9 +761,9 @@ private fun PendingInquiryShopCard(
         }
       } else {
         Surface(
-          color = MintFieldFill,
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
           shape = RoundedCornerShape(8.dp),
-          border = BorderStroke(1.dp, MintFieldBorder),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
           modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
@@ -787,7 +777,7 @@ private fun PendingInquiryShopCard(
             Icon(
               imageVector = Icons.Rounded.Replay,
               contentDescription = null,
-              tint = EmeraldDeepPrimary,
+              tint = MaterialTheme.colorScheme.primary,
               modifier = Modifier.size(15.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -795,7 +785,7 @@ private fun PendingInquiryShopCard(
               text = "Move Back to Pending Inquiry",
               style = MaterialTheme.typography.labelMedium,
               fontWeight = FontWeight.SemiBold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.onSurface,
             )
           }
         }
@@ -842,13 +832,13 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
       items(orders, key = { it.id.ifBlank { it.orderCode } }) { order ->
         Card(
           shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, MintCardBorder),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(modifier = Modifier.fillMaxWidth()) {
-            Surface(color = MintHeaderTint) {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)) {
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
@@ -861,46 +851,46 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
                   horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                   Surface(
-                    color = MintAccentChip,
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = RoundedCornerShape(6.dp),
                   ) {
                     Text(
                       text = order.orderCode,
                       style = MaterialTheme.typography.labelSmall,
                       fontWeight = FontWeight.Bold,
-                      color = EmeraldDeepPrimary,
+                      color = MaterialTheme.colorScheme.onPrimaryContainer,
                       modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                     )
                   }
                   Text(
                     text = order.shopCode,
                     style = MaterialTheme.typography.labelSmall,
-                    color = EmeraldDeepPrimary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold,
                   )
                 }
                 Surface(
-                  color = EmeraldSuccessContainer,
+                  color = MaterialTheme.semanticColors.successContainer,
                   shape = RoundedCornerShape(999.dp),
-                  border = BorderStroke(1.dp, EmeraldSuccess.copy(alpha = 0.35f)),
+                  border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
                 ) {
                   Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                   ) {
-                    Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(13.dp))
+                    Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.semanticColors.success, modifier = Modifier.size(13.dp))
                     Text(
                       text = order.status.replaceFirstChar { it.uppercase() },
                       style = MaterialTheme.typography.labelSmall,
                       fontWeight = FontWeight.Bold,
-                      color = EmeraldSuccess,
+                      color = MaterialTheme.semanticColors.success,
                     )
                   }
                 }
               }
             }
-            HorizontalDivider(color = MintFieldBorder)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             Column(
               modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
               verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -931,7 +921,7 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
                   overflow = TextOverflow.Ellipsis,
                 )
               }
-              HorizontalDivider(color = MintFieldBorder)
+              HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
               Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -944,7 +934,7 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
                   Icon(
                     imageVector = Icons.Rounded.Event,
                     contentDescription = null,
-                    tint = EmeraldDeepPrimary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(13.dp),
                   )
                   Text(
@@ -957,7 +947,7 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
                   text = formatInr(order.totalAmount),
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
-                  color = EmeraldDeepPrimary,
+                  color = MaterialTheme.colorScheme.primary,
                 )
               }
             }

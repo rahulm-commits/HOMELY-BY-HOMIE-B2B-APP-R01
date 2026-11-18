@@ -87,19 +87,7 @@ import com.example.data.model.Shop
 import com.example.data.model.StockItem
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.StandardRouteDropdown
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.CoralDangerContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
-import com.example.ui.theme.MintHeaderTint
+import com.example.ui.theme.semanticColors
 import com.example.ui.theme.RouteColorDot
 import com.example.ui.theme.RouteColorPalette
 import java.text.SimpleDateFormat
@@ -351,11 +339,11 @@ fun PackingScreen(
               )
 
               Surface(
-                color = if (onlyShortages) CoralDangerContainer else MintFieldFill,
+                color = if (onlyShortages) MaterialTheme.semanticColors.dangerContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                 shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(
                   1.dp,
-                  if (onlyShortages) CoralDanger else MintFieldBorder,
+                  if (onlyShortages) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                 ),
                 modifier = Modifier
                   .height(42.dp)
@@ -371,7 +359,7 @@ fun PackingScreen(
                   Icon(
                     imageVector = Icons.Rounded.FilterList,
                     contentDescription = "Filter shortages",
-                    tint = if (onlyShortages) CoralDanger else MaterialTheme.colorScheme.onSurface,
+                    tint = if (onlyShortages) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(18.dp),
                   )
                   if (snapshot.shortageItems.isNotEmpty()) {
@@ -379,7 +367,7 @@ fun PackingScreen(
                       text = "${snapshot.shortageItems.size}",
                       style = MaterialTheme.typography.labelSmall,
                       fontWeight = FontWeight.Bold,
-                      color = if (onlyShortages) CoralDanger else MaterialTheme.colorScheme.primary,
+                      color = if (onlyShortages) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.primary,
                     )
                   }
                 }
@@ -392,9 +380,9 @@ fun PackingScreen(
             item {
               val topShort = snapshot.shortageItems.first()
               Surface(
-                color = CoralDangerContainer.copy(alpha = 0.72f),
+                color = MaterialTheme.semanticColors.dangerContainer.copy(alpha = 0.72f),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, CoralDanger.copy(alpha = 0.35f)),
+                border = BorderStroke(1.dp, MaterialTheme.semanticColors.danger.copy(alpha = 0.35f)),
                 modifier = Modifier
                   .fillMaxWidth()
                   .testTag("packing_shortage_banner"),
@@ -407,7 +395,7 @@ fun PackingScreen(
                   Icon(
                     imageVector = Icons.Rounded.Warning,
                     contentDescription = null,
-                    tint = CoralDanger,
+                    tint = MaterialTheme.semanticColors.danger,
                     modifier = Modifier.size(20.dp),
                   )
                   Column(modifier = Modifier.weight(1f)) {
@@ -415,7 +403,7 @@ fun PackingScreen(
                       text = "Shortage Alert: ${topShort.productName} ${topShort.packSize}",
                       style = MaterialTheme.typography.labelLarge,
                       fontWeight = FontWeight.Bold,
-                      color = CoralDanger,
+                      color = MaterialTheme.semanticColors.danger,
                     )
                     Text(
                       text = "Loaded ${topShort.loadedPacks} of ${topShort.orderedPacks} pk (Short ${topShort.shortagePacks} pk) • ${snapshot.shortageItems.size} SKU(s) need production/loading",
@@ -613,7 +601,7 @@ fun PackingScreen(
               modifier = Modifier
                 .size(7.dp)
                 .clip(CircleShape)
-                .background(EmeraldSuccess),
+                .background(MaterialTheme.semanticColors.success),
             )
             Text(
               text = "${snapshot.selectedRoute?.stagingBay ?: "Central Hub"} • ${snapshot.routeFilteredOrders.size} Active Order(s)",
@@ -625,7 +613,7 @@ fun PackingScreen(
             text = if (snapshot.shortageItems.isEmpty() && snapshot.totalOrderedPacks > 0) "Ready for Dispatch" else "Verify Load",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = if (snapshot.shortageItems.isEmpty() && snapshot.totalOrderedPacks > 0) EmeraldSuccess else AmberWarning,
+            color = if (snapshot.shortageItems.isEmpty() && snapshot.totalOrderedPacks > 0) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
           )
         }
       }
@@ -700,9 +688,9 @@ private fun OperationalDispatchCard(
 
   Card(
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier
       .fillMaxWidth()
       .testTag("packing_operational_banner"),
@@ -910,9 +898,9 @@ private fun KpiMiniTile(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    color = MintFieldFill,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
     shape = RoundedCornerShape(10.dp),
-    border = BorderStroke(1.dp, MintFieldBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = modifier,
   ) {
     Column(
@@ -955,9 +943,9 @@ private fun AssignedUnassignedStrip(
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Surface(
-      color = if (selectedRouteId != RoutesCatalog.UNALLOCATED) EmeraldSuccessContainer else MaterialTheme.colorScheme.surface,
+      color = if (selectedRouteId != RoutesCatalog.UNALLOCATED) MaterialTheme.semanticColors.successContainer else MaterialTheme.colorScheme.surface,
       shape = RoundedCornerShape(12.dp),
-      border = BorderStroke(1.dp, EmeraldSuccess.copy(alpha = 0.35f)),
+      border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
       modifier = Modifier
         .weight(1f)
         .clip(RoundedCornerShape(12.dp))
@@ -969,7 +957,7 @@ private fun AssignedUnassignedStrip(
           text = "Assigned Packing",
           style = MaterialTheme.typography.labelSmall,
           fontWeight = FontWeight.Bold,
-          color = EmeraldSuccess,
+          color = MaterialTheme.semanticColors.success,
         )
         Text(
           text = "$assignedOrders orders • $assignedPacks pk",
@@ -981,11 +969,11 @@ private fun AssignedUnassignedStrip(
     }
 
     Surface(
-      color = if (selectedRouteId == RoutesCatalog.UNALLOCATED) CoralDangerContainer else MaterialTheme.colorScheme.surface,
+      color = if (selectedRouteId == RoutesCatalog.UNALLOCATED) MaterialTheme.semanticColors.dangerContainer else MaterialTheme.colorScheme.surface,
       shape = RoundedCornerShape(12.dp),
       border = BorderStroke(
         1.dp,
-        if (unassignedOrders > 0) CoralDanger.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+        if (unassignedOrders > 0) MaterialTheme.semanticColors.danger.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
       ),
       modifier = Modifier
         .weight(1f)
@@ -998,7 +986,7 @@ private fun AssignedUnassignedStrip(
           text = "Unassigned Packing",
           style = MaterialTheme.typography.labelSmall,
           fontWeight = FontWeight.Bold,
-          color = if (unassignedOrders > 0) CoralDanger else MaterialTheme.colorScheme.onSurfaceVariant,
+          color = if (unassignedOrders > 0) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
           text = "$unassignedOrders orders • $unassignedPacks pk",
@@ -1019,9 +1007,9 @@ private fun PackingTabSwitcher(
   onSelectTab: (PackingTab) -> Unit,
 ) {
   Surface(
-    color = MintFieldFill,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
     shape = RoundedCornerShape(12.dp),
-    border = BorderStroke(1.dp, MintFieldBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Row(
@@ -1038,9 +1026,9 @@ private fun PackingTabSwitcher(
           PackingTab.A4_MANIFEST -> null
         }
         Surface(
-          color = if (selected) Color.White else Color.Transparent,
+          color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
           shape = RoundedCornerShape(9.dp),
-          border = if (selected) BorderStroke(1.dp, MintCardBorder) else null,
+          border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)) else null,
           shadowElevation = if (selected) 2.dp else 0.dp,
           modifier = Modifier
             .weight(1f)
@@ -1100,9 +1088,9 @@ private fun TodayProductionTargetCard(
   val totalToPrepare = (totalOrdered - totalLoaded).coerceAtLeast(0)
   Card(
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier
       .fillMaxWidth()
       .testTag("production_target_by_size_card"),
@@ -1134,14 +1122,14 @@ private fun TodayProductionTargetCard(
           )
         }
         Surface(
-          color = if (totalToPrepare > 0) AmberWarningContainer else EmeraldSuccessContainer,
+          color = if (totalToPrepare > 0) MaterialTheme.semanticColors.warningContainer else MaterialTheme.semanticColors.successContainer,
           shape = RoundedCornerShape(999.dp),
         ) {
           Text(
             text = if (totalToPrepare > 0) "Prepare $totalToPrepare pk" else "Target Ready",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = if (totalToPrepare > 0) AmberWarning else EmeraldSuccess,
+            color = if (totalToPrepare > 0) MaterialTheme.semanticColors.warning else MaterialTheme.semanticColors.success,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
           )
         }
@@ -1155,12 +1143,12 @@ private fun TodayProductionTargetCard(
       ) {
         targets.forEach { target ->
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             shape = RoundedCornerShape(10.dp),
             border = BorderStroke(
               1.dp,
-              if (target.toPreparePacks > 0) AmberWarning.copy(alpha = 0.55f)
-              else MintCardBorder,
+              if (target.toPreparePacks > 0) MaterialTheme.semanticColors.warning.copy(alpha = 0.55f)
+              else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
             ),
           ) {
             Column(
@@ -1186,7 +1174,7 @@ private fun TodayProductionTargetCard(
                   "All ${target.loadedPacks} pk ready"
                 },
                 style = MaterialTheme.typography.labelSmall,
-                color = if (target.toPreparePacks > 0) AmberWarning else EmeraldSuccess,
+                color = if (target.toPreparePacks > 0) MaterialTheme.semanticColors.warning else MaterialTheme.semanticColors.success,
               )
             }
           }
@@ -1204,9 +1192,9 @@ private fun SectionProductionPackingCard(
 ) {
   Card(
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier
       .fillMaxWidth()
       .testTag("packing_section_${group.categoryName.lowercase().replace(" ", "_")}"),
@@ -1214,7 +1202,7 @@ private fun SectionProductionPackingCard(
     Column(modifier = Modifier.fillMaxWidth()) {
       // Section Header Band matching image (Dot + Category Title + Loaded/Ordered (%))
       Surface(
-        color = MintHeaderTint,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Row(
@@ -1235,7 +1223,7 @@ private fun SectionProductionPackingCard(
                 .clip(CircleShape)
                 .background(
                   if (group.completionPercent >= 100) MaterialTheme.colorScheme.primary
-                  else AmberWarning,
+                  else MaterialTheme.semanticColors.warning,
                 ),
             )
             Text(
@@ -1251,15 +1239,15 @@ private fun SectionProductionPackingCard(
             text = "${group.totalLoadedPacks} / ${group.totalOrderedPacks} pk (${group.completionPercent}%)",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            color = if (group.completionPercent >= 100) MaterialTheme.colorScheme.primary else AmberWarning,
+            color = if (group.completionPercent >= 100) MaterialTheme.colorScheme.primary else MaterialTheme.semanticColors.warning,
           )
         }
       }
 
-      HorizontalDivider(color = MintFieldBorder)
+      HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
       group.items.forEachIndexed { idx, sku ->
         if (idx > 0) {
-          HorizontalDivider(color = MintFieldBorder.copy(alpha = 0.6f))
+          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
         }
         PackingSkuVariantRow(
           sku = sku,
@@ -1304,12 +1292,12 @@ private fun PackingSkuVariantRow(
             modifier = Modifier.weight(1f, fill = false),
           )
           if (isShort) {
-            Surface(color = CoralDangerContainer, shape = RoundedCornerShape(999.dp)) {
+            Surface(color = MaterialTheme.semanticColors.dangerContainer, shape = RoundedCornerShape(999.dp)) {
               Text(
                 text = "Short: ${sku.shortagePacks} pk",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                 fontWeight = FontWeight.Bold,
-                color = CoralDanger,
+                color = MaterialTheme.semanticColors.danger,
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
               )
             }
@@ -1344,7 +1332,7 @@ private fun PackingSkuVariantRow(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Surface(
-            color = EmeraldSuccessContainer,
+            color = MaterialTheme.semanticColors.successContainer,
             shape = RoundedCornerShape(999.dp),
             modifier = Modifier
               .clip(RoundedCornerShape(999.dp))
@@ -1358,14 +1346,14 @@ private fun PackingSkuVariantRow(
               Icon(
                 imageVector = Icons.Rounded.CheckCircle,
                 contentDescription = null,
-                tint = EmeraldSuccess,
+                tint = MaterialTheme.semanticColors.success,
                 modifier = Modifier.size(14.dp),
               )
               Text(
                 text = "${sku.loadedPacks} / ${sku.orderedPacks} pk",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = EmeraldSuccess,
+                color = MaterialTheme.semanticColors.success,
               )
             }
           }
@@ -1430,7 +1418,7 @@ private fun PackingSkuVariantRow(
 
     LinearProgressIndicator(
       progress = { sku.progressFraction },
-      color = if (isShort) CoralDanger else EmeraldSuccess,
+      color = if (isShort) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
       trackColor = MaterialTheme.colorScheme.surfaceVariant,
       modifier = Modifier
         .fillMaxWidth()
@@ -1447,9 +1435,9 @@ private fun EmptyPackingStateCard(
 ) {
   Card(
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
@@ -1504,9 +1492,9 @@ private fun ReverseLoadSequencePreviewCard(
 ) {
   Card(
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-    border = BorderStroke(1.2.dp, MintCardBorder),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     modifier = Modifier
       .fillMaxWidth()
       .testTag("packing_reverse_load_preview"),
@@ -1541,7 +1529,7 @@ private fun ReverseLoadSequencePreviewCard(
           )
         }
         Surface(
-          color = MintAccentChip,
+          color = MaterialTheme.colorScheme.primaryContainer,
           shape = RoundedCornerShape(8.dp),
           modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
@@ -1552,7 +1540,7 @@ private fun ReverseLoadSequencePreviewCard(
             text = "Open Packages (${slips.size})",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
           )
         }
@@ -1567,12 +1555,12 @@ private fun ReverseLoadSequencePreviewCard(
         slips.take(4).forEach { slip ->
           val qty = slip.items.sumOf { it.quantity }.takeIf { it > 0 } ?: slip.order.itemCount
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             shape = RoundedCornerShape(10.dp),
             border = BorderStroke(
               1.dp,
-              if (slip.packOrderNumber == 1) EmeraldDeepPrimary.copy(alpha = 0.55f)
-              else MintFieldBorder,
+              if (slip.packOrderNumber == 1) MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+              else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
             ),
             modifier = Modifier
               .clip(RoundedCornerShape(10.dp))

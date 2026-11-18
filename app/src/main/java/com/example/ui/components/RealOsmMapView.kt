@@ -77,15 +77,14 @@ import com.example.data.model.Shop
 import com.example.ui.theme.CobaltInfo
 import com.example.ui.theme.CoralDanger
 import com.example.ui.theme.DeepSlateInk
-import com.example.ui.theme.EmeraldDeepContainer
-import com.example.ui.theme.EmeraldDeepPrimary
 import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.MintSurfaceHighest
+import com.example.ui.theme.ForestSecondary
 import com.example.ui.theme.MutedSlateInk
 import com.example.ui.theme.RouteColorPalette
 import com.example.ui.theme.RouteColorSpec
 import com.example.ui.theme.RouteComboPattern
 import com.example.ui.theme.SaffronPrimary
+import com.example.ui.theme.WarmIvorySurfaceVariant
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.math.PI
@@ -1632,7 +1631,7 @@ private fun DrawScope.drawNavigationPolylines(
     )
     drawPath(
       path = activePath,
-      color = EmeraldDeepContainer,
+      color = SaffronPrimary,
       style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
     )
   }
@@ -1657,7 +1656,7 @@ private fun DrawScope.drawNavigationTargetPin(
 
   if (isActive) {
     drawCircle(
-      color = EmeraldDeepPrimary.copy(alpha = 0.20f),
+      color = SaffronPrimary.copy(alpha = 0.22f),
       radius = 26.dp.toPx(),
       center = center,
     )
@@ -1670,10 +1669,10 @@ private fun DrawScope.drawNavigationTargetPin(
   )
 
   val fillColor = when {
-    isActive -> EmeraldDeepPrimary
+    isActive -> SaffronPrimary
     isCompleted -> EmeraldSuccess
-    isSelected -> SaffronPrimary
-    else -> MintSurfaceHighest
+    isSelected -> ForestSecondary
+    else -> WarmIvorySurfaceVariant
   }
   val textColor = when {
     isActive || isCompleted || isSelected -> Color.White
@@ -1681,9 +1680,9 @@ private fun DrawScope.drawNavigationTargetPin(
   }
   val borderColor = when {
     isActive -> Color.White
-    isSelected -> SaffronPrimary
+    isSelected -> ForestSecondary
     isCompleted -> Color.White
-    else -> EmeraldDeepContainer.copy(alpha = 0.65f)
+    else -> SaffronPrimary.copy(alpha = 0.65f)
   }
 
   drawCircle(color = fillColor, radius = r, center = center)
@@ -1736,8 +1735,8 @@ private fun DrawScope.drawNavigationTargetPin(
       val corner = CornerRadius(6.dp.toPx(), 6.dp.toPx())
       drawRoundRect(
         color = when {
-          isActive -> EmeraldDeepPrimary
-          isSelected -> SaffronPrimary
+          isActive -> SaffronPrimary
+          isSelected -> ForestSecondary
           else -> Color.Black.copy(alpha = 0.72f)
         },
         topLeft = Offset(pillLeft, pillTop),

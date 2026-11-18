@@ -1,0 +1,678 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_tab" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-primary": "#ffffff", "surface-variant": "#dae5dd", "primary-fixed-dim": "#88d7a8", "on-primary-fixed-variant": "#005231", "on-primary-fixed": "#002111", "on-surface-variant": "#3f4942", "on-tertiary": "#ffffff", outline: "#6f7a71", "on-secondary-container": "#087147", "surface-container-high": "#dfebe3", "error-container": "#ffdad6", "inverse-primary": "#88d7a8", "on-secondary-fixed-variant": "#005231", "inverse-surface": "#28332d", "on-secondary-fixed": "#002111", "on-surface": "#141e19", primary: "#004529", "surface-dim": "#d1ddd5", "on-error-container": "#93000a", "primary-fixed": "#a4f4c3", "tertiary-fixed-dim": "#ffb3ac", error: "#ba1a1a", secondary: "#006d43", "surface-container": "#e5f1e8", "on-tertiary-fixed": "#410003", "tertiary-fixed": "#ffdad6", "on-secondary": "#ffffff", "tertiary-container": "#a80716", "on-error": "#ffffff", "primary-container": "#005f3a", tertiary: "#7e000b", "inverse-on-surface": "#e8f4eb", "surface-container-low": "#ebf6ee", "outline-variant": "#bfc9bf", "surface-tint": "#186c45", "secondary-fixed": "#9bf5c0", background: "#f1fcf4", "on-primary-container": "#88d7a8", "secondary-container": "#99f2bd", "on-tertiary-fixed-variant": "#93000f", "on-tertiary-container": "#ffb3ac", "surface-bright": "#f1fcf4", "secondary-fixed-dim": "#80d9a5", surface: "#f1fcf4", "surface-container-highest": "#dae5dd", "on-background": "#141e19", "surface-container-lowest": "#ffffff"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"space-lg": "1rem", "space-xl": "1.5rem", gutter: "1rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "gutter-mobile": "0.75rem", "space-md": "0.75rem", margin: "1.5rem", "margin-mobile": "1rem"}, fontFamily: {"headline-lg-mobile": ["Inter"], "body-md": ["Inter"], "headline-sm": ["Inter"], "headline-md": ["Inter"], "body-sm": ["Inter"], "headline-xl": ["Inter"], "headline-lg": ["Inter"], "label-sm": ["Inter"], "body-lg": ["Inter"], "label-md": ["Inter"], "headline-xl-mobile": ["Inter"], "label-lg": ["Inter"], headline: ["Inter"], display: ["Inter"], body: ["Inter"], label: ["Inter"]}, fontSize: {"headline-lg-mobile": ["20px", {lineHeight: "28px", letterSpacing: "-0.015em", fontWeight: "600"}], "body-md": ["14px", {lineHeight: "20px", letterSpacing: "0em", fontWeight: "400"}], "headline-sm": ["16px", {lineHeight: "24px", letterSpacing: "-0.005em", fontWeight: "600"}], "headline-md": ["20px", {lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-sm": ["12px", {lineHeight: "16px", letterSpacing: "0.005em", fontWeight: "400"}], "headline-xl": ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg": ["24px", {lineHeight: "32px", letterSpacing: "-0.015em", fontWeight: "600"}], "label-sm": ["11px", {lineHeight: "14px", letterSpacing: "0.03em", fontWeight: "600"}], "body-lg": ["16px", {lineHeight: "24px", letterSpacing: "0em", fontWeight: "400"}], "label-md": ["12px", {lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "600"}], "headline-xl-mobile": ["24px", {lineHeight: "32px", letterSpacing: "-0.02em", fontWeight: "700"}], "label-lg": ["14px", {lineHeight: "20px", letterSpacing: "0.01em", fontWeight: "600"}]}}}}</script><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#f1fcf4;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}body{min-height:max(884px,100dvh);}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed" data-mode="connect"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 px-gutter flex items-center justify-between gap-space-sm"><div class="flex flex-col justify-center min-w-0 flex-1"><div class="flex items-center gap-1.5 truncate"><span class="material-symbols-outlined text-[15px] text-primary">storefront</span><span class="font-label-sm text-[11px] text-primary uppercase tracking-wider truncate font-bold">HOMELY BY HOMIE</span></div><div class="flex items-center gap-1.5 truncate"><h1 class="text-[18px] font-bold text-on-surface tracking-tight truncate">Shop Payments</h1><span class="text-[12px] font-medium text-secondary truncate">• Kochi Central Hub</span></div></div><div class="flex items-center shrink-0 gap-1.5"><button aria-label="Search Ledger &amp; Payments" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors" id="top-search-btn" type="button"><span class="material-symbols-outlined text-[22px]">search</span></button><div class="relative"><button aria-label="Notifications" class="relative w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors" id="notif-bell-btn" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white" id="notif-badge">3</span></button><div class="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 hidden opacity-0 transition-opacity duration-200" id="notif-backdrop"></div><div class="fixed sm:absolute right-3 left-3 sm:left-auto sm:w-80 top-16 sm:top-12 z-50 hidden opacity-0 translate-y-2 transition-all duration-200 bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/30" id="notif-popover"><div class="p-3 border-b border-surface-container-highest/60 flex items-center justify-between"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-tertiary-container text-[18px]">notifications_active</span><h4 class="font-label-lg text-label-lg font-bold text-on-surface">Important Alerts (3)</h4></div><button class="font-label-sm text-label-sm text-secondary font-semibold hover:underline" id="mark-all-read-btn" type="button">Mark all read</button></div><div class="p-2 space-y-2 max-h-[618px] overflow-y-auto"><div class="p-2.5 rounded-xl bg-error-container/40 border border-error-container flex flex-col gap-1"><div class="flex items-start justify-between gap-1"><div class="flex items-center gap-1 text-tertiary-container"><span class="material-symbols-outlined text-[16px]">warning</span><span class="font-label-sm text-label-sm font-bold uppercase tracking-wider">Out of Stock</span></div><span class="font-body-sm text-body-sm text-outline text-[11px]">10m ago</span></div><p class="font-body-sm text-body-sm text-on-surface font-medium leading-tight">Kerala Banana Chips 100g is OUT OF STOCK. 8 retail orders impacted.</p></div><div class="p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/40 flex flex-col gap-1"><div class="flex items-start justify-between gap-1"><div class="flex items-center gap-1 text-primary"><span class="material-symbols-outlined text-[16px]">receipt_long</span><span class="font-label-sm text-label-sm font-bold uppercase tracking-wider">Overdue Balance</span></div><span class="font-body-sm text-body-sm text-outline text-[11px]">4d ago</span></div><p class="font-body-sm text-body-sm text-on-surface font-medium leading-tight">Malabar Heritage Supermarket: <strong class="text-tertiary-container">₹28,500</strong> pending payment.</p></div></div><div class="p-2 border-t border-surface-container-highest/60 flex items-center justify-between bg-surface-container-lowest rounded-b-2xl"><button class="w-full py-1 text-center font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface font-medium" id="close-notif-btn" type="button">Close</button></div></div></div><button aria-label="User Profile" class="w-9 h-9 rounded-full bg-primary flex items-center justify-center shrink-0 hover:bg-primary-container transition-colors ring-2 ring-white/50" type="button"><span class="material-symbols-outlined text-on-primary text-[20px]">person</span></button></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-20 bg-surface"><div class="flex flex-col w-full">
+<!-- Top Operational Banner & Sync Pulse -->
+<div class="px-gutter-mobile py-space-sm flex items-center justify-between bg-surface-container-low"><div class="flex items-center gap-space-xs truncate min-w-0"><span class="inline-flex w-2 h-2 rounded-full bg-secondary animate-pulse shrink-0"></span><span class="font-label-sm text-label-sm text-on-surface-variant font-medium truncate">B2B Ledger Synced: 26 Oct 2026, 04:30 PM IST</span></div><div class="flex items-center gap-1.5 shrink-0"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#e8f5ec] text-[#005f3a] border border-[#18794e]/20"><span class="inline-block w-1.5 h-1.5 rounded-full bg-secondary"></span><span>Kochi Central Hub</span></span><div class="flex items-center gap-1 bg-surface-container px-2 py-0.5 rounded-full"><span class="material-symbols-outlined text-secondary text-[14px]">tune</span><span class="font-label-sm text-label-sm text-secondary font-bold">Kochi Route 04</span></div></div></div>
+<!-- Financial Summary 2x2 Bento Matrix -->
+<div class="px-gutter-mobile pt-space-md pb-space-sm grid grid-cols-2 gap-space-sm">
+<!-- Card 1: Total Outstanding -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Total Outstanding</span>
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+</div>
+</div>
+<div class="mt-2">
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-bold tracking-tight">₹2,84,600</div>
+<div class="flex items-center gap-1 mt-0.5">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Across</span>
+<span class="font-label-sm text-label-sm text-primary font-bold">24 shops</span>
+</div>
+</div>
+</div>
+<!-- Card 2: Overdue Amount (Coral Red Alert) -->
+<div class="p-space-md rounded-xl bg-error-container/40 shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-error-container font-semibold">Overdue Credit</span>
+<div class="w-7 h-7 rounded-full bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+</div>
+</div>
+<div class="mt-2">
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-error font-bold tracking-tight">₹65,200</div>
+<div class="flex items-center gap-1 mt-0.5">
+<span class="font-body-sm text-body-sm text-error font-medium">Past due date</span>
+<span class="inline-block w-1.5 h-1.5 rounded-full bg-error"></span>
+<span class="font-label-sm text-label-sm text-on-error-container font-bold">7 shops</span>
+</div>
+</div>
+</div>
+<!-- Card 3: Payments Received Today -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Collected Today</span>
+<div class="w-7 h-7 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[16px]">payments</span>
+</div>
+</div>
+<div class="mt-2">
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-secondary font-bold tracking-tight">₹1,48,250</div>
+<div class="flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-secondary text-[13px]">check_circle</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">18 collections</span>
+</div>
+</div>
+</div>
+<!-- Card 4: Active Credit Retailers -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Pending Retailers</span>
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">storefront</span>
+</div>
+</div>
+<div class="mt-2">
+<div class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-bold tracking-tight">24 <span class="font-body-sm text-body-sm text-on-surface-variant font-normal">/ 128</span></div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 mt-1.5 overflow-hidden">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 18.75%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Suite Tabs (All Shops Ledger / Receipts / Aging) -->
+<div class="px-gutter-mobile pt-space-xs">
+<div class="flex items-center gap-1 p-1 bg-surface-container-high rounded-xl">
+<button class="flex-1 py-1.5 px-2 rounded-lg bg-surface-container-lowest text-primary shadow-sm font-label-md text-label-md font-bold text-center transition-all" type="button">
+        All Shops Ledger
+      </button>
+<button class="flex-1 py-1.5 px-2 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md font-semibold text-center transition-all" type="button">
+        Receipts (18)
+      </button>
+<button class="flex-1 py-1.5 px-2 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md font-semibold text-center transition-all" type="button">
+        Aging Analysis
+      </button>
+</div>
+</div>
+<!-- Sticky Search Bar & Filter Strip -->
+<div class="sticky top-16 z-30 bg-surface/95 backdrop-blur-md px-gutter-mobile py-space-sm space-y-space-xs">
+<!-- Search Input -->
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-outline text-[20px] pointer-events-none">search</span>
+<input class="w-full pl-10 pr-9 py-2.5 bg-surface-container-lowest rounded-xl font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none shadow-sm" id="shop-search-input" placeholder="Search shop name, ID, owner, phone, or invoice..." type="text">
+<button class="absolute right-3 hidden text-outline hover:text-on-surface" id="clear-search-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">cancel</span>
+</button>
+</div>
+<!-- Filter Chips Row -->
+<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+<button class="filter-chip whitespace-nowrap px-3 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-xs" type="button">
+        All Shops (128)
+      </button>
+<button class="filter-chip active-filter whitespace-nowrap px-3 py-1.5 rounded-full font-label-sm text-label-sm bg-primary text-on-primary font-bold shadow-xs" type="button">
+        Pending Payments (24)
+      </button>
+<button class="filter-chip whitespace-nowrap px-3 py-1.5 rounded-full font-label-sm text-label-sm bg-error-container/60 text-on-error-container font-semibold shadow-xs" type="button">
+        Overdue (7)
+      </button>
+<button class="filter-chip whitespace-nowrap px-3 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container shadow-xs" type="button">
+        Fully Paid (97)
+      </button>
+</div>
+<!-- Sort & Batch Quick Trigger -->
+<div class="flex items-center justify-between pt-0.5">
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">sort</span>
+<span>Sort: <strong class="text-on-surface font-bold">Highest Outstanding ▾</strong></span>
+</button>
+<span class="font-label-sm text-label-sm text-outline">Showing 5 of 24 Pending</span>
+</div>
+</div>
+<!-- SHOP-WISE PAYMENT CARDS LIST -->
+<div class="px-gutter-mobile py-space-xs space-y-space-md pb-6">
+<!-- Card 1: Malabar Heritage Supermarket (Overdue 4 Days) -->
+<div class="rounded-xl bg-surface-container-lowest shadow-sm p-space-md space-y-space-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-error"></div>
+<!-- Top Retailer Info Row -->
+<div class="flex items-start justify-between gap-2 pl-1">
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold tracking-tight">SHOP-000130</span>
+<span class="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-bold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">alarm</span> Overdue (4 Days)
+            </span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold mt-1 truncate">Malabar Heritage Supermarket</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">K. Abdul Rahman • Edappally Toll, Kochi</p>
+</div>
+<a aria-label="Call Owner" class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary shrink-0 hover:bg-surface-container-high transition-colors" href="tel:+919846077123">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+<!-- Financial Metrics Ribbon -->
+<div class="pl-1 grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-surface-container-low">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Outstanding Balance</span>
+<div class="font-headline-sm text-headline-sm text-error font-bold mt-0.5">₹28,500</div>
+<span class="font-label-sm text-[10px] text-error font-medium">Full sum overdue</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Invoiced / Paid</span>
+<div class="font-label-lg text-label-lg text-on-surface font-semibold mt-0.5">₹98,500 <span class="text-outline font-normal">/</span> <span class="text-secondary font-bold">₹70,000</span></div>
+<span class="font-body-sm text-[11px] text-outline">Paid 71.0%</span>
+</div>
+</div>
+<!-- Recent Payment Note -->
+<div class="pl-1 flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm bg-surface-container/50 px-2 py-1.5 rounded-md">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-secondary text-[16px] shrink-0">history</span>
+<span class="truncate">Recent: <strong>₹15,000</strong> via UPI</span>
+</div>
+<span class="text-outline shrink-0 font-label-sm text-label-sm">20 Oct 2026</span>
+</div>
+<!-- Actions -->
+<div class="pl-1 pt-1 flex items-center gap-2">
+<button class="flex-1 py-2 px-3 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md font-semibold hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">receipt</span>
+<span>View Invoices (3)</span>
+</button>
+<button class="flex-1 py-2 px-3 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-1" onclick="openRecordPaymentModal('Malabar Heritage Supermarket', 'SHOP-000130', '28500', '+91 98460 77123', 'K. Abdul Rahman')" type="button">
+<span class="material-symbols-outlined text-[16px]">add_card</span>
+<span>+ Record Payment</span>
+</button>
+</div>
+</div>
+<!-- Card 2: Green Valley Stores (Pending - Amber) -->
+<div class="rounded-xl bg-surface-container-lowest shadow-sm p-space-md space-y-space-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-secondary"></div>
+<!-- Top Retailer Info Row -->
+<div class="flex items-start justify-between gap-2 pl-1">
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold tracking-tight">SHOP-000126</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm font-semibold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px] text-secondary">schedule</span> Payment Pending
+            </span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold mt-1 truncate">Green Valley Stores</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Rajesh Kumar • Edappally, Kochi</p>
+</div>
+<a aria-label="Call Owner" class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary shrink-0 hover:bg-surface-container-high transition-colors" href="tel:+919847190244">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+<!-- Financial Metrics Ribbon -->
+<div class="pl-1 grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-surface-container-low">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Outstanding Balance</span>
+<div class="font-headline-sm text-headline-sm text-on-surface font-bold mt-0.5">₹11,200</div>
+<span class="font-label-sm text-[10px] text-secondary font-medium">Overdue: ₹0.00 (Due 30 Oct)</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Invoiced / Paid</span>
+<div class="font-label-lg text-label-lg text-on-surface font-semibold mt-0.5">₹54,200 <span class="text-outline font-normal">/</span> <span class="text-secondary font-bold">₹43,000</span></div>
+<span class="font-body-sm text-[11px] text-outline">Paid 79.3%</span>
+</div>
+</div>
+<!-- Recent Payment Note -->
+<div class="pl-1 flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm bg-surface-container/50 px-2 py-1.5 rounded-md">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-secondary text-[16px] shrink-0">payments</span>
+<span class="truncate">Recent: <strong>₹10,080</strong> Cash on Delivery</span>
+</div>
+<span class="text-outline shrink-0 font-label-sm text-label-sm">22 Oct 2026</span>
+</div>
+<!-- Actions -->
+<div class="pl-1 pt-1 flex items-center gap-2">
+<button class="flex-1 py-2 px-3 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md font-semibold hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">receipt</span>
+<span>View Details</span>
+</button>
+<button class="flex-1 py-2 px-3 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-1" onclick="openRecordPaymentModal('Green Valley Stores', 'SHOP-000126', '11200', '+91 98471 90244', 'Rajesh Kumar')" type="button">
+<span class="material-symbols-outlined text-[16px]">add_card</span>
+<span>+ Record Payment</span>
+</button>
+</div>
+</div>
+<!-- Card 3: Priya Supermarket (Overdue 2 Days) -->
+<div class="rounded-xl bg-surface-container-lowest shadow-sm p-space-md space-y-space-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-error"></div>
+<!-- Top Retailer Info Row -->
+<div class="flex items-start justify-between gap-2 pl-1">
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold tracking-tight">SHOP-000131</span>
+<span class="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-bold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">alarm</span> Overdue (2 Days)
+            </span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold mt-1 truncate">Priya Supermarket</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">K. G. Varghese • Near Toll Jct, Edappally</p>
+</div>
+<a aria-label="Call Owner" class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary shrink-0 hover:bg-surface-container-high transition-colors" href="tel:+919845210982">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+<!-- Financial Metrics Ribbon -->
+<div class="pl-1 grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-surface-container-low">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Outstanding Balance</span>
+<div class="font-headline-sm text-headline-sm text-error font-bold mt-0.5">₹7,850</div>
+<span class="font-label-sm text-[10px] text-error font-medium">Overdue: ₹7,850</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Invoiced / Paid</span>
+<div class="font-label-lg text-label-lg text-on-surface font-semibold mt-0.5">₹42,600 <span class="text-outline font-normal">/</span> <span class="text-secondary font-bold">₹34,750</span></div>
+<span class="font-body-sm text-[11px] text-outline">Paid 81.5%</span>
+</div>
+</div>
+<!-- Actions -->
+<div class="pl-1 pt-1 flex items-center gap-2">
+<button class="flex-1 py-2 px-3 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md font-semibold hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">receipt</span>
+<span>View Details</span>
+</button>
+<button class="flex-1 py-2 px-3 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-1" onclick="openRecordPaymentModal('Priya Supermarket', 'SHOP-000131', '7850', '+91 98452 10982', 'K. G. Varghese')" type="button">
+<span class="material-symbols-outlined text-[16px]">add_card</span>
+<span>+ Record Payment</span>
+</button>
+</div>
+</div>
+<!-- Card 4: Kripa Provision Store (Pending) -->
+<div class="rounded-xl bg-surface-container-lowest shadow-sm p-space-md space-y-space-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-secondary"></div>
+<!-- Top Retailer Info Row -->
+<div class="flex items-start justify-between gap-2 pl-1">
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold tracking-tight">SHOP-000129</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm font-semibold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px] text-secondary">schedule</span> Payment Pending
+            </span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold mt-1 truncate">Kripa Provision Store</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Mathew Varghese • Aluva Market Road</p>
+</div>
+<a aria-label="Call Owner" class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary shrink-0 hover:bg-surface-container-high transition-colors" href="tel:+919847055678">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+<!-- Financial Metrics Ribbon -->
+<div class="pl-1 grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-surface-container-low">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Outstanding Balance</span>
+<div class="font-headline-sm text-headline-sm text-on-surface font-bold mt-0.5">₹8,500</div>
+<span class="font-label-sm text-[10px] text-secondary font-medium">Due in 5 days</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Invoiced / Paid</span>
+<div class="font-label-lg text-label-lg text-on-surface font-semibold mt-0.5">₹36,500 <span class="text-outline font-normal">/</span> <span class="text-secondary font-bold">₹28,000</span></div>
+<span class="font-body-sm text-[11px] text-outline">Paid 76.7%</span>
+</div>
+</div>
+<!-- Actions -->
+<div class="pl-1 pt-1 flex items-center gap-2">
+<button class="flex-1 py-2 px-3 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md font-semibold hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">receipt</span>
+<span>View Details</span>
+</button>
+<button class="flex-1 py-2 px-3 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-1" onclick="openRecordPaymentModal('Kripa Provision Store', 'SHOP-000129', '8500', '+91 98470 55678', 'Mathew Varghese')" type="button">
+<span class="material-symbols-outlined text-[16px]">add_card</span>
+<span>+ Record Payment</span>
+</button>
+</div>
+</div>
+<!-- Card 5: Fresh Mart (Fully Paid - Clear Green) -->
+<div class="rounded-xl bg-surface-container-lowest shadow-sm p-space-md space-y-space-sm relative overflow-hidden opacity-90">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-secondary-fixed-dim"></div>
+<!-- Top Retailer Info Row -->
+<div class="flex items-start justify-between gap-2 pl-1">
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold tracking-tight">SHOP-000127</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[13px]">check_circle</span> Fully Settled
+            </span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold mt-1 truncate">Fresh Mart</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Anil Menon • Kalamassery, Kochi</p>
+</div>
+<a aria-label="Call Owner" class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary shrink-0 hover:bg-surface-container-high transition-colors" href="tel:+919876512311">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+<!-- Financial Metrics Ribbon -->
+<div class="pl-1 grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-surface-container-low">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Outstanding Balance</span>
+<div class="font-headline-sm text-headline-sm text-secondary font-bold mt-0.5">₹0.00</div>
+<span class="font-label-sm text-[10px] text-secondary font-medium">All Invoices Cleared</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Total Volume</span>
+<div class="font-label-lg text-label-lg text-on-surface font-semibold mt-0.5">₹62,000</div>
+<span class="font-body-sm text-[11px] text-secondary font-medium">100% Collected</span>
+</div>
+</div>
+<!-- Recent Payment Note -->
+<div class="pl-1 flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm bg-surface-container/50 px-2 py-1.5 rounded-md">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-secondary text-[16px] shrink-0">account_balance</span>
+<span class="truncate">Settled: <strong>₹22,400</strong> Bank NEFT</span>
+</div>
+<span class="text-outline shrink-0 font-label-sm text-label-sm">Yesterday</span>
+</div>
+<!-- Actions -->
+<div class="pl-1 pt-1 flex items-center gap-2">
+<button class="w-full py-2 px-3 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md font-semibold hover:bg-surface-container-high transition-colors flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">receipt_long</span>
+<span>View Payment Ledger &amp; Statement</span>
+</button>
+</div>
+</div>
+</div>
+<!-- INTERACTIVE MODAL / BOTTOM SHEET: "RECORD NEW PAYMENT" -->
+<div class="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 transition-opacity duration-200 opacity-0 hidden" id="payment-modal-backdrop"></div>
+<div class="fixed left-0 right-0 bottom-0 z-50 bg-surface-container-lowest rounded-t-3xl shadow-2xl max-h-[813px] overflow-y-auto transition-transform duration-300 pb-safe translate-y-full hidden" id="payment-modal-sheet">
+<!-- Handle bar -->
+<div class="sticky top-0 bg-surface-container-lowest pt-3 pb-2 px-gutter-mobile flex flex-col items-center border-b border-surface-container-highest/40 z-10">
+<div class="w-12 h-1.5 rounded-full bg-surface-variant mb-2"></div>
+<div class="w-full flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">add_card</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Record Shop Payment</h3>
+<span class="font-label-sm text-label-sm text-on-surface-variant" id="modal-shop-subtitle">Kripa Provision Store</span>
+</div>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface" onclick="closeRecordPaymentModal()" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<!-- Modal Content Form Body -->
+<div class="p-gutter-mobile space-y-4 pb-20">
+<!-- Current Balance Callout -->
+<div class="p-3 rounded-xl bg-surface-container-low flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Current Shop Balance</span>
+<div class="font-headline-md text-headline-md text-error font-bold" id="modal-outstanding-val">₹8,500</div>
+<span class="font-label-sm text-[11px] text-error font-medium" id="modal-shop-meta">SHOP-000129 • Mathew Varghese</span>
+</div>
+<div class="text-right">
+<span class="px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-bold">4 Days Overdue</span>
+</div>
+</div>
+<!-- Payment Amount Input -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface font-bold mb-1.5">Amount Collected (₹)</label>
+<div class="relative flex items-center">
+<span class="absolute left-3 font-headline-md text-headline-md text-primary font-bold">₹</span>
+<input class="w-full pl-9 pr-20 py-2.5 bg-surface-container-low rounded-xl font-headline-md text-headline-md text-on-surface font-bold focus:outline-none focus:bg-surface-container-lowest" id="payment-amount-input" placeholder="15000" type="number" value="15000">
+<button class="absolute right-2 px-2.5 py-1 rounded-lg bg-secondary-container text-on-secondary-container hover:bg-secondary hover:text-on-secondary font-label-sm text-label-sm font-bold shadow-xs flex items-center gap-1 transition-colors" onclick="fillFullAmount()" type="button"><span class="material-symbols-outlined text-[14px]">all_inclusive</span>Collect All (₹28,500)</button>
+</div>
+<div class="flex items-center justify-between mt-1 text-on-surface-variant font-label-sm text-label-sm"><span>Quick: <button class="text-secondary underline font-semibold mr-1" onclick="setQuickAmount(5000)" type="button">₹5,000</button> <button class="text-secondary underline font-semibold mr-1" onclick="setQuickAmount(10000)" type="button">₹10,000</button> <button class="text-secondary font-bold bg-secondary-container text-on-secondary-container px-1.5 py-0.5 rounded" onclick="setQuickAmount(28500)" type="button">₹28,500</button></span><span class="text-outline">Remaining: <strong class="text-secondary font-bold" id="remaining-calc-val">₹0</strong></span></div>
+</div>
+<!-- Payment Method Selection -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface font-bold mb-1.5">Amount Collected (₹)</label>
+<div class="grid grid-cols-4 gap-1.5">
+<button class="pay-method-pill py-2 px-1 rounded-xl bg-surface-container font-label-sm text-label-sm text-on-surface font-semibold flex flex-col items-center gap-1 transition-all" onclick="selectPayMethod(this, 'cash')" type="button">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span>Cash</span>
+</button>
+<button class="pay-method-pill active-method py-2 px-1 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm font-bold flex flex-col items-center gap-1 transition-all shadow-xs" onclick="selectPayMethod(this, 'upi')" type="button">
+<span class="material-symbols-outlined text-[18px]">qr_code_2</span>
+<span>UPI</span>
+</button>
+<button class="pay-method-pill py-2 px-1 rounded-xl bg-surface-container font-label-sm text-label-sm text-on-surface font-semibold flex flex-col items-center gap-1 transition-all" onclick="selectPayMethod(this, 'bank')" type="button">
+<span class="material-symbols-outlined text-[18px]">account_balance</span>
+<span>Bank Trf</span>
+</button>
+<button class="pay-method-pill py-2 px-1 rounded-xl bg-surface-container font-label-sm text-label-sm text-on-surface font-semibold flex flex-col items-center gap-1 transition-all" onclick="selectPayMethod(this, 'cheque')" type="button">
+<span class="material-symbols-outlined text-[18px]">description</span>
+<span>Cheque</span>
+</button>
+</div>
+</div>
+<!-- Transaction Reference & Collector -->
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant font-medium mb-1">Transaction Ref / UTR</label>
+<input class="w-full px-3 py-2 bg-surface-container-low rounded-xl font-body-sm text-body-sm text-on-surface font-mono focus:outline-none" type="text" value="UPI/AXIS/4092188492">
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant font-medium mb-1">Payment Date</label>
+<div class="flex items-center px-3 py-2 bg-surface-container-low rounded-xl text-on-surface font-body-sm text-body-sm font-medium">
+<span class="material-symbols-outlined text-outline text-[16px] mr-1.5">calendar_today</span>
+<span>26 Oct 2026</span>
+</div>
+</div>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant font-medium mb-1">Collected By Field Officer</label>
+<div class="flex items-center justify-between px-3 py-2 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary text-on-primary font-bold text-[10px] flex items-center justify-center">RA</div>
+<span class="font-body-md text-body-md text-on-surface font-semibold">Rahul (Area Route Officer)</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-bold">Verified</span>
+</div>
+</div>
+<!-- Invoice Allocation Mode -->
+<div class="pt-1">
+<div class="flex items-center justify-between mb-1.5">
+<label class="font-label-md text-label-md text-on-surface font-bold">Amount Collected (₹)</label>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">Auto-Allocate to Oldest</span>
+</div>
+<!-- Invoices List to knock off -->
+<div class="space-y-2">
+<!-- Item 1 -->
+<div class="p-2.5 rounded-xl bg-surface-container-low flex items-start justify-between gap-2">
+<div class="flex items-start gap-2">
+<input checked="" class="mt-1 w-4 h-4 rounded text-secondary accent-primary" type="checkbox">
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-label-sm text-label-sm font-bold text-on-surface">#INV-8891</span>
+<span class="px-1.5 py-0.2 rounded bg-error-container text-on-error-container font-label-sm text-[10px] font-bold">4d Overdue</span>
+</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Due: 22 Oct 2026 • Kerala Banana Chips &amp; Spices</div>
+<div class="font-label-sm text-label-sm text-on-surface font-medium mt-0.5">Inv Total: ₹28,500</div>
+</div>
+</div>
+<div class="text-right shrink-0"><span class="font-label-sm text-label-sm text-secondary font-bold">Allocating ₹28,500</span><div class="font-body-sm text-[11px] text-secondary font-medium">Rem: ₹0 (Cleared)</div></div>
+</div>
+</div>
+</div>
+<!-- Action Confirmation Drawer -->
+<div class="pt-2 flex items-center gap-2">
+<button class="flex-1 py-3 px-4 rounded-xl bg-surface-container font-label-lg text-label-lg font-semibold text-on-surface hover:bg-surface-container-high transition-colors" onclick="closeRecordPaymentModal()" type="button">
+          Cancel
+        </button>
+<button class="flex-2 py-3 px-4 rounded-xl bg-primary font-label-lg text-label-lg font-bold text-on-primary shadow-md hover:bg-primary-container transition-all flex items-center justify-center gap-1.5" onclick="confirmPaymentRecorded()" type="button"><span class="material-symbols-outlined text-[20px]">verified</span><span class="flex flex-col items-start leading-tight"><span class="font-bold">✓ Payment Received &amp; Save Record</span><span class="text-[11px] font-normal text-on-primary-container opacity-90">Recorded to Shop Ledger</span></span></button>
+</div>
+</div>
+</div>
+<!-- Toast Notification on Success -->
+<div class="fixed top-20 left-4 right-4 z-50 transition-all duration-300 opacity-0 translate-y-[-10px] hidden" id="payment-toast">
+<div class="bg-inverse-surface text-inverse-on-surface p-3 rounded-2xl shadow-xl flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary-fixed text-[22px]">check_circle</span>
+<div>
+<div class="font-label-md text-label-md font-bold text-inverse-on-surface">Payment Recorded Successfully</div>
+<div class="font-body-sm text-body-sm text-outline-variant" id="toast-detail-text">Receipt #RCPT-2026-9912 generated (₹8,500 recorded)</div>
+</div>
+</div>
+<button class="text-inverse-on-surface/70 hover:text-inverse-on-surface" onclick="dismissToast()" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+</div>
+<script>
+  let currentShopBalance = 28500;
+
+  function openRecordPaymentModal(shopName, shopId, amount, phone, owner) {
+    currentShopBalance = parseInt(amount, 10) || 0;
+    
+    const sheet = document.getElementById('payment-modal-sheet');
+    const backdrop = document.getElementById('payment-modal-backdrop');
+    const subtitle = document.getElementById('modal-shop-subtitle');
+    const outVal = document.getElementById('modal-outstanding-val');
+    const shopMeta = document.getElementById('modal-shop-meta');
+    const amountInput = document.getElementById('payment-amount-input');
+
+    if (subtitle) subtitle.textContent = shopName;
+    if (outVal) outVal.textContent = '₹' + currentShopBalance.toLocaleString('en-IN');
+    if (shopMeta) shopMeta.textContent = shopId + ' • ' + owner;
+    
+    // Suggest half or default amount
+    const defaultPayment = currentShopBalance > 15000 ? 15000 : currentShopBalance;
+    if (amountInput) {
+      amountInput.value = defaultPayment;
+    }
+    recalcRemaining();
+
+    if (sheet && backdrop) {
+      sheet.classList.remove('hidden');
+      backdrop.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        backdrop.classList.remove('opacity-0');
+        sheet.classList.remove('translate-y-full');
+      });
+    }
+  }
+
+  function closeRecordPaymentModal() {
+    const sheet = document.getElementById('payment-modal-sheet');
+    const backdrop = document.getElementById('payment-modal-backdrop');
+
+    if (sheet && backdrop) {
+      backdrop.classList.add('opacity-0');
+      sheet.classList.add('translate-y-full');
+      setTimeout(() => {
+        sheet.classList.add('hidden');
+        backdrop.classList.add('hidden');
+      }, 250);
+    }
+  }
+
+  function recalcRemaining() {
+    const amountInput = document.getElementById('payment-amount-input');
+    const remElem = document.getElementById('remaining-calc-val');
+    if (!amountInput || !remElem) return;
+    
+    const entered = parseInt(amountInput.value, 10) || 0;
+    const remaining = Math.max(0, currentShopBalance - entered);
+    remElem.textContent = '₹' + remaining.toLocaleString('en-IN');
+  }
+
+  function setQuickAmount(amt) {
+    const amountInput = document.getElementById('payment-amount-input');
+    if (amountInput) {
+      amountInput.value = amt;
+      recalcRemaining();
+    }
+  }
+
+  function fillFullAmount() {
+    const amountInput = document.getElementById('payment-amount-input');
+    if (amountInput) {
+      amountInput.value = currentShopBalance;
+      recalcRemaining();
+    }
+  }
+
+  function selectPayMethod(button, method) {
+    document.querySelectorAll('.pay-method-pill').forEach(btn => {
+      btn.classList.remove('bg-primary', 'text-on-primary', 'active-method', 'font-bold');
+      btn.classList.add('bg-surface-container', 'text-on-surface', 'font-semibold');
+    });
+    button.classList.remove('bg-surface-container', 'text-on-surface', 'font-semibold');
+    button.classList.add('bg-primary', 'text-on-primary', 'active-method', 'font-bold');
+  }
+
+  function confirmPaymentRecorded() {
+    const amountInput = document.getElementById('payment-amount-input');
+    const entered = amountInput ? amountInput.value : '15,000';
+    closeRecordPaymentModal();
+
+    // Show Toast
+    const toast = document.getElementById('payment-toast');
+    const detail = document.getElementById('toast-detail-text');
+    if (detail) {
+      detail.textContent = 'Receipt #RCPT-2026-9912 generated (₹' + parseInt(entered).toLocaleString('en-IN') + ' recorded)';
+    }
+
+    if (toast) {
+      toast.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-[-10px]');
+      });
+      setTimeout(() => {
+        dismissToast();
+      }, 4000);
+    }
+  }
+
+  function dismissToast() {
+    const toast = document.getElementById('payment-toast');
+    if (toast) {
+      toast.classList.add('opacity-0', 'translate-y-[-10px]');
+      setTimeout(() => toast.classList.add('hidden'), 300);
+    }
+  }
+
+  // Filter Chips interactive toggle
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      document.querySelectorAll('.filter-chip').forEach(c => {
+        c.classList.remove('bg-primary', 'text-on-primary', 'font-bold');
+        c.classList.add('bg-surface-container-lowest', 'text-on-surface-variant');
+      });
+      this.classList.remove('bg-surface-container-lowest', 'text-on-surface-variant');
+      this.classList.add('bg-primary', 'text-on-primary', 'font-bold');
+    });
+  });
+
+  // Search micro-interaction
+  const searchInput = document.getElementById('shop-search-input');
+  const clearBtn = document.getElementById('clear-search-btn');
+  if (searchInput && clearBtn) {
+    searchInput.addEventListener('input', () => {
+      if (searchInput.value.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+    });
+    clearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      clearBtn.classList.add('hidden');
+      searchInput.focus();
+    });
+  }
+
+  const amtInput = document.getElementById('payment-amount-input');
+  if (amtInput) {
+    amtInput.addEventListener('input', recalcRemaining);
+  }
+</script></main><nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t pb-safe shadow-[0_-1px_8px_rgba(0,0,0,0.04)] border-[#dfebe3]"><div class="max-w-[390px] mx-auto h-16 px-gutter-mobile flex items-center justify-around"><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" data-path="home" href="#"><span class="material-symbols-outlined text-[24px]">home</span><span class="font-label-sm text-[11px] mt-0.5">Home</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" data-path="shops" href="#"><span class="material-symbols-outlined text-[24px]">storefront</span><span class="font-label-sm text-[11px] mt-0.5">Shops</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" data-path="orders" href="#"><span class="material-symbols-outlined text-[24px]">receipt_long</span><span class="font-label-sm text-[11px] mt-0.5">Orders</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" data-path="packing" href="#"><span class="material-symbols-outlined text-[24px]">inventory_2</span><span class="font-label-sm text-[11px] mt-0.5">Packing</span></a><a class="flex flex-col items-center justify-center min-w-[56px] h-12 text-[#55615a] hover:text-[#005f3a] transition-colors" data-path="transport" href="#"><span class="material-symbols-outlined text-[24px]">local_shipping</span><span class="font-label-sm text-[11px] mt-0.5">Transport</span></a></div></nav><div class="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 transition-opacity duration-200 hidden opacity-0" id="more-backdrop"></div><div class="fixed bottom-[76px] z-50 transition-all duration-200 right-3 left-3 sm:left-auto sm:right-4 hidden opacity-0 translate-y-2" id="more-horizontal-strip"><div class="bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2.5 px-2 sm:px-3 grid grid-cols-4 gap-1 sm:gap-3"><button class="flex flex-col items-center justify-center gap-1 group py-1 px-1 rounded-lg hover:bg-slate-50 transition-colors" type="button"><div class="w-9 h-9 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"><span class="material-symbols-outlined text-[20px]">handshake</span></div><span class="font-label-sm text-[11px] font-semibold text-slate-700 tracking-tight text-center truncate w-full">Suppliers</span></button><button class="flex flex-col items-center justify-center gap-1 group py-1 px-1 rounded-lg hover:bg-slate-50 transition-colors" type="button"><div class="w-9 h-9 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"><span class="material-symbols-outlined text-[20px]">alt_route</span></div><span class="font-label-sm text-[11px] font-semibold text-slate-700 tracking-tight text-center truncate w-full">Route Plan</span></button><button class="flex flex-col items-center justify-center gap-1 group py-1 px-1 rounded-lg bg-emerald-50 transition-colors" type="button"><div class="w-9 h-9 rounded-full bg-emerald-100 text-[#005f3a] flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"><span class="material-symbols-outlined text-[20px]">payments</span></div><span class="font-label-sm text-[11px] font-bold text-[#005f3a] tracking-tight text-center truncate w-full">Payments</span></button><button class="flex flex-col items-center justify-center gap-1 group py-1 px-1 rounded-lg hover:bg-slate-50 transition-colors" type="button"><div class="w-9 h-9 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"><span class="material-symbols-outlined text-[20px]">add_circle</span></div><span class="font-label-sm text-[11px] font-semibold text-slate-700 tracking-tight text-center truncate w-full">New Product</span></button></div></div><button aria-label="More Options" class="fixed bottom-[68px] z-40 w-11 h-11 rounded-full bg-white text-[#005f3a] border border-[#dfebe3] shadow-md flex items-center justify-center cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95 right-4" id="more-fab-btn" type="button"><span class="material-symbols-outlined text-[24px] text-[#005f3a] transition-transform duration-200" id="more-fab-icon">more_vert</span></button><script>(function(){const btn=document.getElementById('more-fab-btn');const icon=document.getElementById('more-fab-icon');const strip=document.getElementById('more-horizontal-strip');const bdrop=document.getElementById('more-backdrop');let isOpen=false;function toggleMore(open){isOpen=(typeof open==='boolean')?open:!isOpen;if(isOpen){strip.classList.remove('hidden');bdrop.classList.remove('hidden');requestAnimationFrame(()=>{strip.classList.remove('opacity-0','translate-y-2');bdrop.classList.remove('opacity-0');icon.textContent='close';icon.classList.add('rotate-90');});}else{strip.classList.add('opacity-0','translate-y-2');bdrop.classList.add('opacity-0');icon.textContent='more_vert';icon.classList.remove('rotate-90');setTimeout(()=>{if(!isOpen){strip.classList.add('hidden');bdrop.classList.add('hidden');}},200);}}if(btn)btn.addEventListener('click',()=>toggleMore());if(bdrop)bdrop.addEventListener('click',()=>toggleMore(false));if(strip){strip.querySelectorAll('a, button').forEach(itemBtn=>{itemBtn.addEventListener('click',()=>{toggleMore(false);});});}})();</script><script>(function(){const bellBtn=document.getElementById('notif-bell-btn');const popover=document.getElementById('notif-popover');const backdrop=document.getElementById('notif-backdrop');const closeBtn=document.getElementById('close-notif-btn');const markReadBtn=document.getElementById('mark-all-read-btn');const badge=document.getElementById('notif-badge');let isNotifOpen=false;function toggleNotif(open){isNotifOpen=(typeof open==='boolean')?open:!isNotifOpen;if(isNotifOpen){popover.classList.remove('hidden');backdrop.classList.remove('hidden');requestAnimationFrame(()=>{popover.classList.remove('opacity-0','translate-y-2');backdrop.classList.remove('opacity-0');});}else{popover.classList.add('opacity-0','translate-y-2');backdrop.classList.add('opacity-0');setTimeout(()=>{if(!isNotifOpen){popover.classList.add('hidden');backdrop.classList.add('hidden');}},200);}}if(bellBtn)bellBtn.addEventListener('click',()=>toggleNotif());if(backdrop)backdrop.addEventListener('click',()=>toggleNotif(false));if(closeBtn)closeBtn.addEventListener('click',()=>toggleNotif(false));if(markReadBtn)markReadBtn.addEventListener('click',()=>{if(badge)badge.classList.add('hidden');markReadBtn.textContent='All Read';markReadBtn.disabled=true;});})();</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

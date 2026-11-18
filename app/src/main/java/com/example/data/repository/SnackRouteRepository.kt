@@ -8,10 +8,18 @@ import com.example.data.model.InquiryStatus
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
+import com.example.data.model.PaymentDirection
+import com.example.data.model.PaymentLedgerHelper
+import com.example.data.model.PaymentMethod
+import com.example.data.model.PaymentTransaction
+import com.example.data.model.Product
+import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.ShopStatus
 import com.example.data.model.StockItem
+import com.example.data.model.SupplierBill
+import com.example.data.model.SupplierBillStatus
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
@@ -115,6 +123,90 @@ class SnackRouteRepository(
         .map { snapshot ->
           snapshot.toObjects(StockItem::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
             .sortedBy { it.quantity - it.minThreshold }
+        }
+        .catch { error ->
+          val firestoreError = generateSequence(error) { it.cause }
+            .filterIsInstance<FirebaseFirestoreException>()
+            .firstOrNull()
+          if (firestoreError == null && error is CancellationException) throw error
+          val exceptionToLog = firestoreError ?: (error as? Exception)
+          if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+            handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+          }
+          throw error
+        }
+    )
+  }
+
+  override fun observeProducts(userId: String): Flow<List<Product>> = flow {
+    val path = "users/$userId/products"
+    emitAll(
+      db.collection("users")
+        .document(userId)
+        .collection("products")
+        .snapshots(MetadataChanges.INCLUDE)
+        .map { snapshot ->
+          snapshot.documents.mapNotNull { doc ->
+            doc.toObject(Product::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+              ?.copy(isPendingSync = doc.metadata.hasPendingWrites())
+          }.sortedByDescending { it.updatedAt?.seconds ?: Long.MAX_VALUE }
+        }
+        .catch { error ->
+          val firestoreError = generateSequence(error) { it.cause }
+            .filterIsInstance<FirebaseFirestoreException>()
+            .firstOrNull()
+          if (firestoreError == null && error is CancellationException) throw error
+          val exceptionToLog = firestoreError ?: (error as? Exception)
+          if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+            handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+          }
+          throw error
+        }
+    )
+  }
+
+  override fun observePayments(userId: String): Flow<List<PaymentTransaction>> = flow {
+    val path = "users/$userId/payments"
+    emitAll(
+      db.collection("users")
+        .document(userId)
+        .collection("payments")
+        .snapshots(MetadataChanges.INCLUDE)
+        .map { snapshot ->
+          snapshot.documents.mapNotNull { doc ->
+            doc.toObject(PaymentTransaction::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+              ?.copy(isPendingSync = doc.metadata.hasPendingWrites())
+          }.sortedWith(
+            compareByDescending<PaymentTransaction> { it.paymentDate }
+              .thenByDescending { it.createdAt?.seconds ?: Long.MAX_VALUE }
+          )
+        }
+        .catch { error ->
+          val firestoreError = generateSequence(error) { it.cause }
+            .filterIsInstance<FirebaseFirestoreException>()
+            .firstOrNull()
+          if (firestoreError == null && error is CancellationException) throw error
+          val exceptionToLog = firestoreError ?: (error as? Exception)
+          if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+            handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+          }
+          throw error
+        }
+    )
+  }
+
+  override fun observeSupplierBills(userId: String): Flow<List<SupplierBill>> = flow {
+    val path = "users/$userId/supplierBills"
+    emitAll(
+      db.collection("users")
+        .document(userId)
+        .collection("supplierBills")
+        .snapshots(MetadataChanges.INCLUDE)
+        .map { snapshot ->
+          snapshot.documents.mapNotNull { doc ->
+            doc.toObject(SupplierBill::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+              ?.copy(isPendingSync = doc.metadata.hasPendingWrites())
+          }.sortedByDescending { it.updatedAt?.seconds ?: Long.MAX_VALUE }
         }
         .catch { error ->
           val firestoreError = generateSequence(error) { it.cause }
@@ -681,6 +773,468 @@ class SnackRouteRepository(
     }
   }
 
+  override suspend fun saveProduct(product: Product): Result<String> =
+    saveProductWithId(product = product, isUpdate = product.id.isNotBlank(), awaitServerAck = false)
+
+  suspend fun saveProductWithId(
+    product: Product,
+    isUpdate: Boolean,
+    awaitServerAck: Boolean = false,
+  ): Result<String> {
+    val uid = requireUserId()
+    val col = db.collection("users").document(uid).collection("products")
+    val docRef = if (product.id.isNotBlank()) col.document(product.id) else col.document()
+    val today = todayString()
+
+    val createMap = mapOf(
+      "userId" to uid,
+      "productCode" to product.productCode.trim().take(32),
+      "sku" to product.sku.trim().take(40),
+      "barcode" to product.barcode.trim().take(64),
+      "name" to product.name.trim().take(140),
+      "category" to product.category.trim().ifBlank { "Biscuits & Snacks" }.take(80),
+      "brand" to product.brand.trim().take(100),
+      "baseUnit" to product.baseUnit.trim().ifBlank { "Gram (g)" }.take(40),
+      "sellingUnit" to product.sellingUnit.trim().ifBlank { "Pouch / Packet" }.take(40),
+      "casePack" to product.casePack.trim().take(200),
+      "packSize" to product.packSize.trim().take(64),
+      "wholesalePrice" to product.wholesalePrice.coerceAtLeast(0.0),
+      "mrp" to product.mrp.coerceAtLeast(0.0),
+      "stockQuantity" to product.stockQuantity.coerceIn(0, 1000000),
+      "minThreshold" to product.minThreshold.coerceIn(0, 100000),
+      "photoUri" to product.photoUri.take(600),
+      "notes" to product.notes.trim().take(600),
+      "status" to product.status,
+      "salesVelocity" to product.salesVelocity.coerceIn(0, 1000000),
+      "hasVariants" to product.hasVariants,
+      "variantsJson" to product.variantsJson.take(4000),
+      "addedDate" to product.addedDate.ifBlank { today }.take(32),
+      "createdAt" to FieldValue.serverTimestamp(),
+      "updatedAt" to FieldValue.serverTimestamp(),
+    )
+
+    val updateMap = mapOf(
+      "productCode" to product.productCode.trim().take(32),
+      "sku" to product.sku.trim().take(40),
+      "barcode" to product.barcode.trim().take(64),
+      "name" to product.name.trim().take(140),
+      "category" to product.category.trim().ifBlank { "Biscuits & Snacks" }.take(80),
+      "brand" to product.brand.trim().take(100),
+      "baseUnit" to product.baseUnit.trim().ifBlank { "Gram (g)" }.take(40),
+      "sellingUnit" to product.sellingUnit.trim().ifBlank { "Pouch / Packet" }.take(40),
+      "casePack" to product.casePack.trim().take(200),
+      "packSize" to product.packSize.trim().take(64),
+      "wholesalePrice" to product.wholesalePrice.coerceAtLeast(0.0),
+      "mrp" to product.mrp.coerceAtLeast(0.0),
+      "stockQuantity" to product.stockQuantity.coerceIn(0, 1000000),
+      "minThreshold" to product.minThreshold.coerceIn(0, 100000),
+      "photoUri" to product.photoUri.take(600),
+      "notes" to product.notes.trim().take(600),
+      "status" to product.status,
+      "salesVelocity" to product.salesVelocity.coerceIn(0, 1000000),
+      "hasVariants" to product.hasVariants,
+      "variantsJson" to product.variantsJson.take(4000),
+      "addedDate" to product.addedDate.ifBlank { today }.take(32),
+      "updatedAt" to FieldValue.serverTimestamp(),
+    )
+
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+    return try {
+      val actuallyUpdate = if (awaitServerAck && !isUpdate && product.id.isNotBlank()) {
+        val snap = withTimeoutOrNull(waitMs) { docRef.get().await() }
+        snap?.exists() == true
+      } else {
+        isUpdate
+      }
+      val task = if (actuallyUpdate) docRef.update(updateMap) else docRef.set(createMap)
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(docRef.id)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: FirebaseFirestoreException) {
+      if (isUpdate && e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
+        return try {
+          val acked = withTimeoutOrNull(waitMs) {
+            docRef.set(createMap).await()
+            true
+          } ?: false
+          if (awaitServerAck && !acked) {
+            return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+          }
+          Result.success(docRef.id)
+        } catch (nested: Exception) {
+          if (nested is CancellationException) throw nested
+          handleFirestoreError(nested, OperationType.CREATE, docRef.path)
+          Result.failure(nested)
+        }
+      }
+      handleFirestoreError(
+        e,
+        if (isUpdate) OperationType.UPDATE else OperationType.CREATE,
+        docRef.path,
+      )
+      Result.failure(e)
+    } catch (e: Exception) {
+      handleFirestoreError(
+        e,
+        if (isUpdate) OperationType.UPDATE else OperationType.CREATE,
+        docRef.path,
+      )
+      Result.failure(e)
+    }
+  }
+
+  override suspend fun updateProductStatus(productId: String, newStatus: String): Result<Unit> =
+    updateProductStatusWithAck(productId, newStatus, awaitServerAck = false)
+
+  suspend fun updateProductStatusWithAck(
+    productId: String,
+    newStatus: String,
+    awaitServerAck: Boolean = true,
+  ): Result<Unit> {
+    val uid = requireUserId()
+    val docRef = db.collection("users").document(uid).collection("products").document(productId)
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+    return try {
+      val task = docRef.update(
+        mapOf(
+          "status" to newStatus,
+          "updatedAt" to FieldValue.serverTimestamp(),
+        )
+      )
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(Unit)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+      Result.failure(e)
+    }
+  }
+
+  override suspend fun updateProductStock(productId: String, newQuantity: Int): Result<Unit> =
+    updateProductStockWithAck(productId, newQuantity, awaitServerAck = false)
+
+  suspend fun updateProductStockWithAck(
+    productId: String,
+    newQuantity: Int,
+    awaitServerAck: Boolean = true,
+  ): Result<Unit> {
+    val uid = requireUserId()
+    val docRef = db.collection("users").document(uid).collection("products").document(productId)
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+    return try {
+      val safeQty = newQuantity.coerceIn(0, 1000000)
+      val task = docRef.update(
+        mapOf(
+          "stockQuantity" to safeQty,
+          "updatedAt" to FieldValue.serverTimestamp(),
+        )
+      )
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(Unit)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+      Result.failure(e)
+    }
+  }
+
+  suspend fun getProductsOnce(userId: String): Result<List<Product>> {
+    val path = "users/$userId/products"
+    return try {
+      val snapshot = db.collection("users").document(userId).collection("products").get().await()
+      val items = snapshot.documents.mapNotNull {
+        it.toObject(Product::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+      }
+      Result.success(items)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.LIST, path)
+      Result.failure(e)
+    }
+  }
+
+  private fun productPayloadMap(uid: String, prod: Product): Map<String, Any> = mapOf(
+    "userId" to uid,
+    "productCode" to prod.productCode,
+    "sku" to prod.sku,
+    "barcode" to prod.barcode,
+    "name" to prod.name,
+    "category" to prod.category,
+    "brand" to prod.brand,
+    "baseUnit" to prod.baseUnit,
+    "sellingUnit" to prod.sellingUnit,
+    "casePack" to prod.casePack,
+    "packSize" to prod.packSize,
+    "wholesalePrice" to prod.wholesalePrice,
+    "mrp" to prod.mrp,
+    "stockQuantity" to prod.stockQuantity,
+    "minThreshold" to prod.minThreshold,
+    "photoUri" to prod.photoUri,
+    "notes" to prod.notes,
+    "status" to prod.status,
+    "salesVelocity" to prod.salesVelocity,
+    "hasVariants" to prod.hasVariants,
+    "variantsJson" to prod.variantsJson,
+    "addedDate" to prod.addedDate,
+    "createdAt" to FieldValue.serverTimestamp(),
+    "updatedAt" to FieldValue.serverTimestamp(),
+  )
+
+  private fun paymentPayloadMap(uid: String, payment: PaymentTransaction, today: String): Map<String, Any> = mapOf(
+    "userId" to uid,
+    "receiptCode" to payment.receiptCode.trim().take(40),
+    "direction" to payment.direction,
+    "partyId" to payment.partyId.trim().take(128),
+    "partyCode" to payment.partyCode.trim().take(32),
+    "partyName" to payment.partyName.trim().take(140),
+    "contactName" to payment.contactName.trim().take(100),
+    "phone" to payment.phone.trim().take(24),
+    "invoiceRef" to payment.invoiceRef.trim().take(64),
+    "amount" to payment.amount.coerceAtLeast(0.01),
+    "paymentMethod" to payment.paymentMethod,
+    "referenceNumber" to payment.referenceNumber.trim().take(80),
+    "paymentDate" to payment.paymentDate.ifBlank { today }.take(32),
+    "recordedBy" to payment.recordedBy.trim().take(100),
+    "note" to payment.note.trim().take(500),
+    "createdAt" to FieldValue.serverTimestamp(),
+    "updatedAt" to FieldValue.serverTimestamp(),
+  )
+
+  private fun supplierBillPayloadMap(uid: String, bill: SupplierBill, today: String): Map<String, Any> = mapOf(
+    "userId" to uid,
+    "supplierCode" to bill.supplierCode.trim().take(32),
+    "supplierName" to bill.supplierName.trim().take(140),
+    "contactPerson" to bill.contactPerson.trim().take(100),
+    "phone" to bill.phone.trim().take(24),
+    "location" to bill.location.trim().take(140),
+    "category" to bill.category.trim().take(64),
+    "billNumber" to bill.billNumber.trim().take(40),
+    "totalBilled" to bill.totalBilled.coerceAtLeast(0.0),
+    "paidAmount" to bill.paidAmount.coerceAtLeast(0.0),
+    "billDate" to bill.billDate.ifBlank { today }.take(32),
+    "dueDate" to bill.dueDate.ifBlank { daysOffsetString(7) }.take(32),
+    "status" to bill.status,
+    "notes" to bill.notes.trim().take(500),
+    "createdAt" to FieldValue.serverTimestamp(),
+    "updatedAt" to FieldValue.serverTimestamp(),
+  )
+
+  override suspend fun recordPayment(payment: PaymentTransaction): Result<String> =
+    savePaymentWithId(payment = payment, isUpdate = payment.id.isNotBlank(), awaitServerAck = false)
+
+  suspend fun savePaymentWithId(
+    payment: PaymentTransaction,
+    isUpdate: Boolean,
+    awaitServerAck: Boolean = false,
+  ): Result<String> {
+    if (payment.amount <= 0.0) {
+      return Result.failure(IllegalArgumentException("Payment amount must be greater than zero."))
+    }
+    val uid = requireUserId()
+    val col = db.collection("users").document(uid).collection("payments")
+    val docRef = if (payment.id.isNotBlank()) col.document(payment.id) else col.document()
+    val today = todayString()
+    val normalized = payment.copy(
+      receiptCode = payment.receiptCode.ifBlank {
+        val prefix = if (payment.direction == PaymentDirection.PAY_SUPPLIER) "PAYOUT" else "RCPT"
+        "$prefix-2026-${(System.currentTimeMillis() % 9000 + 1000)}"
+      },
+      paymentDate = payment.paymentDate.ifBlank { today },
+      paymentMethod = if (payment.paymentMethod in PaymentMethod.allMethods) payment.paymentMethod else PaymentMethod.UPI,
+      direction = if (payment.direction in listOf(PaymentDirection.COLLECT, PaymentDirection.PAY_SUPPLIER)) {
+        payment.direction
+      } else {
+        PaymentDirection.COLLECT
+      },
+    )
+    val createMap = paymentPayloadMap(uid, normalized, today)
+    val updateMap = mapOf(
+      "invoiceRef" to normalized.invoiceRef.trim().take(64),
+      "referenceNumber" to normalized.referenceNumber.trim().take(80),
+      "note" to normalized.note.trim().take(500),
+      "updatedAt" to FieldValue.serverTimestamp(),
+    )
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+    return try {
+      val actuallyUpdate = if (awaitServerAck && !isUpdate && payment.id.isNotBlank()) {
+        val snap = withTimeoutOrNull(waitMs) { docRef.get().await() }
+        snap?.exists() == true
+      } else {
+        isUpdate
+      }
+      val task = if (actuallyUpdate) docRef.update(updateMap) else docRef.set(createMap)
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(docRef.id)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: FirebaseFirestoreException) {
+      if (isUpdate && e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
+        return try {
+          val acked = withTimeoutOrNull(waitMs) {
+            docRef.set(createMap).await()
+            true
+          } ?: false
+          if (awaitServerAck && !acked) {
+            return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+          }
+          Result.success(docRef.id)
+        } catch (nested: Exception) {
+          if (nested is CancellationException) throw nested
+          handleFirestoreError(nested, OperationType.CREATE, docRef.path)
+          Result.failure(nested)
+        }
+      }
+      handleFirestoreError(e, if (isUpdate) OperationType.UPDATE else OperationType.CREATE, docRef.path)
+      Result.failure(e)
+    } catch (e: Exception) {
+      handleFirestoreError(e, if (isUpdate) OperationType.UPDATE else OperationType.CREATE, docRef.path)
+      Result.failure(e)
+    }
+  }
+
+  override suspend fun saveSupplierBill(bill: SupplierBill): Result<String> =
+    saveSupplierBillWithId(bill = bill, isUpdate = bill.id.isNotBlank(), awaitServerAck = false)
+
+  suspend fun saveSupplierBillWithId(
+    bill: SupplierBill,
+    isUpdate: Boolean,
+    awaitServerAck: Boolean = false,
+  ): Result<String> {
+    val uid = requireUserId()
+    val col = db.collection("users").document(uid).collection("supplierBills")
+    val docRef = if (bill.id.isNotBlank()) col.document(bill.id) else col.document()
+    val today = todayString()
+    val normalizedStatus = PaymentLedgerHelper.effectiveSupplierStatus(bill)
+    val normalized = bill.copy(
+      status = if (normalizedStatus in listOf(SupplierBillStatus.PENDING, SupplierBillStatus.OVERDUE, SupplierBillStatus.SETTLED)) {
+        normalizedStatus
+      } else {
+        SupplierBillStatus.PENDING
+      },
+      billDate = bill.billDate.ifBlank { today },
+      dueDate = bill.dueDate.ifBlank { daysOffsetString(7) },
+    )
+    val createMap = supplierBillPayloadMap(uid, normalized, today)
+    val updateMap = mapOf(
+      "supplierCode" to normalized.supplierCode.trim().take(32),
+      "supplierName" to normalized.supplierName.trim().take(140),
+      "contactPerson" to normalized.contactPerson.trim().take(100),
+      "phone" to normalized.phone.trim().take(24),
+      "location" to normalized.location.trim().take(140),
+      "category" to normalized.category.trim().take(64),
+      "billNumber" to normalized.billNumber.trim().take(40),
+      "totalBilled" to normalized.totalBilled.coerceAtLeast(0.0),
+      "paidAmount" to normalized.paidAmount.coerceAtLeast(0.0),
+      "billDate" to normalized.billDate.take(32),
+      "dueDate" to normalized.dueDate.take(32),
+      "status" to normalized.status,
+      "notes" to normalized.notes.trim().take(500),
+      "updatedAt" to FieldValue.serverTimestamp(),
+    )
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+    return try {
+      val actuallyUpdate = if (awaitServerAck && !isUpdate && bill.id.isNotBlank()) {
+        val snap = withTimeoutOrNull(waitMs) { docRef.get().await() }
+        snap?.exists() == true
+      } else {
+        isUpdate
+      }
+      val task = if (actuallyUpdate) docRef.update(updateMap) else docRef.set(createMap)
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(docRef.id)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: FirebaseFirestoreException) {
+      if (isUpdate && e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
+        return try {
+          val acked = withTimeoutOrNull(waitMs) {
+            docRef.set(createMap).await()
+            true
+          } ?: false
+          if (awaitServerAck && !acked) {
+            return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+          }
+          Result.success(docRef.id)
+        } catch (nested: Exception) {
+          if (nested is CancellationException) throw nested
+          handleFirestoreError(nested, OperationType.CREATE, docRef.path)
+          Result.failure(nested)
+        }
+      }
+      handleFirestoreError(e, if (isUpdate) OperationType.UPDATE else OperationType.CREATE, docRef.path)
+      Result.failure(e)
+    } catch (e: Exception) {
+      handleFirestoreError(e, if (isUpdate) OperationType.UPDATE else OperationType.CREATE, docRef.path)
+      Result.failure(e)
+    }
+  }
+
+  suspend fun getPaymentsOnce(userId: String): Result<List<PaymentTransaction>> {
+    val path = "users/$userId/payments"
+    return try {
+      val snapshot = db.collection("users").document(userId).collection("payments").get().await()
+      val items = snapshot.documents.mapNotNull {
+        it.toObject(PaymentTransaction::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+      }
+      Result.success(items)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.LIST, path)
+      Result.failure(e)
+    }
+  }
+
+  suspend fun getSupplierBillsOnce(userId: String): Result<List<SupplierBill>> {
+    val path = "users/$userId/supplierBills"
+    return try {
+      val snapshot = db.collection("users").document(userId).collection("supplierBills").get().await()
+      val items = snapshot.documents.mapNotNull {
+        it.toObject(SupplierBill::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+      }
+      Result.success(items)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.LIST, path)
+      Result.failure(e)
+    }
+  }
+
   override suspend fun seedStarterDataIfNeeded(): Result<Unit> {
     val uid = requireUserId()
     val userRef = db.collection("users").document(uid)
@@ -689,6 +1243,39 @@ class SnackRouteRepository(
       val existingMeta = withTimeoutOrNull(SERVER_ACK_TIMEOUT_MS) { metaDocRef.get().await() }
         ?: return Result.failure(IllegalStateException("Timed out checking Cloud starter data"))
       if (existingMeta.exists()) {
+        // Also ensure starter products, supplierBills & payments are seeded for returning accounts
+        val existingProducts = withTimeoutOrNull(SERVER_ACK_TIMEOUT_MS) {
+          userRef.collection("products").limit(1).get().await()
+        }
+        if (existingProducts != null && existingProducts.isEmpty) {
+          val prodBatch = db.batch()
+          ProductCatalogHelper.starterProducts(uid, todayString(), ::daysAgoString).forEach { prod ->
+            val doc = userRef.collection("products").document(prod.id)
+            prodBatch.set(doc, productPayloadMap(uid, prod))
+          }
+          prodBatch.commit().await()
+        }
+        val existingBills = withTimeoutOrNull(SERVER_ACK_TIMEOUT_MS) {
+          userRef.collection("supplierBills").limit(1).get().await()
+        }
+        if (existingBills != null && existingBills.isEmpty) {
+          val todayStr = todayString()
+          val billBatch = db.batch()
+          PaymentLedgerHelper.starterSupplierBills(uid, todayStr, ::daysOffsetString).forEach { bill ->
+            val doc = userRef.collection("supplierBills").document(bill.id)
+            billBatch.set(doc, supplierBillPayloadMap(uid, bill, todayStr))
+          }
+          PaymentLedgerHelper.starterPayments(uid, todayStr, daysAgoString(1)).forEach { pay ->
+            val mapped = when (pay.partyCode) {
+              "SHP-101" -> pay.copy(partyId = "seed_shop_1")
+              "SHP-104" -> pay.copy(partyId = "seed_shop_4")
+              else -> pay
+            }
+            val doc = userRef.collection("payments").document(mapped.id)
+            billBatch.set(doc, paymentPayloadMap(uid, mapped, todayStr))
+          }
+          billBatch.commit().await()
+        }
         return Result.success(Unit)
       }
       val existingShops = withTimeoutOrNull(SERVER_ACK_TIMEOUT_MS) {
@@ -1021,6 +1608,26 @@ class SnackRouteRepository(
         batch.set(doc, payload)
       }
 
+      ProductCatalogHelper.starterProducts(uid, today, ::daysAgoString).forEach { prod ->
+        val doc = userRef.collection("products").document(prod.id)
+        batch.set(doc, productPayloadMap(uid, prod))
+      }
+
+      PaymentLedgerHelper.starterSupplierBills(uid, today, ::daysOffsetString).forEach { bill ->
+        val doc = userRef.collection("supplierBills").document(bill.id)
+        batch.set(doc, supplierBillPayloadMap(uid, bill, today))
+      }
+
+      PaymentLedgerHelper.starterPayments(uid, today, yesterday).forEach { pay ->
+        val mapped = when (pay.partyCode) {
+          "SHP-101" -> pay.copy(partyId = shopIds.getOrNull(0) ?: pay.partyId)
+          "SHP-104" -> pay.copy(partyId = shopIds.getOrNull(3) ?: pay.partyId)
+          else -> pay
+        }
+        val doc = userRef.collection("payments").document(mapped.id)
+        batch.set(doc, paymentPayloadMap(uid, mapped, today))
+      }
+
       batch.commit().await()
       Result.success(Unit)
     } catch (e: CancellationException) {
@@ -1036,8 +1643,12 @@ class SnackRouteRepository(
   }
 
   private fun daysAgoString(days: Int): String {
+    return daysOffsetString(-days)
+  }
+
+  private fun daysOffsetString(offsetDays: Int): String {
     val cal = Calendar.getInstance()
-    cal.add(Calendar.DAY_OF_YEAR, -days)
+    cal.add(Calendar.DAY_OF_YEAR, offsetDays)
     return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
   }
 

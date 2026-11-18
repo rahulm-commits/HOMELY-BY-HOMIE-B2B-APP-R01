@@ -110,6 +110,72 @@ service cloud.firestore {
         isValidTimestamp(data.updatedAt);
     }
 
+    function isValidProduct(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.productCode is string && data.productCode.size() >= 2 && data.productCode.size() <= 32 &&
+        data.sku is string && data.sku.size() >= 2 && data.sku.size() <= 40 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 140 &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
+        data.wholesalePrice is number && data.wholesalePrice >= 0 &&
+        data.mrp is number && data.mrp >= 0 &&
+        data.stockQuantity is int && data.stockQuantity >= 0 && data.stockQuantity <= 1000000 &&
+        data.minThreshold is int && data.minThreshold >= 0 && data.minThreshold <= 100000 &&
+        data.status in ['active', 'inactive', 'draft'] &&
+        data.hasVariants is bool &&
+        isOptionalString(data, 'barcode', 64) &&
+        isOptionalString(data, 'brand', 100) &&
+        isOptionalString(data, 'baseUnit', 40) &&
+        isOptionalString(data, 'sellingUnit', 40) &&
+        isOptionalString(data, 'casePack', 200) &&
+        isOptionalString(data, 'packSize', 64) &&
+        isOptionalString(data, 'photoUri', 600) &&
+        isOptionalString(data, 'notes', 600) &&
+        isOptionalString(data, 'variantsJson', 4000) &&
+        isOptionalString(data, 'addedDate', 32) &&
+        (!( 'salesVelocity' in data ) || (data.salesVelocity is int && data.salesVelocity >= 0 && data.salesVelocity <= 1000000)) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPayment(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.receiptCode is string && data.receiptCode.size() >= 2 && data.receiptCode.size() <= 40 &&
+        data.direction in ['collect', 'pay_supplier'] &&
+        data.partyId is string && data.partyId.size() >= 1 && data.partyId.size() <= 128 &&
+        data.partyName is string && data.partyName.size() >= 1 && data.partyName.size() <= 140 &&
+        data.amount is number && data.amount > 0 &&
+        data.paymentMethod in ['cash', 'upi', 'bank', 'cheque'] &&
+        data.paymentDate is string && data.paymentDate.size() >= 4 && data.paymentDate.size() <= 32 &&
+        isOptionalString(data, 'partyCode', 32) &&
+        isOptionalString(data, 'contactName', 100) &&
+        isOptionalString(data, 'phone', 24) &&
+        isOptionalString(data, 'invoiceRef', 64) &&
+        isOptionalString(data, 'referenceNumber', 80) &&
+        isOptionalString(data, 'recordedBy', 100) &&
+        isOptionalString(data, 'note', 500) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSupplierBill(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.supplierCode is string && data.supplierCode.size() >= 2 && data.supplierCode.size() <= 32 &&
+        data.supplierName is string && data.supplierName.size() >= 1 && data.supplierName.size() <= 140 &&
+        data.billNumber is string && data.billNumber.size() >= 1 && data.billNumber.size() <= 40 &&
+        data.totalBilled is number && data.totalBilled >= 0 &&
+        data.paidAmount is number && data.paidAmount >= 0 &&
+        data.dueDate is string && data.dueDate.size() >= 4 && data.dueDate.size() <= 32 &&
+        data.status in ['pending', 'overdue', 'settled'] &&
+        isOptionalString(data, 'contactPerson', 100) &&
+        isOptionalString(data, 'phone', 24) &&
+        isOptionalString(data, 'location', 140) &&
+        isOptionalString(data, 'category', 64) &&
+        isOptionalString(data, 'billDate', 32) &&
+        isOptionalString(data, 'notes', 500) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
     match /users/{userId}/shops/{shopId} {
       allow list: if isOwner(userId);
       allow get: if isOwner(userId) && isValidId(shopId);
@@ -224,6 +290,94 @@ service cloud.firestore {
           'toSuppliersAmount', 'toSuppliersCount', 'seeded', 'updatedAt'
         ]);
       allow delete: if isOwner(userId) && isValidId(metaId);
+    }
+
+    match /users/{userId}/products/{productId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(productId);
+      allow create: if isOwner(userId) &&
+        isValidId(productId) &&
+        incoming().keys().hasAll([
+          'userId', 'productCode', 'sku', 'name', 'category',
+          'wholesalePrice', 'mrp', 'stockQuantity', 'minThreshold',
+          'status', 'hasVariants', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'productCode', 'sku', 'barcode', 'name', 'category', 'brand',
+          'baseUnit', 'sellingUnit', 'casePack', 'packSize', 'wholesalePrice', 'mrp',
+          'stockQuantity', 'minThreshold', 'photoUri', 'notes', 'status',
+          'salesVelocity', 'hasVariants', 'variantsJson', 'addedDate',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidProduct(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(productId) &&
+        isValidProduct(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'productCode', 'sku', 'barcode', 'name', 'category', 'brand',
+          'baseUnit', 'sellingUnit', 'casePack', 'packSize', 'wholesalePrice', 'mrp',
+          'stockQuantity', 'minThreshold', 'photoUri', 'notes', 'status',
+          'salesVelocity', 'hasVariants', 'variantsJson', 'addedDate', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(productId);
+    }
+
+    match /users/{userId}/payments/{paymentId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(paymentId);
+      allow create: if isOwner(userId) &&
+        isValidId(paymentId) &&
+        incoming().keys().hasAll([
+          'userId', 'receiptCode', 'direction', 'partyId', 'partyName',
+          'amount', 'paymentMethod', 'paymentDate', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'receiptCode', 'direction', 'partyId', 'partyCode',
+          'partyName', 'contactName', 'phone', 'invoiceRef', 'amount',
+          'paymentMethod', 'referenceNumber', 'paymentDate', 'recordedBy',
+          'note', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidPayment(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(paymentId) &&
+        isValidPayment(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'invoiceRef', 'referenceNumber', 'note', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(paymentId);
+    }
+
+    match /users/{userId}/supplierBills/{billId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(billId);
+      allow create: if isOwner(userId) &&
+        isValidId(billId) &&
+        incoming().keys().hasAll([
+          'userId', 'supplierCode', 'supplierName', 'billNumber',
+          'totalBilled', 'paidAmount', 'dueDate', 'status',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'supplierCode', 'supplierName', 'contactPerson', 'phone',
+          'location', 'category', 'billNumber', 'totalBilled', 'paidAmount',
+          'billDate', 'dueDate', 'status', 'notes', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidSupplierBill(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(billId) &&
+        isValidSupplierBill(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'supplierCode', 'supplierName', 'contactPerson', 'phone', 'location',
+          'category', 'billNumber', 'totalBilled', 'paidAmount', 'billDate',
+          'dueDate', 'status', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(billId);
     }
   }
 }

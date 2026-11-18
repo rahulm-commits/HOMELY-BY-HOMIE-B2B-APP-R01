@@ -60,13 +60,7 @@ import com.example.ui.components.hasLocationPermission
 import com.example.ui.components.haversineDistanceMeters
 import com.example.ui.components.observeDeviceLocationFlow
 import com.example.ui.components.openDialer
-import com.example.ui.theme.EmeraldDeepContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintInk
-import com.example.ui.theme.MintMutedInk
-import com.example.ui.theme.MintSurfaceBackground
+import com.example.ui.theme.semanticColors
 import java.util.Locale
 
 @Composable
@@ -347,7 +341,7 @@ fun TransportScreen(
     Box(
       modifier = modifier
         .fillMaxSize()
-        .background(MintSurfaceBackground),
+        .background(MaterialTheme.colorScheme.background),
     ) {
       Column(modifier = Modifier.fillMaxSize()) {
         TransportTopBar(
@@ -433,10 +427,10 @@ fun TransportScreen(
           if (planState.totalStops == 0) {
             item(key = "empty_route_card") {
               Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.2.dp, MintCardBorder),
-                shadowElevation = 2.5.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                shadowElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth(),
               ) {
                 Column(
@@ -447,23 +441,23 @@ fun TransportScreen(
                   Icon(
                     imageVector = Icons.Rounded.LocalShipping,
                     contentDescription = null,
-                    tint = EmeraldDeepContainer,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(34.dp),
                   )
                   Text(
                     text = "No active shops assigned to ${activeRoute?.name ?: "this route"}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MintInk,
+                    color = MaterialTheme.colorScheme.onSurface,
                   )
                   Text(
                     text = "Allocate shops and configure stop sequence (1, 2, 3...) in Route Planning.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MintMutedInk,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                   )
                   Button(
                     onClick = onNavigateToRoutes,
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldDeepPrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                   ) {
                     Text("Open Route Planning")
                   }
@@ -485,13 +479,13 @@ fun TransportScreen(
                   text = "Upcoming Stops (${filteredUpcoming.size} Remaining)",
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
-                  color = MintInk,
+                  color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                   text = "Auto-sequenced",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.SemiBold,
-                  color = EmeraldDeepContainer,
+                  color = MaterialTheme.colorScheme.primary,
                 )
               }
             }
@@ -520,9 +514,9 @@ fun TransportScreen(
                 val hiddenCount = filteredUpcoming.size - 3
                 val finalDest = filteredUpcoming.lastOrNull()?.shortShopName ?: "Destination"
                 Surface(
-                  color = Color.White,
+                  color = MaterialTheme.colorScheme.surface,
                   shape = RoundedCornerShape(12.dp),
-                  border = BorderStroke(1.2.dp, MintCardBorder),
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
                   shadowElevation = 2.dp,
                   modifier = Modifier
                     .fillMaxWidth()
@@ -544,7 +538,7 @@ fun TransportScreen(
                       Icon(
                         imageVector = Icons.AutoMirrored.Rounded.AltRoute,
                         contentDescription = null,
-                        tint = EmeraldDeepContainer,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
                       )
                       Text(
@@ -555,7 +549,7 @@ fun TransportScreen(
                         },
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MintInk,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                       )
@@ -563,7 +557,7 @@ fun TransportScreen(
                     Icon(
                       imageVector = if (showAllUpcoming) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                       contentDescription = "Toggle upcoming stops",
-                      tint = EmeraldDeepContainer,
+                      tint = MaterialTheme.colorScheme.primary,
                       modifier = Modifier.size(20.dp),
                     )
                   }
@@ -585,17 +579,17 @@ fun TransportScreen(
                   text = "Delivered Today (${filteredDelivered.size})",
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
-                  color = MintInk,
+                  color = MaterialTheme.colorScheme.onSurface,
                 )
                 Surface(
-                  color = MintAccentChip,
+                  color = MaterialTheme.semanticColors.successContainer,
                   shape = RoundedCornerShape(999.dp),
                 ) {
                   Text(
                     text = "100% On-Time",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = EmeraldDeepPrimary,
+                    color = MaterialTheme.semanticColors.success,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                   )
                 }
@@ -620,10 +614,10 @@ fun TransportScreen(
           ) {
             item(key = "filter_empty_card") {
               Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.2.dp, MintCardBorder),
-                shadowElevation = 2.5.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                shadowElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth(),
               ) {
                 Column(
@@ -639,7 +633,7 @@ fun TransportScreen(
                     },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MintInk,
+                    color = MaterialTheme.colorScheme.onSurface,
                   )
                   Text(
                     text = if (searchQuery.isNotBlank()) {
@@ -650,7 +644,7 @@ fun TransportScreen(
                       "Mark Stop ${planState.activeTargetStop?.formattedStopNum ?: "01"} delivered once unloaded."
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MintMutedInk,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                   )
                 }
               }

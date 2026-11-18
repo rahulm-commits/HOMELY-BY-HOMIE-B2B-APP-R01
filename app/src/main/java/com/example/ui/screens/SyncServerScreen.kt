@@ -78,20 +78,7 @@ import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
 import com.example.data.local.ServerSettings
 import com.example.data.remote.LaptopHealthInfo
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.CobaltInfo
-import com.example.ui.theme.CobaltInfoContainer
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.CoralDangerContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
+import com.example.ui.theme.semanticColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -199,9 +186,9 @@ fun SyncServerScreen(
       item {
         Card(
           shape = RoundedCornerShape(18.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, MintCardBorder),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
@@ -221,13 +208,13 @@ fun SyncServerScreen(
                   modifier = Modifier
                     .size(34.dp)
                     .clip(CircleShape)
-                    .background(MintBadgeBg),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                   contentAlignment = Alignment.Center,
                 ) {
                   Icon(
                     imageVector = Icons.Rounded.PhoneAndroid,
                     contentDescription = null,
-                    tint = EmeraldDeepPrimary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp),
                   )
                 }
@@ -238,14 +225,14 @@ fun SyncServerScreen(
                 )
               }
               Surface(
-                color = if (totalAwaitingUpload > 0) AmberWarningContainer else EmeraldSuccessContainer,
+                color = if (totalAwaitingUpload > 0) MaterialTheme.semanticColors.warningContainer else MaterialTheme.semanticColors.successContainer,
                 shape = RoundedCornerShape(999.dp),
               ) {
                 Text(
                   text = if (totalAwaitingUpload > 0) "$totalAwaitingUpload Waiting Sync" else "All Synced",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.SemiBold,
-                  color = if (totalAwaitingUpload > 0) AmberWarning else EmeraldSuccess,
+                  color = if (totalAwaitingUpload > 0) MaterialTheme.semanticColors.warning else MaterialTheme.semanticColors.success,
                   modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                 )
               }
@@ -264,15 +251,15 @@ fun SyncServerScreen(
               MiniQueueStat(
                 label = "Pending Upload",
                 count = totalAwaitingUpload,
-                container = AmberWarningContainer,
-                accent = AmberWarning,
+                container = MaterialTheme.semanticColors.warningContainer,
+                accent = MaterialTheme.semanticColors.warning,
                 modifier = Modifier.weight(1f),
               )
               MiniQueueStat(
                 label = "Synced (Deletable)",
                 count = totalSyncedReadyToDelete,
-                container = EmeraldSuccessContainer,
-                accent = EmeraldSuccess,
+                container = MaterialTheme.semanticColors.successContainer,
+                accent = MaterialTheme.semanticColors.success,
                 modifier = Modifier.weight(1f),
               )
             }
@@ -362,9 +349,9 @@ fun SyncServerScreen(
       item {
         Card(
           shape = RoundedCornerShape(18.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, CobaltInfo.copy(alpha = 0.5f)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+          border = BorderStroke(1.dp, MaterialTheme.semanticColors.info.copy(alpha = 0.4f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
@@ -385,13 +372,13 @@ fun SyncServerScreen(
                   modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(CobaltInfoContainer),
+                    .background(MaterialTheme.semanticColors.infoContainer),
                   contentAlignment = Alignment.Center,
                 ) {
                   Icon(
                     imageVector = Icons.Rounded.CloudSync,
                     contentDescription = null,
-                    tint = CobaltInfo,
+                    tint = MaterialTheme.semanticColors.info,
                     modifier = Modifier.size(19.dp),
                   )
                 }
@@ -429,9 +416,9 @@ fun SyncServerScreen(
       item {
         Card(
           shape = RoundedCornerShape(18.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
-          border = BorderStroke(1.2.dp, MintCardBorder),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
@@ -452,13 +439,13 @@ fun SyncServerScreen(
                   modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(MintBadgeBg),
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
                   contentAlignment = Alignment.Center,
                 ) {
                   Icon(
                     imageVector = Icons.Rounded.Computer,
                     contentDescription = null,
-                    tint = EmeraldDeepPrimary,
+                    tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.size(19.dp),
                   )
                 }
@@ -493,10 +480,10 @@ fun SyncServerScreen(
               singleLine = true,
               shape = RoundedCornerShape(12.dp),
               colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = MintFieldFill,
-                focusedContainerColor = MintFieldFill,
-                unfocusedBorderColor = MintFieldBorder,
-                focusedBorderColor = EmeraldDeepPrimary,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
               ),
               modifier = Modifier
                 .fillMaxWidth()
@@ -508,9 +495,9 @@ fun SyncServerScreen(
               horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
               Surface(
-                color = MintFieldFill,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, MintFieldBorder),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
                 modifier = Modifier
                   .clip(RoundedCornerShape(8.dp))
                   .clickable { laptopUrl = "http://192.168.1.100:8787" },
@@ -519,14 +506,14 @@ fun SyncServerScreen(
                   text = "Wi-Fi LAN (:8787)",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.SemiBold,
-                  color = EmeraldDeepPrimary,
+                  color = MaterialTheme.colorScheme.primary,
                   modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 )
               }
               Surface(
-                color = MintFieldFill,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, MintFieldBorder),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
                 modifier = Modifier
                   .clip(RoundedCornerShape(8.dp))
                   .clickable { laptopUrl = "http://10.0.2.2:8787" },
@@ -535,7 +522,7 @@ fun SyncServerScreen(
                   text = "Emulator (10.0.2.2:8787)",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.SemiBold,
-                  color = EmeraldDeepPrimary,
+                  color = MaterialTheme.colorScheme.primary,
                   modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 )
               }
@@ -549,10 +536,10 @@ fun SyncServerScreen(
               singleLine = true,
               shape = RoundedCornerShape(12.dp),
               colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = MintFieldFill,
-                focusedContainerColor = MintFieldFill,
-                unfocusedBorderColor = MintFieldBorder,
-                focusedBorderColor = EmeraldDeepPrimary,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
               ),
               modifier = Modifier.fillMaxWidth(),
             )
@@ -601,14 +588,14 @@ fun SyncServerScreen(
 
             if (laptopHealth != null) {
               Surface(
-                color = if (laptopHealth.reachable) EmeraldSuccessContainer else AmberWarningContainer,
+                color = if (laptopHealth.reachable) MaterialTheme.semanticColors.successContainer else MaterialTheme.semanticColors.warningContainer,
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth(),
               ) {
                 Text(
                   text = laptopHealth.message,
                   style = MaterialTheme.typography.labelMedium,
-                  color = if (laptopHealth.reachable) EmeraldSuccess else AmberWarning,
+                  color = if (laptopHealth.reachable) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
                   modifier = Modifier.padding(10.dp),
                 )
               }
@@ -702,9 +689,9 @@ fun SyncServerScreen(
       if (pendingShops.isEmpty() && pendingOrders.isEmpty() && pendingStockUpdates.isEmpty()) {
         item {
           Surface(
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.2.dp, MintCardBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
             shadowElevation = 2.dp,
             modifier = Modifier.fillMaxWidth(),
           ) {
@@ -716,7 +703,7 @@ fun SyncServerScreen(
               Icon(
                 imageVector = Icons.Rounded.CloudDone,
                 contentDescription = null,
-                tint = EmeraldSuccess,
+                tint = MaterialTheme.semanticColors.success,
                 modifier = Modifier.size(34.dp),
               )
               Text(
@@ -754,12 +741,12 @@ fun SyncServerScreen(
           val fullySynced = order.isFullySynced(requireGlobal, requireLaptop)
           Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(
-              1.2.dp,
-              if (fullySynced) EmeraldSuccess.copy(alpha = 0.55f) else MintCardBorder,
+              1.dp,
+              if (fullySynced) MaterialTheme.semanticColors.success.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             modifier = Modifier.fillMaxWidth(),
           ) {
             Row(
@@ -790,7 +777,7 @@ fun SyncServerScreen(
                   Icon(
                     imageVector = Icons.Rounded.DeleteOutline,
                     contentDescription = "Delete synced order from phone",
-                    tint = CoralDanger,
+                    tint = MaterialTheme.semanticColors.danger,
                   )
                 }
               }
@@ -801,9 +788,9 @@ fun SyncServerScreen(
         items(pendingStockUpdates, key = { "stock_${it.stockId}" }) { stockUpdate ->
           Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.2.dp, MintCardBorder),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             modifier = Modifier.fillMaxWidth(),
           ) {
             Column(
@@ -842,7 +829,7 @@ fun SyncServerScreen(
             confirmForceDeleteShop = null
           },
         ) {
-          Text("Delete Anyway", color = CoralDanger)
+          Text("Delete Anyway", color = MaterialTheme.semanticColors.danger)
         }
       },
       dismissButton = {
@@ -897,11 +884,11 @@ private fun PendingShopQueueCard(
 ) {
   Card(
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     border = BorderStroke(
-      1.3.dp,
-      if (fullySynced) EmeraldSuccess.copy(alpha = 0.55f) else AmberWarning.copy(alpha = 0.55f),
+      1.dp,
+      if (fullySynced) MaterialTheme.semanticColors.success.copy(alpha = 0.55f) else MaterialTheme.semanticColors.warning.copy(alpha = 0.55f),
     ),
     modifier = Modifier.fillMaxWidth(),
   ) {
@@ -920,14 +907,14 @@ private fun PendingShopQueueCard(
           modifier = Modifier.weight(1f),
         ) {
           Surface(
-            color = MintAccentChip,
+            color = MaterialTheme.colorScheme.primaryContainer,
             shape = RoundedCornerShape(6.dp),
           ) {
             Text(
               text = item.shopCode,
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.primary,
               modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
           }
@@ -947,7 +934,7 @@ private fun PendingShopQueueCard(
           Icon(
             imageVector = Icons.Rounded.DeleteOutline,
             contentDescription = if (fullySynced) "Delete synced shop from phone" else "Delete unsynced shop",
-            tint = if (fullySynced) CoralDanger else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (fullySynced) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
       }
@@ -970,13 +957,13 @@ private fun PendingShopQueueCard(
 
       if (item.lastError.isNotBlank() && !fullySynced) {
         Surface(
-          color = CoralDangerContainer.copy(alpha = 0.65f),
+          color = MaterialTheme.semanticColors.dangerContainer.copy(alpha = 0.65f),
           shape = RoundedCornerShape(6.dp),
         ) {
           Text(
             text = item.lastError,
             style = MaterialTheme.typography.labelSmall,
-            color = CoralDanger,
+            color = MaterialTheme.semanticColors.danger,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
           )
         }
@@ -992,9 +979,9 @@ private fun TargetSyncChip(
   active: Boolean,
 ) {
   val (bg, fg, statusText, icon) = when {
-    synced -> Quad(EmeraldSuccessContainer, EmeraldSuccess, "$label: Synced", Icons.Rounded.CheckCircle)
-    active -> Quad(AmberWarningContainer, AmberWarning, "$label: Pending", Icons.Rounded.Schedule)
-    else -> Quad(CobaltInfoContainer.copy(alpha = 0.55f), CobaltInfo, "$label: Off", Icons.Rounded.Schedule)
+    synced -> Quad(MaterialTheme.semanticColors.successContainer, MaterialTheme.semanticColors.success, "$label: Synced", Icons.Rounded.CheckCircle)
+    active -> Quad(MaterialTheme.semanticColors.warningContainer, MaterialTheme.semanticColors.warning, "$label: Pending", Icons.Rounded.Schedule)
+    else -> Quad(MaterialTheme.semanticColors.infoContainer.copy(alpha = 0.55f), MaterialTheme.semanticColors.info, "$label: Off", Icons.Rounded.Schedule)
   }
   Surface(
     color = bg,

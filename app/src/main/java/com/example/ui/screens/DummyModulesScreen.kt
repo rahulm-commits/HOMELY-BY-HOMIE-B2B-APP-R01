@@ -28,10 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.AppDestination
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintBadgeBg
-import com.example.ui.theme.MintCardBorder
 
 @Composable
 fun DummyModuleScreen(
@@ -82,7 +78,7 @@ fun DummyModuleScreen(
     Card(
       shape = RoundedCornerShape(24.dp),
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-      border = BorderStroke(1.3.dp, MintCardBorder),
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
       elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
       modifier = Modifier.fillMaxWidth(),
     ) {
@@ -95,25 +91,25 @@ fun DummyModuleScreen(
           modifier = Modifier
             .size(72.dp)
             .clip(CircleShape)
-            .background(MintBadgeBg),
+            .background(MaterialTheme.colorScheme.primaryContainer),
           contentAlignment = Alignment.Center,
         ) {
           Icon(
             imageVector = destination.selectedIcon,
             contentDescription = destination.title,
-            tint = EmeraldDeepPrimary,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(36.dp),
           )
         }
 
         Surface(
-          color = MintAccentChip,
+          color = MaterialTheme.colorScheme.secondaryContainer,
           shape = RoundedCornerShape(8.dp),
         ) {
           Text(
             text = "DUMMY MODULE • NEXT PHASE",
             style = MaterialTheme.typography.labelSmall,
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
           )
         }

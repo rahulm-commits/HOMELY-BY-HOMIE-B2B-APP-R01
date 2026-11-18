@@ -68,16 +68,7 @@ import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.StopPinState
 import com.example.ui.components.formatDistanceShort
 import com.example.ui.components.formatInr
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.EmeraldDeepContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintInk
-import com.example.ui.theme.MintMutedInk
-import com.example.ui.theme.MintSurfaceContainer
-import com.example.ui.theme.MintSurfaceHigh
-import com.example.ui.theme.MintSurfaceLow
+import com.example.ui.theme.semanticColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,7 +84,7 @@ fun SelectRouteBottomSheet(
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
-    containerColor = Color.White,
+    containerColor = MaterialTheme.colorScheme.surface,
   ) {
     Column(
       modifier = Modifier
@@ -112,7 +103,7 @@ fun SelectRouteBottomSheet(
           horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
           Surface(
-            color = MintSurfaceContainer,
+            color = MaterialTheme.colorScheme.primaryContainer,
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.size(38.dp),
           ) {
@@ -120,7 +111,7 @@ fun SelectRouteBottomSheet(
               Icon(
                 imageVector = Icons.AutoMirrored.Rounded.AltRoute,
                 contentDescription = null,
-                tint = EmeraldDeepContainer,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
               )
             }
@@ -130,12 +121,12 @@ fun SelectRouteBottomSheet(
               text = "Select Delivery Route",
               style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
-              color = MintInk,
+              color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
               text = "Sequential stops follow Route Planning order",
               style = MaterialTheme.typography.bodySmall,
-              color = MintMutedInk,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
         }
@@ -150,22 +141,22 @@ fun SelectRouteBottomSheet(
           Icon(
             imageVector = Icons.Rounded.Close,
             contentDescription = "Close route picker",
-            tint = MintMutedInk,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
       }
 
-      HorizontalDivider(color = MintSurfaceContainer)
+      HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
 
       routes.forEach { route ->
         val isSelected = route.id == selectedRouteId
         val stopCount = allShops.count { it.status == ShopStatus.ACTIVE && it.routeId == route.id }
         Surface(
-          color = if (isSelected) MintSurfaceContainer else MintSurfaceLow,
+          color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
           shape = RoundedCornerShape(14.dp),
           border = BorderStroke(
             width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) EmeraldDeepPrimary else MintSurfaceHigh,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
           ),
           modifier = Modifier
             .fillMaxWidth()
@@ -181,7 +172,7 @@ fun SelectRouteBottomSheet(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
           ) {
             Surface(
-              color = if (isSelected) EmeraldDeepPrimary else MintSurfaceHigh,
+              color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
               shape = RoundedCornerShape(10.dp),
               modifier = Modifier.size(38.dp),
             ) {
@@ -189,7 +180,7 @@ fun SelectRouteBottomSheet(
                 Icon(
                   imageVector = Icons.Rounded.LocalShipping,
                   contentDescription = null,
-                  tint = if (isSelected) Color.White else MintInk,
+                  tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                   modifier = Modifier.size(20.dp),
                 )
               }
@@ -204,21 +195,21 @@ fun SelectRouteBottomSheet(
                   text = route.name,
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
-                  color = if (isSelected) EmeraldDeepPrimary else MintInk,
+                  color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                   modifier = Modifier.weight(1f, fill = false),
                 )
                 if (isSelected) {
                   Surface(
-                    color = EmeraldDeepPrimary,
+                    color = MaterialTheme.colorScheme.primary,
                     shape = RoundedCornerShape(4.dp),
                   ) {
                     Text(
                       text = "ACTIVE",
                       style = MaterialTheme.typography.labelSmall,
                       fontWeight = FontWeight.Bold,
-                      color = Color.White,
+                      color = MaterialTheme.colorScheme.onPrimary,
                       modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
                     )
                   }
@@ -227,21 +218,21 @@ fun SelectRouteBottomSheet(
               Text(
                 text = "${route.vehicle} • ${route.driverName}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MintMutedInk,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
             }
 
             Surface(
-              color = if (isSelected) EmeraldDeepContainer else MintSurfaceHigh,
+              color = if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant,
               shape = RoundedCornerShape(999.dp),
             ) {
               Text(
                 text = "$stopCount stops",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isSelected) Color.White else MintMutedInk,
+                color = if (isSelected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
               )
             }
@@ -250,7 +241,7 @@ fun SelectRouteBottomSheet(
               Icon(
                 imageVector = Icons.Rounded.CheckCircle,
                 contentDescription = "Selected route",
-                tint = EmeraldDeepPrimary,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
               )
             }
@@ -290,7 +281,7 @@ fun TurnByTurnDirectionsSheet(
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
-    containerColor = Color.White,
+    containerColor = MaterialTheme.colorScheme.surface,
   ) {
     Column(
       modifier = Modifier
@@ -313,7 +304,7 @@ fun TurnByTurnDirectionsSheet(
             },
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MintInk,
+            color = MaterialTheme.colorScheme.onSurface,
           )
           if (activeStop != null) {
             val legMeta = if (routeGeometry != null && routeGeometry.activeLegDistanceMeters > 0) {
@@ -324,7 +315,7 @@ fun TurnByTurnDirectionsSheet(
             Text(
               text = "${activeStop.shop.name} ($legMeta)",
               style = MaterialTheme.typography.bodySmall,
-              color = EmeraldDeepContainer,
+              color = MaterialTheme.colorScheme.primary,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -338,11 +329,11 @@ fun TurnByTurnDirectionsSheet(
             .clickable(onClick = onDismiss),
           contentAlignment = Alignment.Center,
         ) {
-          Icon(Icons.Rounded.Close, contentDescription = "Close directions", tint = MintMutedInk)
+          Icon(Icons.Rounded.Close, contentDescription = "Close directions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
 
-      HorizontalDivider(color = MintSurfaceContainer)
+      HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
 
       LazyColumn(
         modifier = Modifier
@@ -355,13 +346,13 @@ fun TurnByTurnDirectionsSheet(
             Text(
               text = "Calculating road maneuvers. Use External Maps or follow the highlighted polyline.",
               style = MaterialTheme.typography.bodyMedium,
-              color = MintMutedInk,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
         } else {
           items(steps) { step ->
             Surface(
-              color = MintSurfaceLow,
+              color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
               shape = RoundedCornerShape(10.dp),
               modifier = Modifier.fillMaxWidth(),
             ) {
@@ -371,7 +362,7 @@ fun TurnByTurnDirectionsSheet(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
               ) {
                 Surface(
-                  color = EmeraldDeepContainer,
+                  color = MaterialTheme.colorScheme.primary,
                   shape = RoundedCornerShape(8.dp),
                   modifier = Modifier.size(32.dp),
                 ) {
@@ -379,7 +370,7 @@ fun TurnByTurnDirectionsSheet(
                     Icon(
                       imageVector = maneuverIconFor(step),
                       contentDescription = null,
-                      tint = Color.White,
+                      tint = MaterialTheme.colorScheme.onPrimary,
                       modifier = Modifier.size(18.dp),
                     )
                   }
@@ -389,13 +380,13 @@ fun TurnByTurnDirectionsSheet(
                     text = step.instruction,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = MintInk,
+                    color = MaterialTheme.colorScheme.onSurface,
                   )
                   if (step.distanceMeters > 0) {
                     Text(
                       text = formatDistanceShort(step.distanceMeters),
                       style = MaterialTheme.typography.labelSmall,
-                      color = MintMutedInk,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                   }
                 }
@@ -410,7 +401,7 @@ fun TurnByTurnDirectionsSheet(
               text = "Following Sequential Stops",
               style = MaterialTheme.typography.labelMedium,
               fontWeight = FontWeight.Bold,
-              color = EmeraldDeepPrimary,
+              color = MaterialTheme.colorScheme.primary,
               modifier = Modifier.padding(top = 4.dp),
             )
           }
@@ -423,7 +414,7 @@ fun TurnByTurnDirectionsSheet(
               horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
               Surface(
-                color = MintSurfaceContainer,
+                color = MaterialTheme.colorScheme.primaryContainer,
                 shape = CircleShape,
                 modifier = Modifier.size(24.dp),
               ) {
@@ -432,14 +423,14 @@ fun TurnByTurnDirectionsSheet(
                     text = nextStop.formattedStopNum,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = EmeraldDeepPrimary,
+                    color = MaterialTheme.colorScheme.primary,
                   )
                 }
               }
               Text(
                 text = "${nextStop.shop.name} • ${nextStop.shop.address}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MintMutedInk,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
@@ -463,7 +454,7 @@ fun TurnByTurnDirectionsSheet(
         if (activeStop != null) {
           Button(
             onClick = onMarkActiveDelivered,
-            colors = ButtonDefaults.buttonColors(containerColor = EmeraldDeepPrimary),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             modifier = Modifier.weight(1.2f),
           ) {
             Icon(Icons.Rounded.TaskAlt, contentDescription = null, modifier = Modifier.size(17.dp))
@@ -511,7 +502,7 @@ fun DeliveryPodDialog(
           Text(
             text = "Order Amount: ${formatInr(stop.totalAmountToCollect)} • ${stop.totalPacks} packs",
             style = MaterialTheme.typography.bodySmall,
-            color = EmeraldDeepPrimary,
+            color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
           )
         }
@@ -542,7 +533,7 @@ fun DeliveryPodDialog(
           val signer = receiverName.trim().ifBlank { stop.shop.ownerName.ifBlank { "Shop Staff" } }
           onConfirmDelivered("POD Signed by $signer • $selectedMode")
         },
-        colors = ButtonDefaults.buttonColors(containerColor = EmeraldDeepPrimary),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
       ) {
         Text("Mark Delivered")
       }
@@ -621,7 +612,7 @@ fun FullscreenNavigationOverlay(
 
     // Top Turn-by-Turn Navigation Header
     Surface(
-      color = EmeraldDeepPrimary,
+      color = MaterialTheme.colorScheme.secondaryContainer,
       shape = RoundedCornerShape(16.dp),
       shadowElevation = 6.dp,
       modifier = Modifier
@@ -637,7 +628,7 @@ fun FullscreenNavigationOverlay(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
       ) {
         Surface(
-          color = EmeraldDeepContainer,
+          color = MaterialTheme.colorScheme.primary,
           shape = RoundedCornerShape(10.dp),
           modifier = Modifier.size(42.dp),
         ) {
@@ -645,7 +636,7 @@ fun FullscreenNavigationOverlay(
             Icon(
               imageVector = maneuverIconFor(firstStep),
               contentDescription = "Next turn",
-              tint = Color.White,
+              tint = MaterialTheme.colorScheme.onPrimary,
               modifier = Modifier.size(24.dp),
             )
           }
@@ -655,7 +646,7 @@ fun FullscreenNavigationOverlay(
             text = firstStep?.instruction ?: activeStop?.let { "Navigate to ${it.shop.name}" } ?: "Route Complete",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
           )
@@ -669,7 +660,7 @@ fun FullscreenNavigationOverlay(
           Text(
             text = subText,
             style = MaterialTheme.typography.labelSmall,
-            color = MintAccentChip,
+            color = MaterialTheme.colorScheme.secondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
@@ -679,7 +670,7 @@ fun FullscreenNavigationOverlay(
             .minimumInteractiveComponentSize()
             .size(40.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.16f))
+            .background(MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.14f))
             .clickable(onClick = onExitFullscreen)
             .testTag("transport_exit_fullscreen_button"),
           contentAlignment = Alignment.Center,
@@ -687,7 +678,7 @@ fun FullscreenNavigationOverlay(
           Icon(
             imageVector = Icons.Rounded.FullscreenExit,
             contentDescription = "Exit fullscreen navigation",
-            tint = Color.White,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.size(20.dp),
           )
         }
@@ -702,7 +693,7 @@ fun FullscreenNavigationOverlay(
       horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       Surface(
-        color = Color.White.copy(alpha = 0.96f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
         shape = RoundedCornerShape(10.dp),
         shadowElevation = 3.dp,
         modifier = Modifier
@@ -712,12 +703,12 @@ fun FullscreenNavigationOverlay(
           .clickable(onClick = onFitRouteClick),
       ) {
         Box(contentAlignment = Alignment.Center) {
-          Icon(Icons.Rounded.FitScreen, contentDescription = "Fit full route", tint = EmeraldDeepContainer)
+          Icon(Icons.Rounded.FitScreen, contentDescription = "Fit full route", tint = MaterialTheme.colorScheme.primary)
         }
       }
 
       Surface(
-        color = if (followUserLocation) EmeraldDeepPrimary else Color.White.copy(alpha = 0.96f),
+        color = if (followUserLocation) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
         shape = RoundedCornerShape(10.dp),
         shadowElevation = 3.dp,
         modifier = Modifier
@@ -730,7 +721,7 @@ fun FullscreenNavigationOverlay(
           Icon(
             imageVector = Icons.Rounded.MyLocation,
             contentDescription = "Follow my location",
-            tint = if (followUserLocation) Color.White else EmeraldDeepPrimary,
+            tint = if (followUserLocation) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
           )
         }
       }
@@ -738,7 +729,7 @@ fun FullscreenNavigationOverlay(
 
     // Bottom Navigation Control Card
     Surface(
-      color = Color.White.copy(alpha = 0.97f),
+      color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
       shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
       shadowElevation = 10.dp,
       modifier = Modifier
@@ -762,13 +753,13 @@ fun FullscreenNavigationOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
               ) {
-                Surface(color = EmeraldDeepPrimary, shape = CircleShape, modifier = Modifier.size(24.dp)) {
+                Surface(color = MaterialTheme.colorScheme.primary, shape = CircleShape, modifier = Modifier.size(24.dp)) {
                   Box(contentAlignment = Alignment.Center) {
                     Text(
                       text = activeStop.formattedStopNum,
                       style = MaterialTheme.typography.labelSmall,
                       fontWeight = FontWeight.Bold,
-                      color = Color.White,
+                      color = MaterialTheme.colorScheme.onPrimary,
                     )
                   }
                 }
@@ -776,7 +767,7 @@ fun FullscreenNavigationOverlay(
                   text = activeStop.shop.name,
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
-                  color = MintInk,
+                  color = MaterialTheme.colorScheme.onSurface,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                 )
@@ -784,17 +775,17 @@ fun FullscreenNavigationOverlay(
               Text(
                 text = "${activeStop.shop.address} • ${activeStop.paymentLabel}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MintMutedInk,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
             }
             if (!hasLocationPermission) {
-              Surface(color = AmberWarning.copy(alpha = 0.14f), shape = RoundedCornerShape(999.dp)) {
+              Surface(color = MaterialTheme.semanticColors.warningContainer, shape = RoundedCornerShape(999.dp)) {
                 Text(
                   text = "GPS Off",
                   style = MaterialTheme.typography.labelSmall,
-                  color = AmberWarning,
+                  color = MaterialTheme.semanticColors.warning,
                   fontWeight = FontWeight.Bold,
                   modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                 )
@@ -824,7 +815,7 @@ fun FullscreenNavigationOverlay(
             }
             Button(
               onClick = onMarkActiveDeliveredClick,
-              colors = ButtonDefaults.buttonColors(containerColor = EmeraldDeepPrimary),
+              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
               modifier = Modifier.weight(1.3f),
             ) {
               Icon(Icons.Rounded.TaskAlt, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -842,17 +833,17 @@ fun FullscreenNavigationOverlay(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-              Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = EmeraldSuccess)
+              Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.semanticColors.success)
               Text(
                 text = "All ${planState.totalStops} stops completed on this route!",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = MintInk,
+                color = MaterialTheme.colorScheme.onSurface,
               )
             }
             Button(
               onClick = onExitFullscreen,
-              colors = ButtonDefaults.buttonColors(containerColor = EmeraldDeepPrimary),
+              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             ) {
               Text("Done")
             }

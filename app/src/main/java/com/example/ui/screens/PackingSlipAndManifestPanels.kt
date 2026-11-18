@@ -56,23 +56,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.CobaltInfo
-import com.example.ui.theme.CobaltInfoContainer
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.CoralDangerContainer
 import androidx.compose.material3.FilterChipDefaults
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.EmeraldSuccess
-import com.example.ui.theme.EmeraldSuccessContainer
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
-import com.example.ui.theme.MintHeaderTint
 import com.example.ui.theme.RouteColorDot
 import com.example.ui.theme.RouteColorPalette
+import com.example.ui.theme.semanticColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -120,11 +107,11 @@ fun ShopSlipsTabPanel(
   ) {
     // LIFO Reverse Loading Sequence Guide Banner
     Surface(
-      color = if (reverseLoadOrder) CobaltInfoContainer else Color.White,
+      color = if (reverseLoadOrder) MaterialTheme.semanticColors.infoContainer else MaterialTheme.colorScheme.surface,
       shape = RoundedCornerShape(14.dp),
       border = BorderStroke(
-        1.2.dp,
-        if (reverseLoadOrder) CobaltInfo.copy(alpha = 0.5f) else MintCardBorder,
+        1.dp,
+        if (reverseLoadOrder) MaterialTheme.semanticColors.info.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
       ),
       shadowElevation = 2.dp,
       modifier = Modifier
@@ -148,7 +135,7 @@ fun ShopSlipsTabPanel(
             Icon(
               imageVector = Icons.Rounded.SwapVert,
               contentDescription = null,
-              tint = if (reverseLoadOrder) CobaltInfo else MaterialTheme.colorScheme.primary,
+              tint = if (reverseLoadOrder) MaterialTheme.semanticColors.info else MaterialTheme.colorScheme.primary,
               modifier = Modifier.size(18.dp),
             )
             Text(
@@ -235,16 +222,16 @@ fun ShopSlipsTabPanel(
           selected = selected,
           onClick = { filterMode = mode },
           colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = EmeraldDeepPrimary,
-            selectedLabelColor = Color.White,
-            containerColor = Color.White,
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+            containerColor = MaterialTheme.colorScheme.surface,
             labelColor = MaterialTheme.colorScheme.onSurface,
           ),
           border = FilterChipDefaults.filterChipBorder(
             enabled = true,
             selected = selected,
-            borderColor = MintCardBorder,
-            selectedBorderColor = EmeraldDeepPrimary,
+            borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+            selectedBorderColor = MaterialTheme.colorScheme.primary,
           ),
           label = {
             Text(
@@ -261,9 +248,9 @@ fun ShopSlipsTabPanel(
     if (visibleSlips.isEmpty()) {
       Card(
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-        border = BorderStroke(1.2.dp, MintCardBorder),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Column(
@@ -300,8 +287,8 @@ fun ShopSlipsTabPanel(
         SectionSectionHeaderPill(
           title = "Assigned Route Packing",
           countLabel = if (reverseLoadOrder) "${assignedSlips.size} stops (Last → #1)" else "${assignedSlips.size} stops (#1 → Last)",
-          containerColor = EmeraldSuccessContainer,
-          contentColor = EmeraldSuccess,
+          containerColor = MaterialTheme.semanticColors.successContainer,
+          contentColor = MaterialTheme.semanticColors.success,
         )
         assignedSlips.forEach { slip ->
           ShopPackingSlipCard(
@@ -317,8 +304,8 @@ fun ShopSlipsTabPanel(
         SectionSectionHeaderPill(
           title = "Unassigned Packing Queue",
           countLabel = "${unassignedSlips.size} waiting",
-          containerColor = CoralDangerContainer,
-          contentColor = CoralDanger,
+          containerColor = MaterialTheme.semanticColors.dangerContainer,
+          contentColor = MaterialTheme.semanticColors.danger,
           actionLabel = "Assign on Routes",
           onAction = onNavigateToRoutes,
         )
@@ -398,11 +385,11 @@ private fun ShopPackingSlipCard(
 
   Card(
     shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     border = BorderStroke(
-      width = if (slip.isPacked) 1.4.dp else 1.2.dp,
-      color = if (slip.isPacked) EmeraldSuccess.copy(alpha = 0.55f) else MintCardBorder,
+      width = if (slip.isPacked) 1.4.dp else 1.dp,
+      color = if (slip.isPacked) MaterialTheme.semanticColors.success.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
     ),
     modifier = Modifier
       .fillMaxWidth()
@@ -423,7 +410,7 @@ private fun ShopPackingSlipCard(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Surface(
-            color = if (slip.isPacked) EmeraldSuccess else MaterialTheme.colorScheme.primary,
+            color = if (slip.isPacked) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.primary,
             shape = RoundedCornerShape(7.dp),
           ) {
             Text(
@@ -453,8 +440,8 @@ private fun ShopPackingSlipCard(
 
         if (slip.isAssignedToRoute && reverseLoadOrder && slip.totalRouteStops > 1) {
           val positionTag = when {
-            slip.packOrderNumber == 1 -> "LOAD 1ST • BACK" to CobaltInfo
-            slip.deliveryStopNumber == 1 -> "LOAD LAST • DOOR" to AmberWarning
+            slip.packOrderNumber == 1 -> "LOAD 1ST • BACK" to MaterialTheme.semanticColors.info
+            slip.deliveryStopNumber == 1 -> "LOAD LAST • DOOR" to MaterialTheme.semanticColors.warning
             else -> null
           }
           positionTag?.let { (label, ink) ->
@@ -545,14 +532,14 @@ private fun ShopPackingSlipCard(
         }
 
         val statusBg = when {
-          slip.isPacked -> EmeraldSuccessContainer
-          slip.isInProgress -> AmberWarningContainer
-          else -> CoralDangerContainer
+          slip.isPacked -> MaterialTheme.semanticColors.successContainer
+          slip.isInProgress -> MaterialTheme.semanticColors.warningContainer
+          else -> MaterialTheme.semanticColors.dangerContainer
         }
         val statusInk = when {
-          slip.isPacked -> EmeraldSuccess
-          slip.isInProgress -> AmberWarning
-          else -> CoralDanger
+          slip.isPacked -> MaterialTheme.semanticColors.success
+          slip.isInProgress -> MaterialTheme.semanticColors.warning
+          else -> MaterialTheme.semanticColors.danger
         }
         val statusIcon = when {
           slip.isPacked -> Icons.Rounded.Check
@@ -595,9 +582,9 @@ private fun ShopPackingSlipCard(
 
       // Items Breakdown Panel
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth(),
       ) {
         Column(
@@ -698,7 +685,7 @@ private fun ShopPackingSlipCard(
               text = "Unassigned",
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = CoralDanger,
+              color = MaterialTheme.semanticColors.danger,
             )
           }
         }
@@ -763,7 +750,7 @@ private fun ShopPackingSlipCard(
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
           Surface(
-            color = if (slip.isPacked) EmeraldSuccessContainer else MaterialTheme.colorScheme.primaryContainer,
+            color = if (slip.isPacked) MaterialTheme.semanticColors.successContainer else MaterialTheme.colorScheme.primaryContainer,
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier
               .clip(RoundedCornerShape(8.dp))
@@ -777,14 +764,14 @@ private fun ShopPackingSlipCard(
               Icon(
                 imageVector = Icons.Rounded.AssignmentTurnedIn,
                 contentDescription = null,
-                tint = if (slip.isPacked) EmeraldSuccess else MaterialTheme.colorScheme.primary,
+                tint = if (slip.isPacked) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(15.dp),
               )
               Text(
                 text = if (slip.isPacked) "Packed" else "Mark Packed",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (slip.isPacked) EmeraldSuccess else MaterialTheme.colorScheme.primary,
+                color = if (slip.isPacked) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.primary,
               )
             }
           }
@@ -838,9 +825,9 @@ fun A4ManifestTabPanel(
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     Surface(
-      color = Color.White,
+      color = MaterialTheme.colorScheme.surface,
       shape = RoundedCornerShape(12.dp),
-      border = BorderStroke(1.2.dp, MintCardBorder),
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
       shadowElevation = 2.dp,
       modifier = Modifier.fillMaxWidth(),
     ) {
@@ -861,9 +848,9 @@ fun A4ManifestTabPanel(
           listOf("Standard A4 Sheet", "3-Inch Thermal").forEach { mode ->
             val active = paperMode == mode
             Surface(
-              color = if (active) EmeraldDeepPrimary else MintFieldFill,
+              color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
               shape = RoundedCornerShape(8.dp),
-              border = if (active) null else BorderStroke(1.dp, MintFieldBorder),
+              border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
               modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { paperMode = mode },
@@ -872,7 +859,7 @@ fun A4ManifestTabPanel(
                 text = mode,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = if (active) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
               )
             }
@@ -883,9 +870,9 @@ fun A4ManifestTabPanel(
 
     Card(
       shape = RoundedCornerShape(14.dp),
-      colors = CardDefaults.cardColors(containerColor = Color.White),
-      elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
-      border = BorderStroke(1.2.dp, MintCardBorder),
+      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+      elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
       modifier = Modifier
         .fillMaxWidth()
         .testTag("a4_manifest_document"),
@@ -956,9 +943,9 @@ fun A4ManifestTabPanel(
         }
 
         Surface(
-          color = MintFieldFill,
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
           shape = RoundedCornerShape(10.dp),
-          border = BorderStroke(1.dp, MintFieldBorder),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Row(
@@ -1031,9 +1018,9 @@ fun A4ManifestTabPanel(
             color = MaterialTheme.colorScheme.onSurface,
           )
           Surface(
-            color = MintFieldFill,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             shape = RoundedCornerShape(8.dp),
-            border = BorderStroke(1.dp, MintFieldBorder),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
             modifier = Modifier.fillMaxWidth(),
           ) {
             Column(
@@ -1078,9 +1065,9 @@ fun A4ManifestTabPanel(
         )
 
         Surface(
-          color = MintHeaderTint,
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
           shape = RoundedCornerShape(6.dp),
-          border = BorderStroke(1.dp, MintFieldBorder),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Row(
@@ -1120,7 +1107,7 @@ fun A4ManifestTabPanel(
                 modifier = Modifier
                   .fillMaxWidth()
                   .clip(RoundedCornerShape(4.dp))
-                  .background(if (isShort) CoralDangerContainer.copy(alpha = 0.55f) else Color.Transparent)
+                  .background(if (isShort) MaterialTheme.semanticColors.dangerContainer.copy(alpha = 0.55f) else Color.Transparent)
                   .padding(horizontal = 6.dp, vertical = 3.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
               ) {
@@ -1138,7 +1125,7 @@ fun A4ManifestTabPanel(
                   style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                   fontFamily = FontFamily.Monospace,
                   fontWeight = FontWeight.Bold,
-                  color = if (isShort) CoralDanger else EmeraldSuccess,
+                  color = if (isShort) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
                 )
               }
             }

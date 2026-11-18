@@ -12,9 +12,12 @@ import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
+import com.example.data.model.PaymentTransaction
+import com.example.data.model.Product
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
+import com.example.data.model.SupplierBill
 import com.example.data.remote.LaptopServerClient
 import com.example.data.repository.RemoteCloudAdapter
 import com.example.data.repository.SnackRouteDataSource
@@ -56,10 +59,16 @@ class RoomOfflineFirestoreCacheTest {
     val shopsStore = ConcurrentHashMap<String, Shop>()
     val ordersStore = ConcurrentHashMap<String, OrderRecord>()
     val stocksStore = ConcurrentHashMap<String, StockItem>()
+    val productsStore = ConcurrentHashMap<String, Product>()
+    val paymentsStore = ConcurrentHashMap<String, PaymentTransaction>()
+    val supplierBillsStore = ConcurrentHashMap<String, SupplierBill>()
     val metaFlow = MutableStateFlow<OperationsMeta?>(null)
     val shopsFlow = MutableStateFlow<List<Shop>>(emptyList())
     val ordersFlow = MutableStateFlow<List<OrderRecord>>(emptyList())
     val stocksFlow = MutableStateFlow<List<StockItem>>(emptyList())
+    val productsFlow = MutableStateFlow<List<Product>>(emptyList())
+    val paymentsFlow = MutableStateFlow<List<PaymentTransaction>>(emptyList())
+    val supplierBillsFlow = MutableStateFlow<List<SupplierBill>>(emptyList())
     val routesFlow = MutableStateFlow<List<DeliveryRoute>>(RoutesCatalog.starterRoutes)
 
     fun seedRemoteOnline(
@@ -99,6 +108,27 @@ class RoomOfflineFirestoreCacheTest {
         flow { throw FirebaseFirestoreException("Offline stream error", FirebaseFirestoreException.Code.UNAVAILABLE) }
       } else {
         stocksFlow
+      }
+
+    override fun observeProducts(userId: String): Flow<List<Product>> =
+      if (failUpstreamStream) {
+        flow { throw FirebaseFirestoreException("Offline stream error", FirebaseFirestoreException.Code.UNAVAILABLE) }
+      } else {
+        productsFlow
+      }
+
+    override fun observePayments(userId: String): Flow<List<PaymentTransaction>> =
+      if (failUpstreamStream) {
+        flow { throw FirebaseFirestoreException("Offline stream error", FirebaseFirestoreException.Code.UNAVAILABLE) }
+      } else {
+        paymentsFlow
+      }
+
+    override fun observeSupplierBills(userId: String): Flow<List<SupplierBill>> =
+      if (failUpstreamStream) {
+        flow { throw FirebaseFirestoreException("Offline stream error", FirebaseFirestoreException.Code.UNAVAILABLE) }
+      } else {
+        supplierBillsFlow
       }
 
     override fun observeMeta(userId: String): Flow<OperationsMeta?> =
@@ -216,6 +246,62 @@ class RoomOfflineFirestoreCacheTest {
 
     override suspend fun fetchOrdersOnce(userId: String): Result<List<OrderRecord>> =
       Result.success(ordersStore.values.toList())
+
+    override suspend fun saveProduct(product: Product): Result<String> =
+      upsertProduct(product, product.id.isNotBlank())
+
+    override suspend fun upsertProduct(product: Product, isUpdate: Boolean): Result<String> {
+      val id = product.id.ifBlank { "remote_prd_${UUID.randomUUID()}" }
+      val saved = product.copy(id = id)
+      productsStore[id] = saved
+      productsFlow.value = productsStore.values.toList()
+      return Result.success(id)
+    }
+
+    override suspend fun updateProductStatus(productId: String, newStatus: String): Result<Unit> {
+      val cur = productsStore[productId] ?: return Result.failure(IllegalStateException("Missing product"))
+      productsStore[productId] = cur.copy(status = newStatus)
+      productsFlow.value = productsStore.values.toList()
+      return Result.success(Unit)
+    }
+
+    override suspend fun updateProductStock(productId: String, newQuantity: Int): Result<Unit> {
+      val cur = productsStore[productId] ?: return Result.failure(IllegalStateException("Missing product"))
+      productsStore[productId] = cur.copy(stockQuantity = newQuantity)
+      productsFlow.value = productsStore.values.toList()
+      return Result.success(Unit)
+    }
+
+    override suspend fun fetchProductsOnce(userId: String): Result<List<Product>> =
+      Result.success(productsStore.values.toList())
+
+    override suspend fun recordPayment(payment: PaymentTransaction): Result<String> =
+      upsertPayment(payment, payment.id.isNotBlank())
+
+    override suspend fun upsertPayment(payment: PaymentTransaction, isUpdate: Boolean): Result<String> {
+      val id = payment.id.ifBlank { "remote_pay_${UUID.randomUUID()}" }
+      val saved = payment.copy(id = id)
+      paymentsStore[id] = saved
+      paymentsFlow.value = paymentsStore.values.toList()
+      return Result.success(id)
+    }
+
+    override suspend fun saveSupplierBill(bill: SupplierBill): Result<String> =
+      upsertSupplierBill(bill, bill.id.isNotBlank())
+
+    override suspend fun upsertSupplierBill(bill: SupplierBill, isUpdate: Boolean): Result<String> {
+      val id = bill.id.ifBlank { "remote_sup_${UUID.randomUUID()}" }
+      val saved = bill.copy(id = id)
+      supplierBillsStore[id] = saved
+      supplierBillsFlow.value = supplierBillsStore.values.toList()
+      return Result.success(id)
+    }
+
+    override suspend fun fetchPaymentsOnce(userId: String): Result<List<PaymentTransaction>> =
+      Result.success(paymentsStore.values.toList())
+
+    override suspend fun fetchSupplierBillsOnce(userId: String): Result<List<SupplierBill>> =
+      Result.success(supplierBillsStore.values.toList())
   }
 
   private lateinit var fakeCloud: FakeCloudBackend

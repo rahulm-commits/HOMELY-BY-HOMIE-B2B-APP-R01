@@ -67,10 +67,6 @@ import com.example.data.model.Shop
 import com.example.data.model.SnackCatalog
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.formatInr
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.MintAccentChip
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldFill
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +74,7 @@ fun PlaceOrderScreen(
   shop: Shop,
   onConfirmOrder: (items: List<Pair<CatalogProduct, Int>>, note: String) -> Unit,
   onBack: () -> Unit,
+  catalogProducts: List<CatalogProduct> = SnackCatalog.products,
 ) {
   BackHandler(onBack = onBack)
 
@@ -86,9 +83,13 @@ fun PlaceOrderScreen(
   var orderNote by remember { mutableStateOf("") }
   val quantities = remember { mutableStateMapOf<String, Int>() }
 
-  val filteredProducts = remember(productSearchQuery, selectedCategory) {
+  val categoryOptions = remember(catalogProducts) {
+    listOf("All Snacks") + catalogProducts.map { it.category }.filter { it.isNotBlank() }.distinct()
+  }
+
+  val filteredProducts = remember(catalogProducts, productSearchQuery, selectedCategory) {
     val q = productSearchQuery.trim().lowercase()
-    SnackCatalog.products.filter { prod ->
+    catalogProducts.filter { prod ->
       val matchesCat = selectedCategory == "All Snacks" || prod.category == selectedCategory
       val matchesQuery = q.isEmpty() ||
         prod.code.lowercase().contains(q) ||
@@ -99,7 +100,7 @@ fun PlaceOrderScreen(
   }
 
   val totalCount = quantities.values.sum()
-  val totalAmount = SnackCatalog.products.sumOf { prod ->
+  val totalAmount = catalogProducts.sumOf { prod ->
     (quantities[prod.code] ?: 0) * prod.defaultPrice
   }
 
@@ -165,7 +166,7 @@ fun PlaceOrderScreen(
           }
           Button(
             onClick = {
-              val chosen = SnackCatalog.products.mapNotNull { prod ->
+              val chosen = catalogProducts.mapNotNull { prod ->
                 val qty = quantities[prod.code] ?: 0
                 if (qty > 0) prod to qty else null
               }
@@ -197,8 +198,8 @@ fun PlaceOrderScreen(
       item {
         Card(
           shape = RoundedCornerShape(16.dp),
-          border = BorderStroke(1.2.dp, MintCardBorder),
-          elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Box(
@@ -250,21 +251,21 @@ fun PlaceOrderScreen(
             .horizontalScroll(rememberScrollState()),
           horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-          SnackCatalog.categories.forEach { category ->
+          categoryOptions.forEach { category ->
             val isSelected = selectedCategory == category
             FilterChip(
               selected = isSelected,
               onClick = { selectedCategory = category },
               colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = EmeraldDeepPrimary,
-                selectedLabelColor = Color.White,
-                containerColor = Color.White,
-                labelColor = EmeraldDeepPrimary,
+                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.surface,
+                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
               ),
               border = FilterChipDefaults.filterChipBorder(
                 enabled = true,
                 selected = isSelected,
-                borderColor = MintCardBorder,
+                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
               ),
               label = {
                 Text(
@@ -279,16 +280,16 @@ fun PlaceOrderScreen(
         }
       }
 
-      items(filteredProducts, key = { it.code }) { product ->
+      items(filteredProducts, key = { "${it.code}_${it.packSize}" }) { product ->
         val qty = quantities[product.code] ?: 0
         Card(
           shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = Color.White),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
           border = BorderStroke(
-            if (qty > 0) 1.6.dp else 1.2.dp,
-            if (qty > 0) EmeraldDeepPrimary else MintCardBorder,
+            if (qty > 0) 1.5.dp else 1.dp,
+            if (qty > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
           ),
-          elevation = CardDefaults.cardElevation(defaultElevation = if (qty > 0) 3.dp else 2.dp),
+          elevation = CardDefaults.cardElevation(defaultElevation = if (qty > 0) 3.dp else 1.5.dp),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Row(
@@ -307,14 +308,14 @@ fun PlaceOrderScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
               ) {
                 Surface(
-                  color = MintAccentChip,
+                  color = MaterialTheme.colorScheme.primaryContainer,
                   shape = RoundedCornerShape(6.dp),
                 ) {
                   Text(
                     text = product.code,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = EmeraldDeepPrimary,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                   )
                 }

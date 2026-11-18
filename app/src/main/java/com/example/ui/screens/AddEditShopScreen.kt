@@ -82,10 +82,7 @@ import com.example.ui.components.fetchCurrentDeviceLocation
 import com.example.ui.components.hasLocationPermission
 import com.example.ui.components.isNetworkAvailable
 import com.example.ui.components.openExternalMapOrUrl
-import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.AmberWarningContainer
-import com.example.ui.theme.ForestContainer
-import com.example.ui.theme.ForestSecondary
+import com.example.ui.theme.semanticColors
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -399,7 +396,7 @@ fun AddEditShopScreen(
               horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
               Surface(
-                color = ForestContainer,
+                color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.size(30.dp),
               ) {
@@ -407,7 +404,7 @@ fun AddEditShopScreen(
                   Icon(
                     imageVector = Icons.Rounded.Storefront,
                     contentDescription = null,
-                    tint = ForestSecondary,
+                    tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.size(18.dp),
                   )
                 }
@@ -421,7 +418,7 @@ fun AddEditShopScreen(
           },
           actions = {
             Surface(
-              color = ForestSecondary,
+              color = MaterialTheme.colorScheme.secondary,
               shape = CircleShape,
               modifier = Modifier
                 .padding(end = 12.dp)
@@ -432,7 +429,7 @@ fun AddEditShopScreen(
                   text = userInitials,
                   style = MaterialTheme.typography.labelMedium,
                   fontWeight = FontWeight.Bold,
-                  color = Color.White,
+                  color = MaterialTheme.colorScheme.onSecondary,
                 )
               }
             }
@@ -482,8 +479,8 @@ fun AddEditShopScreen(
             onClick = submitShopForm,
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-              containerColor = ForestSecondary,
-              contentColor = Color.White,
+              containerColor = MaterialTheme.colorScheme.secondary,
+              contentColor = MaterialTheme.colorScheme.onSecondary,
             ),
             modifier = Modifier
               .weight(2f)
@@ -527,7 +524,7 @@ fun AddEditShopScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             Surface(
-              color = ForestContainer,
+              color = MaterialTheme.colorScheme.secondaryContainer,
               shape = RoundedCornerShape(999.dp),
             ) {
               Row(
@@ -539,20 +536,20 @@ fun AddEditShopScreen(
                   modifier = Modifier
                     .size(7.dp)
                     .clip(CircleShape)
-                    .background(ForestSecondary),
+                    .background(MaterialTheme.colorScheme.secondary),
                 )
                 Text(
                   text = if (existingShop == null) "New Registration" else "Edit Registration",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.SemiBold,
-                  color = ForestSecondary,
+                  color = MaterialTheme.colorScheme.secondary,
                 )
               }
             }
             Text(
               text = "Step 1 of 1",
               style = MaterialTheme.typography.labelMedium,
-              color = ForestSecondary,
+              color = MaterialTheme.colorScheme.secondary,
             )
           }
 
@@ -560,7 +557,7 @@ fun AddEditShopScreen(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(12.dp),
             shadowElevation = 2.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, com.example.ui.theme.MintCardBorder),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
             modifier = Modifier
               .clip(RoundedCornerShape(12.dp))
               .clickable {
@@ -577,24 +574,24 @@ fun AddEditShopScreen(
               Icon(
                 imageVector = Icons.Rounded.StickyNote2,
                 contentDescription = "Open shop notes",
-                tint = ForestSecondary,
+                tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(18.dp),
               )
               Text(
                 text = "Notes",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = ForestSecondary,
+                color = MaterialTheme.colorScheme.secondary,
               )
               Surface(
-                color = ForestSecondary,
+                color = MaterialTheme.colorScheme.secondary,
                 shape = CircleShape,
               ) {
                 Text(
                   text = if (note.isBlank()) "0" else "1",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.Bold,
-                  color = Color.White,
+                  color = MaterialTheme.colorScheme.onSecondary,
                   modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                 )
               }
@@ -606,7 +603,7 @@ fun AddEditShopScreen(
       if (!isOnline) {
         item {
           Surface(
-            color = AmberWarningContainer,
+            color = MaterialTheme.semanticColors.warningContainer,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth(),
           ) {
@@ -615,11 +612,11 @@ fun AddEditShopScreen(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-              Icon(Icons.Rounded.CloudOff, contentDescription = null, tint = AmberWarning)
+              Icon(Icons.Rounded.CloudOff, contentDescription = null, tint = MaterialTheme.semanticColors.warning)
               Text(
                 text = "No internet detected. Shop details will be saved locally on your phone and synced automatically when online.",
                 style = MaterialTheme.typography.bodySmall,
-                color = AmberWarning,
+                color = MaterialTheme.semanticColors.warning,
               )
             }
           }
@@ -776,7 +773,7 @@ fun AddEditShopScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
           ) {
             Surface(
-              color = ForestContainer,
+              color = MaterialTheme.colorScheme.secondaryContainer,
               shape = CircleShape,
               modifier = Modifier.size(38.dp),
             ) {
@@ -784,7 +781,7 @@ fun AddEditShopScreen(
                 Icon(
                   imageVector = Icons.Rounded.StickyNote2,
                   contentDescription = null,
-                  tint = ForestSecondary,
+                  tint = MaterialTheme.colorScheme.secondary,
                 )
               }
             }
@@ -811,7 +808,7 @@ fun AddEditShopScreen(
             text = "Special Operational Instructions",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
-            color = ForestSecondary,
+            color = MaterialTheme.colorScheme.secondary,
           )
           OutlinedTextField(
             value = draftNote,
@@ -859,8 +856,8 @@ fun AddEditShopScreen(
             },
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-              containerColor = ForestSecondary,
-              contentColor = Color.White,
+              containerColor = MaterialTheme.colorScheme.secondary,
+              contentColor = MaterialTheme.colorScheme.onSecondary,
             ),
             modifier = Modifier
               .weight(1f)

@@ -89,16 +89,10 @@ import com.example.data.model.Shop
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
-import com.example.ui.theme.CoralDanger
-import com.example.ui.theme.CoralDangerContainer
-import com.example.ui.theme.EmeraldDeepPrimary
-import com.example.ui.theme.MintCardBorder
-import com.example.ui.theme.MintFieldBorder
-import com.example.ui.theme.MintFieldFill
-import com.example.ui.theme.MintHeaderTint
 import com.example.ui.theme.RouteColorDot
 import com.example.ui.theme.RouteColorPalette
 import com.example.ui.theme.RouteProgressBar
+import com.example.ui.theme.semanticColors
 import kotlin.math.roundToInt
 
 enum class DispatchDrawerTab {
@@ -236,14 +230,14 @@ fun AllocationDispatchDrawer(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             Surface(
-              color = if (totalUnallocatedCount > 0) CoralDangerContainer else MaterialTheme.colorScheme.secondaryContainer,
+              color = if (totalUnallocatedCount > 0) MaterialTheme.semanticColors.dangerContainer else MaterialTheme.colorScheme.secondaryContainer,
               shape = RoundedCornerShape(999.dp),
             ) {
               Text(
                 text = "$totalUnallocatedCount Unallocated",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (totalUnallocatedCount > 0) CoralDanger else MaterialTheme.colorScheme.onSecondaryContainer,
+                color = if (totalUnallocatedCount > 0) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
               )
             }
@@ -288,9 +282,9 @@ fun AllocationDispatchDrawer(
 
       // M3 Segmented Tabs matching OrderScreen / ShopListScreen tabs
       Surface(
-        color = MintFieldFill,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MintFieldBorder),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier
           .fillMaxWidth()
           .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -352,12 +346,12 @@ fun AllocationDispatchDrawer(
               Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                  containerColor = if (isFocusedRoute) MintHeaderTint else Color.White,
+                  containerColor = if (isFocusedRoute) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface,
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isFocusedRoute) 3.dp else 2.5.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isFocusedRoute) 3.dp else 2.dp),
                 border = BorderStroke(
-                  width = if (isFocusedRoute) 1.6.dp else 1.2.dp,
-                  color = if (isFocusedRoute) spec.primary else MintCardBorder,
+                  width = if (isFocusedRoute) 1.6.dp else 1.dp,
+                  color = if (isFocusedRoute) spec.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
                 ),
                 modifier = Modifier
                   .fillMaxWidth()
@@ -522,8 +516,8 @@ fun AllocationDispatchDrawer(
             if (unallocatedShops.isEmpty()) {
               Card(
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.2.dp, MintCardBorder),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth(),
               ) {
@@ -538,9 +532,9 @@ fun AllocationDispatchDrawer(
               unallocatedShops.forEach { shop ->
                 Card(
                   shape = RoundedCornerShape(14.dp),
-                  colors = CardDefaults.cardColors(containerColor = Color.White),
-                  border = BorderStroke(1.2.dp, MintCardBorder),
-                  elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                  elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                   modifier = Modifier.fillMaxWidth(),
                 ) {
                   Row(
@@ -587,7 +581,7 @@ fun AllocationDispatchDrawer(
                         Text(
                           text = "Unallocated • ${shop.shopCode}",
                           style = MaterialTheme.typography.labelSmall,
-                          color = CoralDanger,
+                          color = MaterialTheme.semanticColors.danger,
                         )
                       }
                     }
@@ -618,8 +612,8 @@ fun AllocationDispatchDrawer(
               Card(
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                border = BorderStroke(1.2.dp, MintCardBorder),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth(),
               ) {
                 Row(
@@ -689,7 +683,7 @@ fun AllocationDispatchDrawer(
             verticalArrangement = Arrangement.spacedBy(10.dp),
           ) {
             Surface(
-              color = CoralDangerContainer,
+              color = MaterialTheme.semanticColors.dangerContainer,
               shape = RoundedCornerShape(12.dp),
               modifier = Modifier.fillMaxWidth(),
             ) {
@@ -701,7 +695,7 @@ fun AllocationDispatchDrawer(
                 Icon(
                   imageVector = Icons.Rounded.WrongLocation,
                   contentDescription = null,
-                  tint = CoralDanger,
+                  tint = MaterialTheme.semanticColors.danger,
                   modifier = Modifier.size(24.dp),
                 )
                 Column {
@@ -709,12 +703,12 @@ fun AllocationDispatchDrawer(
                     text = "${missingGpsShops.size} Stores Need GPS Coordinates",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = CoralDanger,
+                    color = MaterialTheme.semanticColors.danger,
                   )
                   Text(
                     text = "Request shopkeeper WhatsApp pin or edit shop GPS.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = CoralDanger.copy(alpha = 0.85f),
+                    color = MaterialTheme.semanticColors.danger.copy(alpha = 0.85f),
                   )
                 }
               }
@@ -723,8 +717,8 @@ fun AllocationDispatchDrawer(
             if (missingGpsShops.isEmpty()) {
               Card(
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.2.dp, MintCardBorder),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth(),
               ) {
@@ -739,9 +733,9 @@ fun AllocationDispatchDrawer(
               missingGpsShops.forEach { shop ->
                 Card(
                   shape = RoundedCornerShape(14.dp),
-                  colors = CardDefaults.cardColors(containerColor = Color.White),
-                  border = BorderStroke(1.2.dp, MintCardBorder),
-                  elevation = CardDefaults.cardElevation(defaultElevation = 2.5.dp),
+                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                  elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                   modifier = Modifier.fillMaxWidth(),
                 ) {
                   Row(
@@ -825,7 +819,7 @@ private fun SelectedRouteChecklistPanel(
 
   Card(
     shape = RoundedCornerShape(16.dp),
-    colors = CardDefaults.cardColors(containerColor = Color.White),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     border = BorderStroke(1.4.dp, spec.primary.copy(alpha = 0.7f)),
     modifier = Modifier
@@ -961,9 +955,9 @@ private fun SelectedRouteChecklistPanel(
           routeShops.forEachIndexed { index, shop ->
             val checked = shop.id in checkedShopIds
             Surface(
-              color = MintFieldFill,
+              color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
               shape = RoundedCornerShape(10.dp),
-              border = BorderStroke(1.dp, MintFieldBorder),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
               modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
@@ -1073,7 +1067,7 @@ private fun SelectedRouteChecklistPanel(
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 Surface(
-                  color = CoralDangerContainer,
+                  color = MaterialTheme.semanticColors.dangerContainer,
                   shape = CircleShape,
                   modifier = Modifier
                     .size(30.dp)
@@ -1084,7 +1078,7 @@ private fun SelectedRouteChecklistPanel(
                     Icon(
                       imageVector = Icons.Rounded.RemoveCircleOutline,
                       contentDescription = "Remove ${shop.name} from route",
-                      tint = CoralDanger,
+                      tint = MaterialTheme.semanticColors.danger,
                       modifier = Modifier.size(16.dp),
                     )
                   }
@@ -1106,9 +1100,9 @@ private fun DrawerSegmentedTab(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    color = if (selected) Color.White else Color.Transparent,
+    color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
     shape = RoundedCornerShape(9.dp),
-    border = if (selected) BorderStroke(1.dp, MintCardBorder) else null,
+    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)) else null,
     shadowElevation = if (selected) 2.dp else 0.dp,
     modifier = modifier
       .height(36.dp)

@@ -101,8 +101,8 @@ enum class AppDestination(
   TRANSPORT("Transport", Icons.Rounded.LocalShipping, Icons.Outlined.LocalShipping, true, true, "nav_transport"),
   SUPPLIERS("Suppliers", Icons.Rounded.Factory, Icons.Outlined.Factory, false, false, "nav_suppliers"),
   ROUTES("Routes", Icons.AutoMirrored.Rounded.AltRoute, Icons.AutoMirrored.Outlined.AltRoute, false, true, "nav_routes"),
-  PAYMENTS("Payments", Icons.Rounded.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet, false, false, "nav_payments"),
-  PRODUCTS("Products", Icons.Rounded.Warehouse, Icons.Outlined.Warehouse, false, false, "nav_products");
+  PAYMENTS("Payments", Icons.Rounded.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet, false, true, "nav_payments"),
+  PRODUCTS("Products", Icons.Rounded.Warehouse, Icons.Outlined.Warehouse, false, true, "nav_products");
 
   companion object {
     val bottomBarPrimary = entries.filter { it.isPrimaryBottomBar }
@@ -146,9 +146,9 @@ fun StandardRouteDropdown(
         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
       },
       colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-        unfocusedContainerColor = com.example.ui.theme.MintFieldFill,
-        focusedContainerColor = Color.White,
-        unfocusedBorderColor = com.example.ui.theme.MintFieldBorder,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+        focusedContainerColor = MaterialTheme.colorScheme.surface,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
         focusedBorderColor = MaterialTheme.colorScheme.primary,
       ),
       textStyle = MaterialTheme.typography.bodyMedium,
@@ -188,13 +188,13 @@ fun StandardCompactSearchBar(
   placeholder: String,
   fieldTestTag: String,
   modifier: Modifier = Modifier,
-  containerColor: Color = com.example.ui.theme.MintFieldFill,
+  containerColor: Color = MaterialTheme.colorScheme.surface,
   trailingIcon: ImageVector? = null,
 ) {
   Surface(
     color = containerColor,
     shape = RoundedCornerShape(10.dp),
-    border = BorderStroke(1.dp, com.example.ui.theme.MintFieldBorder),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
     modifier = modifier
       .fillMaxWidth()
       .height(42.dp),

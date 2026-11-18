@@ -59,7 +59,6 @@ import com.example.data.model.ShopStatus
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.fetchCurrentDeviceLocation
 import com.example.ui.components.hasLocationPermission
-import com.example.ui.theme.CoralDanger
 import kotlinx.coroutines.delay
 
 @Composable
@@ -312,7 +311,7 @@ fun RoutePlanScreen(
                 )
                 if (unallocatedCount > 0) {
                   Surface(
-                    color = CoralDanger,
+                    color = MaterialTheme.colorScheme.error,
                     shape = CircleShape,
                     modifier = Modifier
                       .align(Alignment.TopEnd)
@@ -324,7 +323,7 @@ fun RoutePlanScreen(
                         text = unallocatedCount.coerceAtMost(99).toString(),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onError,
                       )
                     }
                   }
