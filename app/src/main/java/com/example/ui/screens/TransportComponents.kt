@@ -373,6 +373,7 @@ fun ActiveRouteTriggerCard(
 @Composable
 fun VehicleProgressCard(
   planState: TransportRoutePlanState,
+  onEditVehicleClick: (() -> Unit)? = null,
   modifier: Modifier = Modifier,
 ) {
   val route = planState.selectedRoute
@@ -428,6 +429,9 @@ fun VehicleProgressCard(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
               )
               Surface(
                 color = MaterialTheme.colorScheme.secondaryContainer,
@@ -443,11 +447,20 @@ fun VehicleProgressCard(
               }
             }
             Text(
-              text = vehicleSummary.plateNumber,
+              text = vehicleSummary.plateNumber.ifBlank { "Plate number not set" },
               style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
               fontWeight = FontWeight.SemiBold,
               color = MaterialTheme.colorScheme.secondary,
             )
+            if (vehicleSummary.extraDetails.isNotBlank()) {
+              Text(
+                text = vehicleSummary.extraDetails,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
             Text(
               text = "Driver: ${route?.driverName ?: "Assigned"} | ${route?.dispatchWindow ?: "Morning Run"}",
               style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
@@ -459,17 +472,43 @@ fun VehicleProgressCard(
         }
 
         Column(horizontalAlignment = Alignment.End) {
-          Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(999.dp),
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
           ) {
-            Text(
-              text = route?.id?.substringBefore("-") ?: "ROUTE",
-              style = MaterialTheme.typography.labelSmall,
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
-            )
+            if (onEditVehicleClick != null) {
+              Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
+                shape = CircleShape,
+                modifier = Modifier
+                  .minimumInteractiveComponentSize()
+                  .size(32.dp)
+                  .clip(CircleShape)
+                  .clickable(onClick = onEditVehicleClick)
+                  .testTag("transport_edit_vehicle_button"),
+              ) {
+                Box(contentAlignment = Alignment.Center) {
+                  Icon(
+                    imageVector = Icons.Rounded.Edit,
+                    contentDescription = "Edit vehicle and driver details",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                  )
+                }
+              }
+            }
+            Surface(
+              color = MaterialTheme.colorScheme.primaryContainer,
+              shape = RoundedCornerShape(999.dp),
+            ) {
+              Text(
+                text = route?.id?.substringBefore("-") ?: "ROUTE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
+              )
+            }
           }
           Spacer(modifier = Modifier.height(3.dp))
           Text(

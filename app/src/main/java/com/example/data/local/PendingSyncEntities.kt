@@ -280,6 +280,8 @@ data class PendingOrderEntity(
   val itemsSummary: String,
   val orderDate: String,
   val note: String = "",
+  val isUpdate: Boolean = false,
+  val pendingDelete: Boolean = false,
   val globalSynced: Boolean = false,
   val localServerSynced: Boolean = false,
   val lastError: String = "",

@@ -435,8 +435,7 @@ class LocalTestRepository : SnackRouteDataSource {
   }
 
   override suspend fun saveShop(shop: Shop): Result<String> {
-    val isUpdate = shop.id.isNotBlank()
-    val targetId = if (isUpdate) shop.id else "local_shop_${UUID.randomUUID().toString().take(8)}"
+    val targetId = if (shop.id.isNotBlank()) shop.id else "local_shop_${UUID.randomUUID().toString().take(8)}"
     val saved = shop.copy(
       id = targetId,
       userId = LOCAL_UID,
@@ -445,11 +444,12 @@ class LocalTestRepository : SnackRouteDataSource {
       lastCallDate = shop.lastCallDate.ifBlank { today },
       createdAt = shop.createdAt ?: Timestamp.now(),
       updatedAt = Timestamp.now(),
-      isPendingSync = true,
+      isPendingSync = false,
     )
     shopsFlow.update { current ->
-      if (isUpdate) {
-        current.map { if (it.id == targetId) saved else it }
+      val existingIndex = current.indexOfFirst { it.id == targetId }
+      if (existingIndex >= 0) {
+        current.toMutableList().apply { set(existingIndex, saved) }
       } else {
         listOf(saved) + current
       }
@@ -538,6 +538,35 @@ class LocalTestRepository : SnackRouteDataSource {
     return Result.success(orderId)
   }
 
+  fun upsertOrderExact(order: OrderRecord, markShopConfirmed: Boolean = true) {
+    ordersFlow.update { current ->
+      val idx = current.indexOfFirst {
+        it.id == order.id || (order.orderCode.isNotBlank() && it.orderCode == order.orderCode)
+      }
+      if (idx >= 0) {
+        current.toMutableList().apply { set(idx, order) }
+      } else {
+        listOf(order) + current
+      }
+    }
+    if (markShopConfirmed) {
+      shopsFlow.update { current ->
+        current.map {
+          if (it.id == order.shopId) {
+            it.copy(
+              inquiryStatus = InquiryStatus.CONFIRMED,
+              lastOrderDate = today,
+              lastCallDate = today,
+              updatedAt = Timestamp.now(),
+            )
+          } else {
+            it
+          }
+        }
+      }
+    }
+  }
+
   override suspend fun updateOrderStatus(
     orderId: String,
     newStatus: String,
@@ -555,6 +584,43 @@ class LocalTestRepository : SnackRouteDataSource {
           ord
         }
       }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun updateOrderDetails(
+    orderId: String,
+    items: List<Pair<CatalogProduct, Int>>,
+    note: String,
+  ): Result<Unit> {
+    val validItems = items.filter { it.second > 0 }
+    if (validItems.isEmpty()) {
+      return Result.failure(IllegalArgumentException("Select at least one product to update the order."))
+    }
+    val totalAmount = validItems.sumOf { (prod, qty) -> prod.defaultPrice * qty }
+    val itemCount = validItems.sumOf { it.second }
+    val itemsSummary = validItems.joinToString(", ") { (prod, qty) -> "${prod.code} x$qty" }.take(780)
+    ordersFlow.update { current ->
+      current.map { ord ->
+        if (ord.id == orderId || ord.orderCode == orderId) {
+          ord.copy(
+            totalAmount = totalAmount,
+            itemCount = itemCount,
+            itemsSummary = itemsSummary,
+            note = note.trim().take(500),
+            updatedAt = Timestamp.now(),
+          )
+        } else {
+          ord
+        }
+      }
+    }
+    return Result.success(Unit)
+  }
+
+  override suspend fun deleteOrder(orderId: String): Result<Unit> {
+    ordersFlow.update { current ->
+      current.filterNot { it.id == orderId || it.orderCode == orderId }
     }
     return Result.success(Unit)
   }

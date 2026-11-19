@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -96,6 +97,7 @@ fun AddEditShopScreen(
   suggestedShopCode: String,
   addedByName: String = "Field Officer",
   availableRoutes: List<DeliveryRoute> = RoutesCatalog.starterRoutes,
+  isSaving: Boolean = false,
   onSaveShop: (shop: Shop, isOnline: Boolean) -> Unit,
   onBack: () -> Unit,
 ) {
@@ -321,9 +323,10 @@ fun AddEditShopScreen(
   }
 
   val submitShopForm: () -> Unit = {
-    val inferredPin = pinCode.trim().ifBlank {
-      Regex("\\b\\d{6}\\b").find(address)?.value ?: ""
-    }
+    if (!isSaving) {
+      val inferredPin = pinCode.trim().ifBlank {
+        Regex("\\b\\d{6}\\b").find(address)?.value ?: ""
+      }
     when {
       shopCode.trim().length < 2 -> validationError = "Enter a valid Unique Shop ID"
       shopName.trim().isEmpty() -> validationError = "Shop Name is required"
@@ -363,6 +366,7 @@ fun AddEditShopScreen(
         )
         onSaveShop(newShop, isOnline)
       }
+    }
     }
   }
 
@@ -477,6 +481,7 @@ fun AddEditShopScreen(
 
           Button(
             onClick = submitShopForm,
+            enabled = !isSaving,
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
               containerColor = MaterialTheme.colorScheme.secondary,
@@ -487,10 +492,19 @@ fun AddEditShopScreen(
               .height(48.dp)
               .testTag("save_shop_button"),
           ) {
-            Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+            if (isSaving) {
+              CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onSecondary,
+              )
+            } else {
+              Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
               text = when {
+                isSaving -> "Saving..."
                 !isOnline -> "Save Offline"
                 existingShop == null -> "Register Shop"
                 else -> "Update Shop"

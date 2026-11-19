@@ -47,7 +47,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.model.CatalogProduct
+import com.example.data.model.OrderRecord
 import com.example.data.model.Shop
 import com.example.data.model.SnackCatalog
 import com.example.ui.components.StandardCompactSearchBar
@@ -75,13 +78,50 @@ fun PlaceOrderScreen(
   onConfirmOrder: (items: List<Pair<CatalogProduct, Int>>, note: String) -> Unit,
   onBack: () -> Unit,
   catalogProducts: List<CatalogProduct> = SnackCatalog.products,
+  existingOrder: OrderRecord? = null,
 ) {
   BackHandler(onBack = onBack)
 
+  val isEditMode = existingOrder != null
   var productSearchQuery by remember { mutableStateOf("") }
   var selectedCategory by remember { mutableStateOf("All Snacks") }
-  var orderNote by remember { mutableStateOf("") }
-  val quantities = remember { mutableStateMapOf<String, Int>() }
+  var orderNote by remember(existingOrder?.id) { mutableStateOf(existingOrder?.note.orEmpty()) }
+  val quantities = remember(existingOrder?.id) {
+    mutableStateMapOf<String, Int>().apply {
+      if (existingOrder != null && catalogProducts.isNotEmpty()) {
+        parseOrderLineItems(existingOrder.itemsSummary).forEach { parsed ->
+          val matched = catalogProducts.firstOrNull {
+            it.code.equals(parsed.productCode, ignoreCase = true)
+          } ?: catalogProducts.firstOrNull {
+            it.name.equals(parsed.productName, ignoreCase = true)
+          }
+          if (matched != null && parsed.quantity > 0) {
+            this[matched.code] = (this[matched.code] ?: 0) + parsed.quantity
+          }
+        }
+      }
+    }
+  }
+  var initializedOrderKey by remember(existingOrder?.id) {
+    mutableStateOf(if (existingOrder != null && catalogProducts.isNotEmpty()) existingOrder.id else null)
+  }
+  LaunchedEffect(existingOrder?.id, catalogProducts) {
+    if (existingOrder != null && catalogProducts.isNotEmpty() && initializedOrderKey != existingOrder.id) {
+      quantities.clear()
+      parseOrderLineItems(existingOrder.itemsSummary).forEach { parsed ->
+        val matched = catalogProducts.firstOrNull {
+          it.code.equals(parsed.productCode, ignoreCase = true)
+        } ?: catalogProducts.firstOrNull {
+          it.name.equals(parsed.productName, ignoreCase = true)
+        }
+        if (matched != null && parsed.quantity > 0) {
+          quantities[matched.code] = (quantities[matched.code] ?: 0) + parsed.quantity
+        }
+      }
+      initializedOrderKey = existingOrder.id
+    }
+  }
+  var lastSubmitMillis by remember { mutableLongStateOf(0L) }
 
   val categoryOptions = remember(catalogProducts) {
     listOf("All Snacks") + catalogProducts.map { it.category }.filter { it.isNotBlank() }.distinct()
@@ -115,11 +155,11 @@ fun PlaceOrderScreen(
           title = {
             Column {
               Text(
-                text = "Place Order",
+                text = if (isEditMode) "Edit Order" else "Place Order",
                 style = MaterialTheme.typography.titleLarge,
               )
               Text(
-                text = "${shop.shopCode} • ${shop.name}",
+                text = if (isEditMode) "${existingOrder?.orderCode} • ${shop.name}" else "${shop.shopCode} • ${shop.name}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
@@ -166,11 +206,15 @@ fun PlaceOrderScreen(
           }
           Button(
             onClick = {
-              val chosen = catalogProducts.mapNotNull { prod ->
-                val qty = quantities[prod.code] ?: 0
-                if (qty > 0) prod to qty else null
+              val now = System.currentTimeMillis()
+              if (now - lastSubmitMillis >= 800L) {
+                lastSubmitMillis = now
+                val chosen = catalogProducts.mapNotNull { prod ->
+                  val qty = quantities[prod.code] ?: 0
+                  if (qty > 0) prod to qty else null
+                }
+                onConfirmOrder(chosen, orderNote)
               }
-              onConfirmOrder(chosen, orderNote)
             },
             enabled = totalCount > 0,
             shape = RoundedCornerShape(14.dp),
@@ -180,7 +224,10 @@ fun PlaceOrderScreen(
           ) {
             Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Confirm Order", style = MaterialTheme.typography.titleSmall)
+            Text(
+              text = if (isEditMode) "Save Changes" else "Confirm Order",
+              style = MaterialTheme.typography.titleSmall,
+            )
           }
         }
         }

@@ -73,6 +73,7 @@ fun TransportScreen(
   onNavigateToRoutes: () -> Unit,
   onOpenSyncServers: () -> Unit,
   onShowFeedback: (String) -> Unit,
+  onSaveRoute: (DeliveryRoute, String) -> Unit = { _, _ -> },
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -101,6 +102,7 @@ fun TransportScreen(
   var selectedPinShopId by rememberSaveable { mutableStateOf<String?>(null) }
 
   var showRouteSelectorSheet by remember { mutableStateOf(false) }
+  var showEditVehicleSheet by remember { mutableStateOf(false) }
   var showDirectionsSheet by remember { mutableStateOf(false) }
   var isFullscreenNav by rememberSaveable { mutableStateOf(false) }
   var stopPendingPodDialog by remember { mutableStateOf<TransportStopItem?>(null) }
@@ -249,16 +251,21 @@ fun TransportScreen(
   }
 
   val completeStopAction: (TransportStopItem, String) -> Unit = { stop, podNote ->
-    localPodNotesByShopId = localPodNotesByShopId + (stop.shop.id to podNote)
-    locallyCompletedShopIds = locallyCompletedShopIds + stop.shop.id
-    stop.activeOrders.forEach { order ->
-      onMarkOrderDelivered(order.id, stop.shop.name, podNote)
+    if (stop.isCompleted || locallyCompletedShopIds.contains(stop.shop.id)) {
+      stopPendingPodDialog = null
+    } else {
+      stopPendingPodDialog = null
+      selectedPinShopId = null
+      localPodNotesByShopId = localPodNotesByShopId + (stop.shop.id to podNote)
+      locallyCompletedShopIds = locallyCompletedShopIds + stop.shop.id
+      val distinctOrders = stop.activeOrders.distinctBy { it.id.ifBlank { it.orderCode } }
+      distinctOrders.forEach { order ->
+        onMarkOrderDelivered(order.id, stop.shop.name, podNote)
+      }
+      if (distinctOrders.isEmpty()) {
+        onShowFeedback("Stop ${stop.formattedStopNum} (${stop.shortShopName}) completed")
+      }
     }
-    if (stop.activeOrders.isEmpty()) {
-      onShowFeedback("Stop ${stop.formattedStopNum} (${stop.shortShopName}) completed")
-    }
-    selectedPinShopId = null
-    stopPendingPodDialog = null
   }
 
   val query = searchQuery.trim().lowercase(Locale.US)
@@ -324,7 +331,10 @@ fun TransportScreen(
         )
       },
       onMarkActiveDeliveredClick = {
-        stopPendingPodDialog = planState.activeTargetStop
+        val active = planState.activeTargetStop
+        if (active != null && !active.isCompleted && !locallyCompletedShopIds.contains(active.shop.id)) {
+          stopPendingPodDialog = active
+        }
       },
       modifier = modifier,
     )
@@ -380,7 +390,14 @@ fun TransportScreen(
           }
 
           item(key = "vehicle_progress") {
-            VehicleProgressCard(planState = planState)
+            VehicleProgressCard(
+              planState = planState,
+              onEditVehicleClick = if (activeRoute != null) {
+                { showEditVehicleSheet = true }
+              } else {
+                null
+              },
+            )
           }
 
           item(key = "filter_chips") {
@@ -505,7 +522,11 @@ fun TransportScreen(
                   followUserLocation = false
                 },
                 onCallShop = { openDialer(context, stop.shop.phone) },
-                onMarkDelivered = { stopPendingPodDialog = stop },
+                onMarkDelivered = {
+                  if (!stop.isCompleted && !locallyCompletedShopIds.contains(stop.shop.id)) {
+                    stopPendingPodDialog = stop
+                  }
+                },
               )
             }
 
@@ -667,7 +688,7 @@ fun TransportScreen(
         onNavigatePrimaryClick = { requestOrRecenterGps(true) },
         onCompleteStopClick = {
           val active = planState.activeTargetStop
-          if (active != null) {
+          if (active != null && !active.isCompleted && !locallyCompletedShopIds.contains(active.shop.id)) {
             stopPendingPodDialog = active
           }
         },
@@ -712,7 +733,10 @@ fun TransportScreen(
       },
       onMarkActiveDelivered = {
         showDirectionsSheet = false
-        stopPendingPodDialog = planState.activeTargetStop
+        val active = planState.activeTargetStop
+        if (active != null && !active.isCompleted && !locallyCompletedShopIds.contains(active.shop.id)) {
+          stopPendingPodDialog = active
+        }
       },
       onDismiss = { showDirectionsSheet = false },
     )
@@ -723,6 +747,27 @@ fun TransportScreen(
       stop = targetStop,
       onConfirmDelivered = { podNote -> completeStopAction(targetStop, podNote) },
       onDismiss = { stopPendingPodDialog = null },
+    )
+  }
+
+  val editableRoute = activeRoute
+  if (showEditVehicleSheet && editableRoute != null) {
+    val usedColors = remember(routes, editableRoute) {
+      routes.filter { it.id != editableRoute.id }.map { it.colorIndex }.toSet()
+    }
+    val assignedCrates = remember(shops, editableRoute) {
+      shops.count { it.routeId == editableRoute.id }
+    }
+    EditRouteBottomSheet(
+      initialRoute = editableRoute,
+      usedColorIndices = usedColors,
+      assignedCratesCount = assignedCrates,
+      nextRouteNumber = routes.size + 1,
+      onDismiss = { showEditVehicleSheet = false },
+      onSaveRoute = { savedRoute ->
+        onSaveRoute(savedRoute, "Updated vehicle details for ${savedRoute.name}")
+        showEditVehicleSheet = false
+      },
     )
   }
 }

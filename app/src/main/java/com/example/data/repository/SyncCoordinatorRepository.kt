@@ -22,6 +22,7 @@ import com.example.data.local.ServerSettings
 import com.example.data.local.SnackRouteDao
 import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
+import com.example.data.model.InquiryStatus
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
@@ -33,6 +34,7 @@ import com.example.data.model.Product
 import com.example.data.model.ProductStatus
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
+import com.example.data.model.ShopStatus
 import com.example.data.model.StockItem
 import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
@@ -97,6 +99,14 @@ interface RemoteCloudAdapter {
     note: String,
   ): Result<String>
   suspend fun updateOrderStatus(orderId: String, newStatus: String, note: String?): Result<Unit>
+  suspend fun updateOrderDetails(
+    orderId: String,
+    totalAmount: Double,
+    itemCount: Int,
+    itemsSummary: String,
+    note: String,
+  ): Result<Unit>
+  suspend fun deleteOrder(orderId: String): Result<Unit>
   suspend fun updateStockQuantity(stockId: String, newQuantity: Int): Result<Unit>
   suspend fun upsertProduct(product: Product, isUpdate: Boolean): Result<String>
   suspend fun updateProductStatus(productId: String, newStatus: String): Result<Unit>
@@ -167,6 +177,24 @@ private class FirestoreCloudAdapter(
     newStatus: String,
     note: String?,
   ): Result<Unit> = repo.updateOrderStatusWithAck(orderId, newStatus, note, awaitServerAck = true)
+
+  override suspend fun updateOrderDetails(
+    orderId: String,
+    totalAmount: Double,
+    itemCount: Int,
+    itemsSummary: String,
+    note: String,
+  ): Result<Unit> = repo.updateOrderDetailsWithAck(
+    orderId = orderId,
+    totalAmount = totalAmount,
+    itemCount = itemCount,
+    itemsSummary = itemsSummary,
+    note = note,
+    awaitServerAck = true,
+  )
+
+  override suspend fun deleteOrder(orderId: String): Result<Unit> =
+    repo.deleteOrderWithAck(orderId, awaitServerAck = true)
 
   override suspend fun updateStockQuantity(stockId: String, newQuantity: Int): Result<Unit> =
     repo.updateStockQuantityWithAck(stockId, newQuantity, awaitServerAck = true)
@@ -255,6 +283,12 @@ class SyncCoordinatorRepository(
     return !pending.isFullySynced(requireGlobal, requireLaptop)
   }
 
+  suspend fun getPendingShopError(shopId: String): String {
+    val pending = dao.getPendingShopsOnce().firstOrNull { it.localId == shopId || it.remoteShopId == shopId }
+      ?: return ""
+    return pending.lastError.trim()
+  }
+
   suspend fun isProductPending(productId: String): Boolean {
     val settings = configStore.getCurrentSettings()
     val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
@@ -286,16 +320,32 @@ class SyncCoordinatorRepository(
     val primaryFlow = primary.observeShops(userId)
       .onEach { remoteShops ->
         if (remoteShops.isNotEmpty() && !isLocalTestMode) {
-          val entities = remoteShops
-            .filter { !it.isPendingSync }
-            .map {
-              CachedShopEntity.fromDomainShop(
-                it.copy(userId = it.userId.ifBlank { userId }),
-                source = "global",
-              )
-            }
+          val confirmedRemote = remoteShops.filter { !it.isPendingSync }
+          val entities = confirmedRemote.map {
+            CachedShopEntity.fromDomainShop(
+              it.copy(userId = it.userId.ifBlank { userId }),
+              source = "global",
+            )
+          }
           if (entities.isNotEmpty()) {
             dao.upsertCachedShops(entities)
+            val confirmedIds = confirmedRemote.map { it.id }.toSet()
+            val settings = configStore.getCurrentSettings()
+            val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+            val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
+            dao.getPendingShopsOnce()
+              .filter { !it.isUpdate && !it.globalSynced && (it.remoteShopId in confirmedIds || it.localId in confirmedIds) }
+              .forEach { pending ->
+                val reconciled = pending.copy(
+                  globalSynced = true,
+                  lastError = if (requireLaptop && !pending.localServerSynced) pending.lastError else "",
+                )
+                if (reconciled.isFullySynced(requireGlobal, requireLaptop) && settings.autoDeleteSyncedFromPhone) {
+                  dao.deletePendingShop(reconciled.localId)
+                } else {
+                  dao.upsertPendingShop(reconciled)
+                }
+              }
           }
         }
       }
@@ -355,8 +405,12 @@ class SyncCoordinatorRepository(
     val primaryFlow = primary.observeOrders(userId)
       .onEach { remoteOrders ->
         if (remoteOrders.isNotEmpty() && !isLocalTestMode) {
+          val pendingDeleteKeys = dao.getPendingOrdersOnce()
+            .filter { it.pendingDelete }
+            .flatMap { listOfNotNull(it.localId.takeIf { id -> id.isNotBlank() }, it.orderCode.takeIf { c -> c.isNotBlank() }) }
+            .toSet()
           val entities = remoteOrders
-            .filter { !it.isPendingSync }
+            .filter { !it.isPendingSync && it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
             .map {
               CachedOrderEntity.fromDomainOrder(
                 it.copy(userId = it.userId.ifBlank { userId }),
@@ -383,22 +437,30 @@ class SyncCoordinatorRepository(
       val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
       val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
+      val pendingDeleteKeys = pendingOrders
+        .filter { (it.userId == userId || it.userId.isBlank()) && it.pendingDelete }
+        .flatMap { listOfNotNull(it.localId.takeIf { id -> id.isNotBlank() }, it.orderCode.takeIf { c -> c.isNotBlank() }) }
+        .toSet()
+
       val byId = LinkedHashMap<String, OrderRecord>()
       cachedOrders
         .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
         .forEach { entity ->
           val ord = entity.toDomainOrder()
           byId[ord.id.ifBlank { ord.orderCode }] = ord
         }
-      remoteOrders.forEach { ord ->
-        val key = ord.id.ifBlank { ord.orderCode }
-        val existing = byId[key]
-        if (existing == null || ord.updatedAtMillis() >= existing.updatedAtMillis()) {
-          byId[key] = ord
+      remoteOrders
+        .filter { it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
+        .forEach { ord ->
+          val key = ord.id.ifBlank { ord.orderCode }
+          val existing = byId[key]
+          if (existing == null || ord.updatedAtMillis() >= existing.updatedAtMillis()) {
+            byId[key] = ord
+          }
         }
-      }
       pendingOrders
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { (it.userId == userId || it.userId.isBlank()) && !it.pendingDelete }
         .forEach { pending ->
           val stillPending = !pending.isFullySynced(requireGlobal, requireLaptop)
           val ord = pending.toDomainOrder(pendingSync = stillPending)
@@ -766,12 +828,14 @@ class SyncCoordinatorRepository(
       "shop_${UUID.randomUUID().toString().replace("-", "").take(16)}"
     }
     val today = todayString()
-    val normalizedShop = shop.copy(
-      id = targetId,
-      userId = currentUserId,
-      enquiryDate = shop.enquiryDate.ifBlank { today },
-      callDate = shop.callDate.ifBlank { today },
-      lastCallDate = shop.lastCallDate.ifBlank { today },
+    val normalizedShop = normalizeForFirestore(
+      shop.copy(
+        id = targetId,
+        userId = currentUserId,
+        enquiryDate = shop.enquiryDate.ifBlank { today },
+        callDate = shop.callDate.ifBlank { today },
+        lastCallDate = shop.lastCallDate.ifBlank { today },
+      )
     )
 
     // 1. Always save durably to the phone's Room database first so zero data is ever lost.
@@ -1046,7 +1110,12 @@ class SyncCoordinatorRepository(
     }
 
     if (isLocalTestMode) {
-      primary.placeOrder(shop, items, note)
+      val localRepo = primary as? LocalTestRepository
+      if (localRepo != null) {
+        localRepo.upsertOrderExact(entity.toDomainOrder(pendingSync = true), markShopConfirmed = true)
+      } else {
+        primary.placeOrder(shop, items, note)
+      }
     }
 
     val settings = configStore.getCurrentSettings()
@@ -1055,6 +1124,13 @@ class SyncCoordinatorRepository(
     val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
     val fullySynced = afterSync.isFullySynced(requireGlobal, requireLaptop)
+
+    if (isLocalTestMode) {
+      (primary as? LocalTestRepository)?.upsertOrderExact(
+        afterSync.toDomainOrder(pendingSync = !fullySynced),
+        markShopConfirmed = false,
+      )
+    }
 
     if (fullySynced) {
       dao.upsertCachedOrders(
@@ -1082,11 +1158,10 @@ class SyncCoordinatorRepository(
     val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
-    if (isLocalTestMode) {
-      primary.updateOrderStatus(orderId, newStatus, note)
-    }
-
     val pending = dao.getPendingOrdersOnce().firstOrNull { it.localId == orderId || it.orderCode == orderId }
+    if (pending?.pendingDelete == true) {
+      return Result.success(Unit)
+    }
     val cached = dao.observeCachedOrders().first().firstOrNull { it.id == orderId || it.orderCode == orderId }
     val baseOrder = pending?.toDomainOrder(pendingSync = true)
       ?: cached?.toDomainOrder()
@@ -1096,9 +1171,23 @@ class SyncCoordinatorRepository(
         }
       }.getOrNull()
 
+    val resolvedOrderId = baseOrder?.id?.takeIf { it.isNotBlank() } ?: orderId
+    val normalizedNote = note?.trim()
+    if (
+      baseOrder != null &&
+      baseOrder.status == newStatus &&
+      (normalizedNote == null || baseOrder.note == normalizedNote)
+    ) {
+      return Result.success(Unit)
+    }
+
+    if (isLocalTestMode) {
+      primary.updateOrderStatus(resolvedOrderId, newStatus, note)
+    }
+
     val updatedOrder = baseOrder?.copy(
       status = newStatus,
-      note = note?.trim() ?: baseOrder.note,
+      note = normalizedNote ?: baseOrder.note,
       updatedAt = Timestamp(Date(now)),
     )
 
@@ -1114,7 +1203,7 @@ class SyncCoordinatorRepository(
     var globalOk = false
     val cloud = cloudAdapter
     if (requireGlobal && cloud != null && isOnlineProvider()) {
-      val res = cloud.updateOrderStatus(orderId, newStatus, note)
+      val res = cloud.updateOrderStatus(resolvedOrderId, newStatus, note)
       if (res.isSuccess) {
         globalOk = true
       }
@@ -1135,15 +1224,19 @@ class SyncCoordinatorRepository(
     if (pending != null) {
       val updatedPending = pending.copy(
         status = newStatus,
-        note = note?.trim() ?: pending.note,
+        note = normalizedNote ?: pending.note,
         globalSynced = if (requireGlobal) globalOk else pending.globalSynced,
         localServerSynced = if (requireLaptop) localOk else pending.localServerSynced,
       )
-      dao.upsertPendingOrder(updatedPending)
+      if (updatedPending.isFullySynced(requireGlobal, requireLaptop) && settings.autoDeleteSyncedFromPhone) {
+        dao.deletePendingOrder(updatedPending.localId)
+      } else {
+        dao.upsertPendingOrder(updatedPending)
+      }
     } else if (updatedOrder != null && ((requireGlobal && !globalOk) || (requireLaptop && !localOk))) {
       dao.upsertPendingOrder(
         PendingOrderEntity(
-          localId = updatedOrder.id.ifBlank { orderId },
+          localId = updatedOrder.id.ifBlank { resolvedOrderId },
           orderCode = updatedOrder.orderCode,
           userId = currentUserId,
           shopId = updatedOrder.shopId,
@@ -1156,11 +1249,173 @@ class SyncCoordinatorRepository(
           itemsSummary = updatedOrder.itemsSummary,
           orderDate = updatedOrder.orderDate,
           note = updatedOrder.note,
+          isUpdate = true,
           globalSynced = globalOk,
           localServerSynced = localOk,
           createdAtMillis = now,
         )
       )
+    }
+
+    return Result.success(Unit)
+  }
+
+  override suspend fun updateOrderDetails(
+    orderId: String,
+    items: List<Pair<CatalogProduct, Int>>,
+    note: String,
+  ): Result<Unit> {
+    val validItems = items.filter { it.second > 0 }
+    if (validItems.isEmpty()) {
+      return Result.failure(IllegalArgumentException("Select at least one product to update the order."))
+    }
+
+    val now = System.currentTimeMillis()
+    val settings = configStore.getCurrentSettings()
+    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
+
+    val pending = dao.getPendingOrdersOnce().firstOrNull { it.localId == orderId || it.orderCode == orderId }
+    val cached = dao.observeCachedOrders().first().firstOrNull { it.id == orderId || it.orderCode == orderId }
+    val baseOrder = pending?.toDomainOrder(pendingSync = true)
+      ?: cached?.toDomainOrder()
+      ?: runCatching {
+        withTimeoutOrNull(800L) {
+          primary.observeOrders(currentUserId).first().firstOrNull { it.id == orderId || it.orderCode == orderId }
+        }
+      }.getOrNull()
+      ?: return Result.failure(IllegalStateException("Order not found"))
+
+    if (baseOrder.status == OrderStatus.DELIVERED || baseOrder.status == OrderStatus.REJECTED) {
+      return Result.failure(IllegalStateException("Delivered or rejected orders cannot be edited."))
+    }
+
+    val resolvedOrderId = baseOrder.id.ifBlank { orderId }
+    val totalAmount = validItems.sumOf { (prod, qty) -> prod.defaultPrice * qty }
+    val itemCount = validItems.sumOf { it.second }.coerceIn(1, 100000)
+    val itemsSummary = validItems.joinToString(", ") { (prod, qty) -> "${prod.code} x$qty" }.take(780)
+    val cleanNote = note.trim().take(500)
+
+    val updatedOrder = baseOrder.copy(
+      totalAmount = totalAmount,
+      itemCount = itemCount,
+      itemsSummary = itemsSummary,
+      note = cleanNote,
+      updatedAt = Timestamp(Date(now)),
+    )
+
+    if (isLocalTestMode) {
+      primary.updateOrderDetails(resolvedOrderId, validItems, cleanNote)
+    }
+
+    dao.upsertCachedOrders(
+      listOf(
+        CachedOrderEntity.fromDomainOrder(updatedOrder, source = cached?.source ?: "local")
+          .copy(updatedAtMillis = now)
+      )
+    )
+
+    val pendingEntity = PendingOrderEntity(
+      localId = resolvedOrderId,
+      orderCode = updatedOrder.orderCode,
+      userId = currentUserId,
+      shopId = updatedOrder.shopId,
+      shopCode = updatedOrder.shopCode,
+      shopName = updatedOrder.shopName,
+      routeId = updatedOrder.routeId,
+      status = updatedOrder.status,
+      totalAmount = totalAmount,
+      itemCount = itemCount,
+      itemsSummary = itemsSummary,
+      orderDate = updatedOrder.orderDate,
+      note = cleanNote,
+      isUpdate = pending?.isUpdate ?: true,
+      pendingDelete = false,
+      createdAtMillis = pending?.createdAtMillis ?: now,
+    )
+    dao.upsertPendingOrder(pendingEntity)
+
+    val afterSync = pushPendingOrderToServers(pendingEntity, settings)
+    val fullySynced = afterSync.isFullySynced(requireGlobal, requireLaptop)
+
+    if (fullySynced) {
+      dao.upsertCachedOrders(
+        listOf(CachedOrderEntity.fromDomainOrder(afterSync.toDomainOrder(pendingSync = false), source = "synced"))
+      )
+      if (settings.autoDeleteSyncedFromPhone) {
+        dao.deletePendingOrder(afterSync.localId)
+      } else {
+        dao.upsertPendingOrder(afterSync)
+      }
+    } else {
+      dao.upsertPendingOrder(afterSync)
+    }
+
+    return Result.success(Unit)
+  }
+
+  override suspend fun deleteOrder(orderId: String): Result<Unit> {
+    val now = System.currentTimeMillis()
+    val settings = configStore.getCurrentSettings()
+    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
+
+    val pending = dao.getPendingOrdersOnce().firstOrNull { it.localId == orderId || it.orderCode == orderId }
+    val cached = dao.observeCachedOrders().first().firstOrNull { it.id == orderId || it.orderCode == orderId }
+    val baseOrder = pending?.toDomainOrder(pendingSync = true)
+      ?: cached?.toDomainOrder()
+      ?: runCatching {
+        withTimeoutOrNull(800L) {
+          primary.observeOrders(currentUserId).first().firstOrNull { it.id == orderId || it.orderCode == orderId }
+        }
+      }.getOrNull()
+
+    val targetId = baseOrder?.id?.takeIf { it.isNotBlank() } ?: orderId
+    val targetCode = baseOrder?.orderCode.orEmpty().ifBlank { targetId }
+
+    dao.deleteCachedOrderByIdOrCode(targetId, targetCode)
+
+    if (isLocalTestMode) {
+      primary.deleteOrder(targetId)
+      if (targetCode != targetId) {
+        primary.deleteOrder(targetCode)
+      }
+    }
+
+    // If this order was created locally offline and never pushed anywhere yet, simply drop it locally
+    if (pending != null && !pending.isUpdate && !pending.globalSynced && !pending.localServerSynced) {
+      dao.deletePendingOrder(pending.localId)
+      return Result.success(Unit)
+    }
+
+    val deleteEntity = PendingOrderEntity(
+      localId = targetId,
+      orderCode = targetCode,
+      userId = currentUserId,
+      shopId = baseOrder?.shopId.orEmpty(),
+      shopCode = baseOrder?.shopCode.orEmpty(),
+      shopName = baseOrder?.shopName.orEmpty(),
+      routeId = baseOrder?.routeId.orEmpty(),
+      status = baseOrder?.status ?: OrderStatus.CONFIRMED,
+      totalAmount = baseOrder?.totalAmount ?: 0.0,
+      itemCount = baseOrder?.itemCount ?: 0,
+      itemsSummary = baseOrder?.itemsSummary.orEmpty(),
+      orderDate = baseOrder?.orderDate.orEmpty(),
+      note = baseOrder?.note.orEmpty(),
+      isUpdate = true,
+      pendingDelete = true,
+      createdAtMillis = pending?.createdAtMillis ?: now,
+    )
+
+    val afterSync = pushPendingOrderToServers(deleteEntity, settings)
+    val needsRetry = (requireGlobal && !afterSync.globalSynced) || (requireLaptop && !afterSync.localServerSynced)
+    if (needsRetry) {
+      dao.upsertPendingOrder(afterSync)
+    } else {
+      dao.deletePendingOrder(targetId)
+      if (pending != null && pending.localId != targetId) {
+        dao.deletePendingOrder(pending.localId)
+      }
     }
 
     return Result.success(Unit)
@@ -1441,13 +1696,13 @@ class SyncCoordinatorRepository(
         "Enable Global Cloud or Laptop Local Server to sync"
       }
       configStore.recordSyncOutcome(msg)
-      val remaining = dao.getPendingShopsOnce().size +
-        dao.getPendingOrdersOnce().size +
-        dao.getPendingStockUpdatesOnce().size +
-        dao.getPendingProductsOnce().size +
-        dao.getPendingPaymentsOnce().size +
-        dao.getPendingSupplierBillsOnce().size +
-        dao.getPendingSuppliersOnce().size
+      val remaining = dao.getPendingShopsOnce().count { !it.isFullySynced(requireGlobal, requireLaptop) } +
+        dao.getPendingOrdersOnce().count { !it.isFullySynced(requireGlobal, requireLaptop) } +
+        dao.getPendingStockUpdatesOnce().count { requireGlobal && !it.globalSynced } +
+        dao.getPendingProductsOnce().count { !it.isFullySynced(requireGlobal) } +
+        dao.getPendingPaymentsOnce().count { !it.isFullySynced(requireGlobal) } +
+        dao.getPendingSupplierBillsOnce().count { !it.isFullySynced(requireGlobal) } +
+        dao.getPendingSuppliersOnce().count { !it.isFullySynced(requireGlobal) }
       return@withLock SyncRunResult(0, remaining, 0, msg)
     }
 
@@ -1495,7 +1750,11 @@ class SyncCoordinatorRepository(
       val needsSync = (requireGlobal && !orderEntity.globalSynced) ||
         (requireLaptop && !orderEntity.localServerSynced)
       if (!needsSync && orderEntity.isFullySynced(requireGlobal, requireLaptop)) {
-        if (settings.autoDeleteSyncedFromPhone) {
+        if (orderEntity.pendingDelete) {
+          dao.deleteCachedOrderByIdOrCode(orderEntity.localId, orderEntity.orderCode)
+          dao.deletePendingOrder(orderEntity.localId)
+          autoDeleted++
+        } else if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingOrder(orderEntity.localId)
           autoDeleted++
         }
@@ -1505,14 +1764,19 @@ class SyncCoordinatorRepository(
       val done = updated.isFullySynced(requireGlobal, requireLaptop)
       if (done) {
         syncedItems++
-        dao.upsertCachedOrders(
-          listOf(CachedOrderEntity.fromDomainOrder(updated.toDomainOrder(pendingSync = false), source = "synced"))
-        )
-        if (settings.autoDeleteSyncedFromPhone) {
+        if (updated.pendingDelete) {
+          dao.deleteCachedOrderByIdOrCode(updated.localId, updated.orderCode)
           dao.deletePendingOrder(updated.localId)
-          autoDeleted++
         } else {
-          dao.upsertPendingOrder(updated)
+          dao.upsertCachedOrders(
+            listOf(CachedOrderEntity.fromDomainOrder(updated.toDomainOrder(pendingSync = false), source = "synced"))
+          )
+          if (settings.autoDeleteSyncedFromPhone) {
+            dao.deletePendingOrder(updated.localId)
+            autoDeleted++
+          } else {
+            dao.upsertPendingOrder(updated)
+          }
         }
       } else {
         dao.upsertPendingOrder(updated)
@@ -1687,20 +1951,28 @@ class SyncCoordinatorRepository(
         }
       }
 
+      val pendingDeleteKeys = dao.getPendingOrdersOnce()
+        .filter { it.pendingDelete }
+        .flatMap { listOfNotNull(it.localId.takeIf { id -> id.isNotBlank() }, it.orderCode.takeIf { c -> c.isNotBlank() }) }
+        .toSet()
       val allOrders = LinkedHashMap<String, OrderRecord>()
-      dao.observeCachedOrders().first().forEach { entity ->
-        val o = entity.toDomainOrder()
-        allOrders[o.id.ifBlank { o.orderCode }] = o
-      }
+      dao.observeCachedOrders().first()
+        .filter { it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
+        .forEach { entity ->
+          val o = entity.toDomainOrder()
+          allOrders[o.id.ifBlank { o.orderCode }] = o
+        }
       runCatching {
         withTimeoutOrNull(1200L) { primary.observeOrders(currentUserId).first() }
-      }.getOrNull().orEmpty().forEach { o ->
-        val key = o.id.ifBlank { o.orderCode }
-        val existing = allOrders[key]
-        if (existing == null || o.updatedAtMillis() >= existing.updatedAtMillis()) {
-          allOrders[key] = o
+      }.getOrNull().orEmpty()
+        .filter { it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
+        .forEach { o ->
+          val key = o.id.ifBlank { o.orderCode }
+          val existing = allOrders[key]
+          if (existing == null || o.updatedAtMillis() >= existing.updatedAtMillis()) {
+            allOrders[key] = o
+          }
         }
-      }
       for (o in allOrders.values) {
         val pushRes = laptopClient.pushOrder(settings.laptopServerUrl, settings.laptopApiToken, o)
         if (pushRes.isSuccess) {
@@ -1849,8 +2121,13 @@ class SyncCoordinatorRepository(
       )
     }
 
+    val pendingDeleteKeys = dao.getPendingOrdersOnce()
+      .filter { it.pendingDelete }
+      .flatMap { listOfNotNull(it.localId.takeIf { id -> id.isNotBlank() }, it.orderCode.takeIf { c -> c.isNotBlank() }) }
+      .toSet()
     val laptopOrders = laptopClient.fetchOrders(settings.laptopServerUrl, settings.laptopApiToken)
       .getOrNull().orEmpty()
+      .filter { it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
     if (laptopOrders.isNotEmpty()) {
       dao.upsertCachedOrders(
         laptopOrders.map {
@@ -2271,20 +2548,34 @@ class SyncCoordinatorRepository(
     val cloud = cloudAdapter
     if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
       if (isOnlineProvider()) {
-        val res = cloud.placeRawOrder(
-          orderDocId = entity.localId,
-          orderCode = entity.orderCode,
-          shopId = entity.shopId,
-          shopCode = entity.shopCode,
-          shopName = entity.shopName,
-          routeId = entity.routeId,
-          status = entity.status,
-          totalAmount = entity.totalAmount,
-          itemCount = entity.itemCount,
-          itemsSummary = entity.itemsSummary,
-          orderDate = entity.orderDate,
-          note = entity.note,
-        )
+        val res: Result<Any> = when {
+          entity.pendingDelete -> cloud.deleteOrder(entity.localId)
+          entity.isUpdate && (entity.status == OrderStatus.DELIVERED || entity.status == OrderStatus.REJECTED) ->
+            cloud.updateOrderStatus(entity.localId, entity.status, entity.note)
+          entity.isUpdate ->
+            cloud.updateOrderDetails(
+              orderId = entity.localId,
+              totalAmount = entity.totalAmount,
+              itemCount = entity.itemCount,
+              itemsSummary = entity.itemsSummary,
+              note = entity.note,
+            )
+          else ->
+            cloud.placeRawOrder(
+              orderDocId = entity.localId,
+              orderCode = entity.orderCode,
+              shopId = entity.shopId,
+              shopCode = entity.shopCode,
+              shopName = entity.shopName,
+              routeId = entity.routeId,
+              status = entity.status,
+              totalAmount = entity.totalAmount,
+              itemCount = entity.itemCount,
+              itemsSummary = entity.itemsSummary,
+              orderDate = entity.orderDate,
+              note = entity.note,
+            )
+        }
         if (res.isSuccess) {
           globalOk = true
         } else {
@@ -2296,11 +2587,19 @@ class SyncCoordinatorRepository(
     }
 
     if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank() && !localOk) {
-      val res = laptopClient.pushOrder(
-        settings.laptopServerUrl,
-        settings.laptopApiToken,
-        entity.toDomainOrder(pendingSync = false),
-      )
+      val res = if (entity.pendingDelete) {
+        laptopClient.deleteOrder(
+          settings.laptopServerUrl,
+          settings.laptopApiToken,
+          entity.localId,
+        )
+      } else {
+        laptopClient.pushOrder(
+          settings.laptopServerUrl,
+          settings.laptopApiToken,
+          entity.toDomainOrder(pendingSync = false),
+        )
+      }
       if (res.isSuccess) {
         localOk = true
       } else {
@@ -2316,14 +2615,45 @@ class SyncCoordinatorRepository(
   }
 
   private fun normalizeForFirestore(shop: Shop): Shop {
+    val cleanCode = shop.shopCode.trim().let { if (it.length >= 2) it else "SHP-000" }.take(32)
+    val cleanStatus = if (shop.status in listOf(ShopStatus.ACTIVE, ShopStatus.INACTIVE, ShopStatus.DELETED)) {
+      shop.status
+    } else {
+      ShopStatus.ACTIVE
+    }
+    val cleanInquiryStatus = if (shop.inquiryStatus in listOf(
+        InquiryStatus.PENDING_INQUIRY,
+        InquiryStatus.CONFIRMED,
+        InquiryStatus.UNATTENDED,
+        InquiryStatus.NO_ORDER,
+      )
+    ) {
+      shop.inquiryStatus
+    } else {
+      InquiryStatus.PENDING_INQUIRY
+    }
     return shop.copy(
-      shopCode = shop.shopCode.trim().ifBlank { "SHP-000" },
-      name = shop.name.trim().ifBlank { "Unnamed Shop" },
-      ownerName = shop.ownerName.trim().ifBlank { "Owner" },
-      phone = shop.phone.trim().let { if (it.length >= 5) it else "00000" },
-      address = shop.address.trim().ifBlank { "Address pending" },
-      pinCode = shop.pinCode.trim().let { if (it.length >= 3) it else "000000" },
-      routeId = shop.routeId.trim().let { if (it.length >= 2) it else RoutesCatalog.UNALLOCATED },
+      shopCode = cleanCode,
+      name = shop.name.trim().ifBlank { "Unnamed Shop" }.take(120),
+      ownerName = shop.ownerName.trim().ifBlank { "Owner" }.take(100),
+      phone = shop.phone.trim().let { if (it.length >= 5) it else "00000" }.take(24),
+      secondaryPhone = shop.secondaryPhone.trim().take(24),
+      address = shop.address.trim().ifBlank { "Address pending" }.take(300),
+      pinCode = shop.pinCode.trim().let { if (it.length >= 3) it else "000000" }.take(16),
+      routeId = shop.routeId.trim().let { if (it.length >= 2) it else RoutesCatalog.UNALLOCATED }.take(64),
+      photoUri = shop.photoUri.trim().take(600),
+      latitude = if (shop.latitude.isFinite()) shop.latitude else 0.0,
+      longitude = if (shop.longitude.isFinite()) shop.longitude else 0.0,
+      note = shop.note.trim().take(500),
+      status = cleanStatus,
+      inquiryStatus = cleanInquiryStatus,
+      enquiryDate = shop.enquiryDate.trim().take(32),
+      callDate = shop.callDate.trim().take(32),
+      lastOrderDate = shop.lastOrderDate.trim().take(32),
+      lastCallDate = shop.lastCallDate.trim().take(32),
+      confirmedPriceNotes = shop.confirmedPriceNotes.trim().take(600),
+      mapsLink = shop.mapsLink.trim().take(600),
+      addedBy = shop.addedBy.trim().take(120),
     )
   }
 

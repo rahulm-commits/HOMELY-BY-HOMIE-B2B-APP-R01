@@ -482,6 +482,7 @@ fun DeliveryPodDialog(
   }
   var selectedMode by remember { mutableStateOf(paymentModes.first()) }
   var receiverName by remember { mutableStateOf(stop.shop.ownerName) }
+  var isSubmitting by remember(stop.shop.id) { mutableStateOf(false) }
 
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -530,9 +531,13 @@ fun DeliveryPodDialog(
     confirmButton = {
       Button(
         onClick = {
-          val signer = receiverName.trim().ifBlank { stop.shop.ownerName.ifBlank { "Shop Staff" } }
-          onConfirmDelivered("POD Signed by $signer • $selectedMode")
+          if (!isSubmitting) {
+            isSubmitting = true
+            val signer = receiverName.trim().ifBlank { stop.shop.ownerName.ifBlank { "Shop Staff" } }
+            onConfirmDelivered("POD Signed by $signer • $selectedMode")
+          }
         },
+        enabled = !isSubmitting,
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
       ) {
         Text("Mark Delivered")

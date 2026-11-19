@@ -625,6 +625,13 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                 conn.commit()
             write_snapshots()
             self._send_json(200, {"ok": True, "deleted": shop_id})
+        elif parsed.path.startswith("/api/orders/"):
+            order_id = parsed.path.split("/api/orders/", 1)[1]
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("DELETE FROM orders WHERE id = ? OR orderCode = ?", (order_id, order_id))
+                conn.commit()
+            write_snapshots()
+            self._send_json(200, {"ok": True, "deleted": order_id})
         else:
             self._send_json(404, {"ok": False, "error": "Not found"})
 

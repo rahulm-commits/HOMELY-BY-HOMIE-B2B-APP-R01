@@ -273,22 +273,38 @@ class SnackRouteViewModel(
     }
   }
 
-  fun saveShop(shop: Shop, isOnline: Boolean, onSaved: () -> Unit) {
+  fun saveShop(
+    shop: Shop,
+    isOnline: Boolean,
+    onFinished: () -> Unit = {},
+    onSaved: () -> Unit,
+  ) {
     viewModelScope.launch {
-      val result = repository.saveShop(shop)
-      if (result.isSuccess) {
-        val savedId = result.getOrNull().orEmpty()
-        val stillPending = coordinator?.isShopPending(savedId) ?: !isOnline
-        val pendingCount = pendingShops.value.size
-        val msg = if (stillPending) {
-          "Saved safely on phone (${maxOf(pendingCount, 1)} in queue) • Tap Sync when server connects"
+      try {
+        val result = repository.saveShop(shop)
+        if (result.isSuccess) {
+          val savedId = result.getOrNull().orEmpty()
+          val stillPending = coordinator?.isShopPending(savedId) ?: !isOnline
+          val lastError = if (stillPending) coordinator?.getPendingShopError(savedId).orEmpty() else ""
+          val settings = serverSettings.value
+          val unsyncedCount = pendingShops.value.count {
+            !it.isFullySynced(
+              requireGlobal = settings.globalSyncEnabled,
+              requireLocalServer = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank(),
+            )
+          }
+          val msg = when {
+            !stillPending -> "Shop ${shop.shopCode} saved & synced"
+            lastError.isNotBlank() -> "Saved on phone (${maxOf(unsyncedCount, 1)} pending) • $lastError"
+            else -> "Saved safely on phone (${maxOf(unsyncedCount, 1)} in queue) • Tap Sync when server connects"
+          }
+          _feedback.tryEmit(msg)
+          onSaved()
         } else {
-          "Shop ${shop.shopCode} saved & synced"
+          _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to save shop")
         }
-        _feedback.tryEmit(msg)
-        onSaved()
-      } else {
-        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to save shop")
+      } finally {
+        onFinished()
       }
     }
   }
@@ -366,6 +382,34 @@ class SnackRouteViewModel(
         onSuccess()
       } else {
         _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to place order")
+      }
+    }
+  }
+
+  fun updateOrder(
+    existingOrder: com.example.data.model.OrderRecord,
+    items: List<Pair<CatalogProduct, Int>>,
+    note: String,
+    onSuccess: () -> Unit,
+  ) {
+    viewModelScope.launch {
+      val result = repository.updateOrderDetails(existingOrder.id, items, note)
+      if (result.isSuccess) {
+        _feedback.tryEmit("Order ${existingOrder.orderCode} updated")
+        onSuccess()
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to update order")
+      }
+    }
+  }
+
+  fun deleteOrder(order: com.example.data.model.OrderRecord) {
+    viewModelScope.launch {
+      val result = repository.deleteOrder(order.id)
+      if (result.isSuccess) {
+        _feedback.tryEmit("Order ${order.orderCode} deleted")
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to delete order")
       }
     }
   }

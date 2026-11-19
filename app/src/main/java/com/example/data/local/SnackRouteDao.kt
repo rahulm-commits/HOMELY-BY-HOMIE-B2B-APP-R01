@@ -48,6 +48,12 @@ interface SnackRouteDao {
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun upsertCachedOrders(items: List<CachedOrderEntity>)
 
+  @Query("DELETE FROM cached_orders WHERE id = :orderId")
+  suspend fun deleteCachedOrderById(orderId: String)
+
+  @Query("DELETE FROM cached_orders WHERE id = :id OR orderCode = :code")
+  suspend fun deleteCachedOrderByIdOrCode(id: String, code: String)
+
   @Query("SELECT * FROM delivery_routes ORDER BY colorIndex ASC, id ASC")
   fun observeRoutes(): Flow<List<DeliveryRouteEntity>>
 

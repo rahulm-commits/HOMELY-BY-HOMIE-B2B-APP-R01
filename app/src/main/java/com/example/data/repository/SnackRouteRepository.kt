@@ -291,6 +291,9 @@ class SnackRouteRepository(
     val docRef = if (shop.id.isNotBlank()) shopsCol.document(shop.id) else shopsCol.document()
     val today = todayString()
 
+    val safeLatitude = shop.latitude.takeIf { it.isFinite() } ?: 0.0
+    val safeLongitude = shop.longitude.takeIf { it.isFinite() } ?: 0.0
+
     val createMap = mapOf(
       "userId" to uid,
       "shopCode" to shop.shopCode.trim(),
@@ -302,8 +305,8 @@ class SnackRouteRepository(
       "pinCode" to shop.pinCode.trim(),
       "routeId" to shop.routeId,
       "photoUri" to shop.photoUri,
-      "latitude" to shop.latitude,
-      "longitude" to shop.longitude,
+      "latitude" to safeLatitude,
+      "longitude" to safeLongitude,
       "note" to shop.note.trim(),
       "status" to shop.status,
       "inquiryStatus" to shop.inquiryStatus,
@@ -328,8 +331,8 @@ class SnackRouteRepository(
       "pinCode" to shop.pinCode.trim(),
       "routeId" to shop.routeId,
       "photoUri" to shop.photoUri,
-      "latitude" to shop.latitude,
-      "longitude" to shop.longitude,
+      "latitude" to safeLatitude,
+      "longitude" to safeLongitude,
       "note" to shop.note.trim(),
       "status" to shop.status,
       "inquiryStatus" to shop.inquiryStatus,
@@ -346,13 +349,7 @@ class SnackRouteRepository(
     val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
 
     return try {
-      val actuallyUpdate = if (awaitServerAck && !isUpdate && shop.id.isNotBlank()) {
-        val snap = withTimeoutOrNull(waitMs) { docRef.get().await() }
-        snap?.exists() == true
-      } else {
-        isUpdate
-      }
-      val task = if (actuallyUpdate) docRef.update(updateMap) else docRef.set(createMap)
+      val task = if (isUpdate) docRef.update(updateMap) else docRef.set(createMap)
       val acked = withTimeoutOrNull(waitMs) {
         task.await()
         true
@@ -732,6 +729,96 @@ class SnackRouteRepository(
       throw e
     } catch (e: Exception) {
       handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+      Result.failure(e)
+    }
+  }
+
+  override suspend fun updateOrderDetails(
+    orderId: String,
+    items: List<Pair<CatalogProduct, Int>>,
+    note: String,
+  ): Result<Unit> {
+    val validItems = items.filter { it.second > 0 }
+    if (validItems.isEmpty()) {
+      return Result.failure(IllegalArgumentException("Select at least one product to update the order."))
+    }
+    return updateOrderDetailsWithAck(
+      orderId = orderId,
+      totalAmount = validItems.sumOf { (prod, qty) -> prod.defaultPrice * qty },
+      itemCount = validItems.sumOf { it.second },
+      itemsSummary = validItems.joinToString(", ") { (prod, qty) -> "${prod.code} x$qty" }.take(780),
+      note = note,
+      awaitServerAck = false,
+    )
+  }
+
+  suspend fun updateOrderDetailsWithAck(
+    orderId: String,
+    totalAmount: Double,
+    itemCount: Int,
+    itemsSummary: String,
+    note: String,
+    awaitServerAck: Boolean = true,
+  ): Result<Unit> {
+    val uid = requireUserId()
+    val docRef = db.collection("users").document(uid).collection("orders").document(orderId)
+    val updates = mapOf<String, Any>(
+      "totalAmount" to totalAmount.coerceAtLeast(0.0),
+      "itemCount" to itemCount.coerceIn(1, 100000),
+      "itemsSummary" to itemsSummary.trim().ifBlank { "Order items" }.take(780),
+      "note" to note.trim().take(500),
+      "updatedAt" to FieldValue.serverTimestamp(),
+    )
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+    return try {
+      val task = docRef.update(updates)
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(Unit)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+      Result.failure(e)
+    }
+  }
+
+  override suspend fun deleteOrder(orderId: String): Result<Unit> =
+    deleteOrderWithAck(orderId = orderId, awaitServerAck = false)
+
+  suspend fun deleteOrderWithAck(
+    orderId: String,
+    awaitServerAck: Boolean = true,
+  ): Result<Unit> {
+    val uid = requireUserId()
+    val docRef = db.collection("users").document(uid).collection("orders").document(orderId)
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+    return try {
+      val task = docRef.delete()
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(Unit)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: FirebaseFirestoreException) {
+      if (e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
+        Result.success(Unit)
+      } else {
+        handleFirestoreError(e, OperationType.DELETE, docRef.path)
+        Result.failure(e)
+      }
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.DELETE, docRef.path)
       Result.failure(e)
     }
   }
@@ -1871,6 +1958,6 @@ class SnackRouteRepository(
 
   companion object {
     private const val OFFLINE_WRITE_GRACE_MS = 1400L
-    private const val SERVER_ACK_TIMEOUT_MS = 6000L
+    private const val SERVER_ACK_TIMEOUT_MS = 15000L
   }
 }

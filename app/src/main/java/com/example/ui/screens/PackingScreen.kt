@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Factory
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Inventory2
@@ -121,6 +122,7 @@ fun PackingScreen(
   var onlyShortages by remember { mutableStateOf(false) }
   var reverseLoadOrder by rememberSaveable { mutableStateOf(true) }
   var showReorderStopsSheet by remember { mutableStateOf(false) }
+  var showEditVehicleSheet by remember { mutableStateOf(false) }
 
   val loadedOverrides = remember { mutableStateMapOf<String, Int>() }
   val packedOrderOverrides = remember { mutableStateMapOf<String, Boolean>() }
@@ -274,6 +276,11 @@ fun PackingScreen(
           snapshot = snapshot,
           selectedRouteId = selectedRouteId,
           todayDisplay = todayHeader,
+          onEditVehicleClick = if (snapshot.selectedRoute != null) {
+            { showEditVehicleSheet = true }
+          } else {
+            null
+          },
         )
       }
 
@@ -641,6 +648,26 @@ fun PackingScreen(
       },
     )
   }
+
+  if (showEditVehicleSheet && routeForReordering != null) {
+    val usedColors = remember(routes, routeForReordering) {
+      routes.filter { it.id != routeForReordering.id }.map { it.colorIndex }.toSet()
+    }
+    val assignedCrates = remember(shops, routeForReordering) {
+      shops.count { it.routeId == routeForReordering.id }
+    }
+    EditRouteBottomSheet(
+      initialRoute = routeForReordering,
+      usedColorIndices = usedColors,
+      assignedCratesCount = assignedCrates,
+      nextRouteNumber = routes.size + 1,
+      onDismiss = { showEditVehicleSheet = false },
+      onSaveRoute = { savedRoute ->
+        onSaveRoute(savedRoute, "Updated vehicle details for ${savedRoute.name}")
+        showEditVehicleSheet = false
+      },
+    )
+  }
 }
 
 @Composable
@@ -676,14 +703,18 @@ private fun OperationalDispatchCard(
   snapshot: PackingDashboardSnapshot,
   selectedRouteId: String,
   todayDisplay: String,
+  onEditVehicleClick: (() -> Unit)? = null,
 ) {
   val route = snapshot.selectedRoute
   val routeSpec = route?.let { RouteColorPalette.specForIndex(it.colorIndex) }
-  val vehicleTitle = route?.vehicle?.substringBefore(" (") ?: when (selectedRouteId) {
+  val parsedVehicle = remember(route?.vehicle) {
+    route?.vehicle?.let { parseVehicleSummary(it) }
+  }
+  val vehicleTitle = parsedVehicle?.modelName ?: when (selectedRouteId) {
     RoutesCatalog.UNALLOCATED -> "Unassigned Orders Queue"
     else -> "Combined Dispatch Fleet"
   }
-  val regPill = route?.vehicle?.substringAfter("(", "")?.substringBefore(")")
+  val regPill = parsedVehicle?.plateNumber
     ?.takeIf { it.isNotBlank() } ?: if (route != null) route.id else "ALL ROUTES"
 
   Card(
@@ -736,6 +767,7 @@ private fun OperationalDispatchCard(
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
               )
               Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -751,8 +783,15 @@ private fun OperationalDispatchCard(
                 )
               }
             }
+            val bayAndVehicleDetails = buildString {
+              append(route?.stagingBay ?: "Central Warehouse Hub")
+              if (!parsedVehicle?.extraDetails.isNullOrBlank()) {
+                append(" • ")
+                append(parsedVehicle?.extraDetails)
+              }
+            }
             Text(
-              text = route?.stagingBay ?: "Central Warehouse Hub",
+              text = bayAndVehicleDetails,
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,
@@ -761,19 +800,45 @@ private fun OperationalDispatchCard(
           }
         }
 
-        Column(horizontalAlignment = Alignment.End) {
-          Text(
-            text = todayDisplay,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-          )
-          Text(
-            text = route?.dispatchWindow?.substringBefore("–")?.trim()?.let { "Depart $it" }
-              ?: "Same-day",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          if (onEditVehicleClick != null) {
+            Surface(
+              color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
+              shape = CircleShape,
+              modifier = Modifier
+                .minimumInteractiveComponentSize()
+                .size(34.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onEditVehicleClick)
+                .testTag("packing_edit_vehicle_button"),
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(
+                  imageVector = Icons.Rounded.Edit,
+                  contentDescription = "Edit vehicle and route details",
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(17.dp),
+                )
+              }
+            }
+          }
+          Column(horizontalAlignment = Alignment.End) {
+            Text(
+              text = todayDisplay,
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+              text = route?.dispatchWindow?.substringBefore("–")?.trim()?.let { "Depart $it" }
+                ?: "Same-day",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
         }
       }
 

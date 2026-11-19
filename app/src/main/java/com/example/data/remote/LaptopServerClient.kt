@@ -208,6 +208,32 @@ class LaptopServerClient {
       }
     }
 
+  suspend fun deleteOrder(baseUrl: String, token: String, orderId: String): Result<Unit> =
+    withContext(Dispatchers.IO) {
+      val normalized = ServerConfigStore.normalizeServerUrl(baseUrl)
+      if (normalized.isBlank()) {
+        return@withContext Result.failure(IllegalStateException("Laptop server URL is empty"))
+      }
+      val requestBuilder = Request.Builder()
+        .url("$normalized/api/orders/$orderId")
+        .delete()
+      if (token.isNotBlank()) {
+        requestBuilder.header("X-SnackRoute-Token", token)
+      }
+      try {
+        client.newCall(requestBuilder.build()).execute().use { response ->
+          if (response.isSuccessful || response.code == 404) {
+            Result.success(Unit)
+          } else {
+            val err = response.body?.string().orEmpty().ifBlank { response.message }
+            Result.failure(IOException("Laptop HTTP ${response.code}: $err"))
+          }
+        }
+      } catch (e: Exception) {
+        Result.failure(e)
+      }
+    }
+
   suspend fun pushRoute(baseUrl: String, token: String, route: DeliveryRoute): Result<Unit> =
     withContext(Dispatchers.IO) {
       val normalized = ServerConfigStore.normalizeServerUrl(baseUrl)

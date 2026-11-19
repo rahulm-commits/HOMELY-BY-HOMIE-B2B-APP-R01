@@ -42,7 +42,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows
 import org.robolectric.annotation.Config
+import android.os.Looper
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -239,6 +241,49 @@ class RoomOfflineFirestoreCacheTest {
     ): Result<Unit> {
       val cur = ordersStore[orderId] ?: return Result.failure(IllegalStateException("Order not found"))
       ordersStore[orderId] = cur.copy(status = newStatus, note = note ?: cur.note)
+      ordersFlow.value = ordersStore.values.toList()
+      return Result.success(Unit)
+    }
+
+    override suspend fun updateOrderDetails(
+      orderId: String,
+      items: List<Pair<CatalogProduct, Int>>,
+      note: String,
+    ): Result<Unit> {
+      val cur = ordersStore[orderId] ?: return Result.failure(IllegalStateException("Order not found"))
+      val totalAmount = items.sumOf { it.first.defaultPrice * it.second }
+      val itemCount = items.sumOf { it.second }
+      val itemsSummary = items.joinToString(", ") { "${it.first.code} x${it.second}" }
+      ordersStore[orderId] = cur.copy(
+        totalAmount = totalAmount,
+        itemCount = itemCount,
+        itemsSummary = itemsSummary,
+        note = note,
+      )
+      ordersFlow.value = ordersStore.values.toList()
+      return Result.success(Unit)
+    }
+
+    override suspend fun updateOrderDetails(
+      orderId: String,
+      totalAmount: Double,
+      itemCount: Int,
+      itemsSummary: String,
+      note: String,
+    ): Result<Unit> {
+      val cur = ordersStore[orderId] ?: return Result.failure(IllegalStateException("Order not found"))
+      ordersStore[orderId] = cur.copy(
+        totalAmount = totalAmount,
+        itemCount = itemCount,
+        itemsSummary = itemsSummary,
+        note = note,
+      )
+      ordersFlow.value = ordersStore.values.toList()
+      return Result.success(Unit)
+    }
+
+    override suspend fun deleteOrder(orderId: String): Result<Unit> {
+      ordersStore.remove(orderId)
       ordersFlow.value = ordersStore.values.toList()
       return Result.success(Unit)
     }
@@ -519,12 +564,14 @@ class RoomOfflineFirestoreCacheTest {
     networkOnline = true
     fakeCloud.failUpstreamStream = false
 
-    val vm = SnackRouteViewModel(coordinator, testUserId)
-    vm.onNetworkAvailable()
     val syncOutcome = step("syncAllPendingOnReconnect") {
       coordinator.syncAllPending()
     }
     assertEquals(0, syncOutcome.remainingPendingCount)
+
+    val vm = SnackRouteViewModel(coordinator, testUserId)
+    vm.onNetworkAvailable()
+    Shadows.shadowOf(Looper.getMainLooper()).idle()
 
     // Confirm Cloud received all offline mutations
     assertTrue(fakeCloud.shopsStore.containsKey(createdShopId))
@@ -582,6 +629,64 @@ class RoomOfflineFirestoreCacheTest {
       sqlite.close()
 
       assertEquals(setOf("cached_stocks", "pending_stock_updates", "cached_meta"), tables)
+    } finally {
+      dbFile.delete()
+    }
+  }
+
+  @Test
+  fun migration7To8AddsOrderUpdateAndDeleteColumns() {
+    val dbFile = File(context.cacheDir, "migration_v7_v8_${System.currentTimeMillis()}.db")
+    try {
+      val openHelper = FrameworkSQLiteOpenHelperFactory().create(
+        SupportSQLiteOpenHelper.Configuration.builder(context)
+          .name(dbFile.absolutePath)
+          .callback(object : SupportSQLiteOpenHelper.Callback(7) {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+              db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `pending_orders` (
+                  `localId` TEXT NOT NULL,
+                  `orderCode` TEXT NOT NULL,
+                  `userId` TEXT NOT NULL,
+                  `shopId` TEXT NOT NULL,
+                  `shopCode` TEXT NOT NULL,
+                  `shopName` TEXT NOT NULL,
+                  `routeId` TEXT NOT NULL,
+                  `status` TEXT NOT NULL,
+                  `totalAmount` REAL NOT NULL,
+                  `itemCount` INTEGER NOT NULL,
+                  `itemsSummary` TEXT NOT NULL,
+                  `orderDate` TEXT NOT NULL,
+                  `note` TEXT NOT NULL,
+                  `globalSynced` INTEGER NOT NULL,
+                  `localServerSynced` INTEGER NOT NULL,
+                  `lastError` TEXT NOT NULL,
+                  `createdAtMillis` INTEGER NOT NULL,
+                  PRIMARY KEY(`localId`)
+                )
+                """.trimIndent()
+              )
+            }
+
+            override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+          })
+          .build()
+      )
+      val sqlite = openHelper.writableDatabase
+      SnackRouteDatabase.MIGRATION_7_8.migrate(sqlite)
+
+      val cursor = sqlite.query("PRAGMA table_info(`pending_orders`)")
+      val columns = mutableSetOf<String>()
+      val nameIndex = cursor.getColumnIndexOrThrow("name")
+      while (cursor.moveToNext()) {
+        columns.add(cursor.getString(nameIndex))
+      }
+      cursor.close()
+      sqlite.close()
+
+      assertTrue(columns.contains("isUpdate"))
+      assertTrue(columns.contains("pendingDelete"))
     } finally {
       dbFile.delete()
     }

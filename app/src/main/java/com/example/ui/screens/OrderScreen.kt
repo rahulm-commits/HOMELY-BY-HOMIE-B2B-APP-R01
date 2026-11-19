@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.GpsFixed
 import androidx.compose.material.icons.rounded.History
@@ -41,15 +44,21 @@ import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +81,7 @@ import com.example.R
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.InquiryStatus
 import com.example.data.model.OrderRecord
+import com.example.data.model.OrderStatus
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.ShopStatus
@@ -87,7 +97,7 @@ import java.util.Locale
 private enum class OrderSectionTab(val label: String) {
   PENDING_INQUIRY("Pending Inquiry"),
   CONFIRMED_ORDERS("Confirmed Orders"),
-  UNATTENDED("Unattended Orders"),
+  UNATTENDED("Pick the Call"),
   NO_ORDERS("No Orders"),
 }
 
@@ -98,6 +108,8 @@ fun OrderScreen(
   routes: List<DeliveryRoute> = RoutesCatalog.starterRoutes,
   onPlaceOrderClick: (Shop) -> Unit,
   onMarkInquiryStatus: (shopId: String, newStatus: String, feedback: String) -> Unit,
+  onEditOrderClick: (OrderRecord) -> Unit = {},
+  onDeleteOrderClick: (OrderRecord) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -265,12 +277,16 @@ fun OrderScreen(
         )
       }
       OrderSectionTab.CONFIRMED_ORDERS -> {
-        ConfirmedOrdersListContent(orders = filteredOrders)
+        ConfirmedOrdersListContent(
+          orders = filteredOrders,
+          onEditOrder = onEditOrderClick,
+          onDeleteOrder = onDeleteOrderClick,
+        )
       }
       OrderSectionTab.UNATTENDED -> {
         InquiryShopListContent(
           shops = unattendedShops,
-          emptyLabel = "No unattended shops.",
+          emptyLabel = "No Pick the Call shops.",
           showStatusQuickActions = false,
           onCall = { shop -> openDialer(context, shop.phone) },
           onPlaceOrder = onPlaceOrderClick,
@@ -336,7 +352,7 @@ private fun InquiryShopListContent(
           onPlaceOrder = { onPlaceOrder(shop) },
           onWhatsApp = { onWhatsApp(shop) },
           onMarkUnattended = {
-            onMarkStatus(shop.id, InquiryStatus.UNATTENDED, "${shop.name} moved to Unattended")
+            onMarkStatus(shop.id, InquiryStatus.UNATTENDED, "${shop.name} moved to Pick the Call")
           },
           onMarkNoOrder = {
             onMarkStatus(shop.id, InquiryStatus.NO_ORDER, "${shop.name} marked No Order")
@@ -718,7 +734,7 @@ private fun PendingInquiryShopCard(
               )
               Spacer(modifier = Modifier.width(4.dp))
               Text(
-                text = "Mark Unattended",
+                text = "Pick the Call",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -796,7 +812,13 @@ private fun PendingInquiryShopCard(
 }
 
 @Composable
-private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
+private fun ConfirmedOrdersListContent(
+  orders: List<OrderRecord>,
+  onEditOrder: (OrderRecord) -> Unit,
+  onDeleteOrder: (OrderRecord) -> Unit,
+) {
+  var orderPendingDelete by remember { mutableStateOf<OrderRecord?>(null) }
+
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -830,6 +852,7 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
       }
     } else {
       items(orders, key = { it.id.ifBlank { it.orderCode } }) { order ->
+        val canEditOrder = order.status != OrderStatus.DELIVERED && order.status != OrderStatus.REJECTED
         Card(
           shape = RoundedCornerShape(16.dp),
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -842,11 +865,12 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
-                  .padding(horizontal = 12.dp, vertical = 7.dp),
+                  .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
               ) {
                 Row(
+                  modifier = Modifier.weight(1f),
                   verticalAlignment = Alignment.CenterVertically,
                   horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -867,24 +891,38 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                   )
                 }
-                Surface(
-                  color = MaterialTheme.semanticColors.successContainer,
-                  shape = RoundedCornerShape(999.dp),
-                  border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
-                ) {
-                  Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  if (canEditOrder) {
+                    IconButton(
+                      onClick = { onEditOrder(order) },
+                      modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("edit_order_${order.orderCode}"),
+                    ) {
+                      Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = "Edit order ${order.orderCode}",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                      )
+                    }
+                  }
+                  IconButton(
+                    onClick = { orderPendingDelete = order },
+                    modifier = Modifier
+                      .minimumInteractiveComponentSize()
+                      .testTag("delete_order_${order.orderCode}"),
                   ) {
-                    Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.semanticColors.success, modifier = Modifier.size(13.dp))
-                    Text(
-                      text = order.status.replaceFirstChar { it.uppercase() },
-                      style = MaterialTheme.typography.labelSmall,
-                      fontWeight = FontWeight.Bold,
-                      color = MaterialTheme.semanticColors.success,
+                    Icon(
+                      imageVector = Icons.Rounded.DeleteOutline,
+                      contentDescription = "Delete order ${order.orderCode}",
+                      tint = MaterialTheme.colorScheme.error,
+                      modifier = Modifier.size(18.dp),
                     )
                   }
                 }
@@ -895,14 +933,46 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
               modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
               verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-              Text(
-                text = order.shopName,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-              )
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Text(
+                  text = order.shopName,
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Surface(
+                  color = MaterialTheme.semanticColors.successContainer,
+                  shape = RoundedCornerShape(999.dp),
+                  border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.CheckCircle,
+                      contentDescription = null,
+                      tint = MaterialTheme.semanticColors.success,
+                      modifier = Modifier.size(13.dp),
+                    )
+                    Text(
+                      text = order.status.replaceFirstChar { it.uppercase() },
+                      style = MaterialTheme.typography.labelSmall,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.semanticColors.success,
+                    )
+                  }
+                }
+              }
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -916,6 +986,15 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
                 Text(
                   text = order.itemsSummary,
                   style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 2,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
+              if (order.note.isNotBlank()) {
+                Text(
+                  text = "Note: ${order.note}",
+                  style = MaterialTheme.typography.labelSmall,
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
@@ -955,5 +1034,44 @@ private fun ConfirmedOrdersListContent(orders: List<OrderRecord>) {
         }
       }
     }
+  }
+
+  orderPendingDelete?.let { targetOrder ->
+    AlertDialog(
+      onDismissRequest = { orderPendingDelete = null },
+      title = {
+        Text(
+          text = "Delete Order?",
+          fontWeight = FontWeight.Bold,
+        )
+      },
+      text = {
+        Text(
+          text = "Delete ${targetOrder.orderCode} for ${targetOrder.shopName}? This will remove the order from your confirmed list and synced servers.",
+        )
+      },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            onDeleteOrder(targetOrder)
+            orderPendingDelete = null
+          },
+          colors = ButtonDefaults.textButtonColors(
+            contentColor = MaterialTheme.colorScheme.error,
+          ),
+          modifier = Modifier.testTag("confirm_delete_order_button"),
+        ) {
+          Text("Delete", fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = { orderPendingDelete = null },
+          modifier = Modifier.testTag("cancel_delete_order_button"),
+        ) {
+          Text("Cancel")
+        }
+      },
+    )
   }
 }

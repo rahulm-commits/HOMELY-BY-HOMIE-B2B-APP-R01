@@ -7,7 +7,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -23,6 +27,10 @@ import com.example.ui.components.MapCameraState
 import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.computeFitBoundsCamera
 import com.example.ui.components.projectLatLngToScreen
+import com.example.ui.screens.EditRouteBottomSheet
+import com.example.ui.screens.TransportScreen
+import com.example.ui.screens.formatVehicleSummary
+import com.example.ui.screens.parseVehicleSummary
 import com.example.ui.theme.RouteColorPalette
 import com.example.ui.theme.RouteComboPattern
 import com.example.ui.theme.SnackRouteTheme
@@ -281,5 +289,121 @@ class RoutePlanningTest {
 
     val ordered = RoutesCatalog.sortShopsByRouteSequence(shops, saved)
     assertEquals(listOf("c", "a", "b"), ordered.map { it.id })
+  }
+
+  @Test
+  fun vehicleSummaryFormatAndParse_roundTripsCustomDetailsAndPlate() {
+    val formatted = formatVehicleSummary(
+      modelName = "Ashok Leyland Bada Dost",
+      plateNumber = "kl-13-z-9988",
+      extraDetails = "Insulated Reefer • Permit #KL41",
+    )
+    assertEquals(
+      "Ashok Leyland Bada Dost (KL-13-Z-9988) • Insulated Reefer, Permit #KL41",
+      formatted,
+    )
+
+    val parsed = parseVehicleSummary(formatted)
+    assertEquals("Ashok Leyland Bada Dost", parsed.modelName)
+    assertEquals("KL-13-Z-9988", parsed.plateNumber)
+    assertEquals("Insulated Reefer, Permit #KL41", parsed.extraDetails)
+    assertEquals("Reefer Van", parsed.vehicleTypeTag)
+
+    val plateOnly = parseVehicleSummary("KL-13-AB-1122")
+    assertEquals("Delivery Vehicle", plateOnly.modelName)
+    assertEquals("KL-13-AB-1122", plateOnly.plateNumber)
+  }
+
+  @Test
+  fun editRouteBottomSheet_allowsCustomVehicleNumberDetailsCapacityAndPreservesStops() = runBlocking {
+    val initialRoute = DeliveryRoute(
+      id = RoutesCatalog.R01_KANNUR_BANGALORE,
+      name = "Route 1: Kannur - Bangalore",
+      vehicle = "Tata Ace (KL-07-CD-4190)",
+      maxCrates = 32,
+      driverName = "Rajan Kumar",
+      driverPhone = "+91 98452 10980",
+      stopOrderIds = listOf("shop_1", "shop_2"),
+    )
+    var savedRoute: DeliveryRoute? = null
+
+    composeTestRule.setContent {
+      SnackRouteTheme {
+        EditRouteBottomSheet(
+          initialRoute = initialRoute,
+          usedColorIndices = emptySet(),
+          assignedCratesCount = 2,
+          nextRouteNumber = 4,
+          onDismiss = {},
+          onSaveRoute = { savedRoute = it },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("modal_vehicle_model_input").performScrollTo().performTextClearance()
+    composeTestRule.onNodeWithTag("modal_vehicle_model_input").performTextInput("Bada Dost i4")
+    composeTestRule.onNodeWithTag("modal_vehicle_number_input").performScrollTo().performTextClearance()
+    composeTestRule.onNodeWithTag("modal_vehicle_number_input").performTextInput("kl-13-ab-7788")
+    composeTestRule.onNodeWithTag("modal_vehicle_capacity_input").performScrollTo().performTextClearance()
+    composeTestRule.onNodeWithTag("modal_vehicle_capacity_input").performTextInput("48")
+    composeTestRule.onNodeWithTag("modal_vehicle_details_input").performScrollTo().performTextClearance()
+    composeTestRule.onNodeWithTag("modal_vehicle_details_input").performTextInput("Insulated Cold Box")
+    composeTestRule.onNodeWithTag("save_route_modal_button").performClick()
+    composeTestRule.waitForIdle()
+
+    val result = savedRoute!!
+    assertEquals("Bada Dost i4 (KL-13-AB-7788) • Insulated Cold Box", result.vehicle)
+    assertEquals(48, result.maxCrates)
+    assertEquals(listOf("shop_1", "shop_2"), result.stopOrderIds)
+
+    coordinator.saveRoute(result)
+    val persisted = coordinator.observeRoutes().first().first { it.id == initialRoute.id }
+    assertEquals("Bada Dost i4 (KL-13-AB-7788) • Insulated Cold Box", persisted.vehicle)
+    assertEquals(48, persisted.maxCrates)
+    assertEquals(listOf("shop_1", "shop_2"), persisted.stopOrderIds)
+  }
+
+  @Test
+  fun transportScreen_displaysVehicleDetailsAndOpensVehicleEditor() {
+    val routeWithDetails = DeliveryRoute(
+      id = "R01-KANNUR-BANGALORE",
+      name = "Route 1: Kannur - Bangalore",
+      vehicle = "Eicher Pro 2049 (KL-07-BX-4450) • Insulated Reefer",
+      maxCrates = 60,
+      driverName = "Rajan Kumar",
+      isActive = true,
+    )
+    var updatedVehicle: String? = null
+
+    composeTestRule.setContent {
+      SnackRouteTheme {
+        TransportScreen(
+          shops = emptyList(),
+          orders = emptyList(),
+          routes = listOf(routeWithDetails),
+          userDisplayName = "Rajan Kumar",
+          onMarkOrderDelivered = { _, _, _ -> },
+          onNavigateToRoutes = {},
+          onOpenSyncServers = {},
+          onShowFeedback = {},
+          onSaveRoute = { route, _ -> updatedVehicle = route.vehicle },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithText("Eicher Pro 2049").assertIsDisplayed()
+    composeTestRule.onNodeWithText("KL-07-BX-4450").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Insulated Reefer").assertIsDisplayed()
+
+    composeTestRule.onNodeWithTag("transport_edit_vehicle_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("modal_vehicle_number_input").performScrollTo().performTextClearance()
+    composeTestRule.onNodeWithTag("modal_vehicle_number_input").performTextInput("KL-11-CC-5566")
+    composeTestRule.onNodeWithTag("save_route_modal_button").performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals("Eicher Pro 2049 (KL-11-CC-5566) • Insulated Reefer", updatedVehicle)
   }
 }

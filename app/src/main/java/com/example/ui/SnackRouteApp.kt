@@ -86,7 +86,7 @@ const val ROUTE_MAIN = "main"
 const val ROUTE_ADD_EDIT_SHOP = "add_edit_shop?shopId={shopId}"
 const val ROUTE_ADD_EDIT_PRODUCT = "add_edit_product?productId={productId}"
 const val ROUTE_ADD_EDIT_SUPPLIER = "add_edit_supplier?supplierId={supplierId}"
-const val ROUTE_PLACE_ORDER = "place_order/{shopId}"
+const val ROUTE_PLACE_ORDER = "place_order/{shopId}?orderId={orderId}"
 const val ROUTE_SYNC_SERVERS = "sync_servers"
 
 internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
@@ -340,7 +340,7 @@ private fun AuthenticatedAppShell(
                 AppDestination.SHOPS -> ShopListScreen(
                   shops = shopsList,
                   routes = routesList,
-                  pendingQueueCount = pendingShops.size,
+                  pendingQueueCount = pendingShops.count { !it.isFullySynced(requireGlobal, requireLaptop) },
                   laptopServerEnabled = serverSettings.laptopServerEnabled,
                   onOpenSyncServers = {
                     navController.navigate(ROUTE_SYNC_SERVERS)
@@ -362,6 +362,12 @@ private fun AuthenticatedAppShell(
                   routes = routesList,
                   onPlaceOrderClick = { shop ->
                     navController.navigate("place_order/${shop.id}")
+                  },
+                  onEditOrderClick = { order ->
+                    navController.navigate("place_order/${order.shopId}?orderId=${order.id}")
+                  },
+                  onDeleteOrderClick = { order ->
+                    viewModel.deleteOrder(order)
                   },
                   onMarkInquiryStatus = { shopId, status, label ->
                     viewModel.updateShopInquiryStatus(shopId, status, label)
@@ -430,11 +436,14 @@ private fun AuthenticatedAppShell(
                   onShowFeedback = { msg ->
                     scope.launch { snackbarHostState.showSnackbar(msg) }
                   },
+                  onSaveRoute = { route, msg ->
+                    viewModel.saveRoute(route, msg)
+                  },
                 )
 
                 AppDestination.PRODUCTS -> ProductsScreen(
                   products = productsList,
-                  pendingQueueCount = pendingProducts.size,
+                  pendingQueueCount = pendingProducts.count { !it.isFullySynced(requireGlobal) },
                   onOpenSyncServers = {
                     navController.navigate(ROUTE_SYNC_SERVERS)
                   },
@@ -520,14 +529,22 @@ private fun AuthenticatedAppShell(
       val suggestedCode = remember(shopsList.size) {
         String.format(java.util.Locale.US, "SHOP-%06d", 107 + shopsList.size)
       }
+      var isSavingShop by remember { mutableStateOf(false) }
       AddEditShopScreen(
         existingShop = existingShop,
         suggestedShopCode = suggestedCode,
         addedByName = userDisplayName.ifBlank { "Field Officer" },
         availableRoutes = routesList,
+        isSaving = isSavingShop,
         onSaveShop = { shop, isOnline ->
-          viewModel.saveShop(shop, isOnline) {
-            navController.popBackStack()
+          if (!isSavingShop) {
+            isSavingShop = true
+            viewModel.saveShop(
+              shop = shop,
+              isOnline = isOnline,
+              onFinished = { isSavingShop = false },
+              onSaved = { navController.popBackStack() },
+            )
           }
         },
         onBack = { navController.popBackStack() },
@@ -600,12 +617,31 @@ private fun AuthenticatedAppShell(
     composable(
       route = ROUTE_PLACE_ORDER,
       arguments = listOf(
-        navArgument("shopId") { type = NavType.StringType }
+        navArgument("shopId") { type = NavType.StringType },
+        navArgument("orderId") {
+          type = NavType.StringType
+          nullable = true
+          defaultValue = null
+        },
       ),
     ) { backStackEntry ->
       val shopId = backStackEntry.arguments?.getString("shopId").orEmpty()
-      val shop = remember(shopId, shopsList) {
+      val orderId = backStackEntry.arguments?.getString("orderId")
+      val existingOrder = remember(orderId, ordersList) {
+        if (orderId.isNullOrBlank()) null
+        else ordersList.firstOrNull { it.id == orderId || it.orderCode == orderId }
+      }
+      val shop = remember(shopId, shopsList, existingOrder) {
         shopsList.firstOrNull { it.id == shopId }
+          ?: existingOrder?.let { ord ->
+            shopsList.firstOrNull { it.shopCode == ord.shopCode }
+              ?: Shop(
+                id = ord.shopId.ifBlank { shopId },
+                shopCode = ord.shopCode,
+                name = ord.shopName,
+                routeId = ord.routeId,
+              )
+          }
       }
       if (shop == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -617,10 +653,17 @@ private fun AuthenticatedAppShell(
         }
         PlaceOrderScreen(
           shop = shop,
+          existingOrder = existingOrder,
           catalogProducts = liveCatalogProducts,
           onConfirmOrder = { items, note ->
-            viewModel.placeOrder(shop, items, note) {
-              navController.popBackStack()
+            if (existingOrder != null) {
+              viewModel.updateOrder(existingOrder, items, note) {
+                navController.popBackStack()
+              }
+            } else {
+              viewModel.placeOrder(shop, items, note) {
+                navController.popBackStack()
+              }
             }
           },
           onBack = { navController.popBackStack() },

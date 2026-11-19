@@ -50,5 +50,11 @@ interface SnackRouteDataSource {
     newStatus: String,
     note: String? = null,
   ): Result<Unit>
+  suspend fun updateOrderDetails(
+    orderId: String,
+    items: List<Pair<CatalogProduct, Int>>,
+    note: String,
+  ): Result<Unit>
+  suspend fun deleteOrder(orderId: String): Result<Unit>
   suspend fun updateStockQuantity(stockId: String, newQuantity: Int): Result<Unit>
 }

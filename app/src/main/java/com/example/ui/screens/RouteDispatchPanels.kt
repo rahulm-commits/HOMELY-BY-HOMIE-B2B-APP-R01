@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.AltRoute
@@ -32,14 +33,17 @@ import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.LocalShipping
 import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
@@ -80,9 +84,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
@@ -1139,19 +1146,23 @@ fun EditRouteBottomSheet(
   val defaultColorIndex = remember(initialRoute, usedColorIndices) {
     initialRoute?.colorIndex ?: RouteColorPalette.nextUnusedColorIndex(usedColorIndices)
   }
+  val defaultPreset = remember(nextRouteNumber) {
+    vehiclePresets[nextRouteNumber % vehiclePresets.size]
+  }
+  val initialVehicleSummary = remember(initialRoute?.vehicle, defaultPreset) {
+    parseVehicleSummary(initialRoute?.vehicle ?: defaultPreset.first)
+  }
 
   var routeName by remember {
     mutableStateOf(
       initialRoute?.name ?: "Route $nextRouteNumber: New Corridor"
     )
   }
-  var selectedVehicle by remember {
-    mutableStateOf(initialRoute?.vehicle ?: vehiclePresets[nextRouteNumber % vehiclePresets.size].first)
-  }
-  var maxCrates by remember {
-    mutableIntStateOf(
-      initialRoute?.maxCrates ?: vehiclePresets[nextRouteNumber % vehiclePresets.size].second
-    )
+  var vehicleModel by remember { mutableStateOf(initialVehicleSummary.modelName) }
+  var vehicleNumber by remember { mutableStateOf(initialVehicleSummary.plateNumber) }
+  var vehicleDetails by remember { mutableStateOf(initialVehicleSummary.extraDetails) }
+  var maxCratesText by remember {
+    mutableStateOf((initialRoute?.maxCrates ?: defaultPreset.second).toString())
   }
   var driverName by remember {
     mutableStateOf(initialRoute?.driverName ?: "Anand V.")
@@ -1169,6 +1180,7 @@ fun EditRouteBottomSheet(
   var vehicleDropdownOpen by remember { mutableStateOf(false) }
   var bayDropdownOpen by remember { mutableStateOf(false) }
 
+  val maxCrates = maxCratesText.trim().toIntOrNull()?.coerceIn(1, 500) ?: 35
   val colorSpec = RouteColorPalette.specForIndex(selectedColorIndex)
   val loadPct = if (maxCrates > 0) ((assignedCratesCount.toFloat() / maxCrates) * 100f).roundToInt() else 0
   val loadProgress = if (maxCrates > 0) (assignedCratesCount.toFloat() / maxCrates).coerceIn(0f, 1f) else 0f
@@ -1194,7 +1206,7 @@ fun EditRouteBottomSheet(
       ) {
         Column(modifier = Modifier.weight(1f)) {
           Text(
-            text = if (isCreate) "CREATE DELIVERY ROUTE" else "EDIT ROUTE & DRIVER",
+            text = if (isCreate) "CREATE DELIVERY ROUTE" else "EDIT ROUTE, VEHICLE & DRIVER",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -1227,7 +1239,7 @@ fun EditRouteBottomSheet(
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .heightIn(max = 480.dp)
+          .weight(1f, fill = false)
           .verticalScroll(rememberScrollState())
           .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1312,39 +1324,155 @@ fun EditRouteBottomSheet(
             .testTag("modal_route_name_input"),
         )
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-          OutlinedTextField(
-            value = "$selectedVehicle • Cap: $maxCrates Crates",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Assigned Vehicle") },
-            leadingIcon = {
-              Icon(Icons.Rounded.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            trailingIcon = { Icon(Icons.Rounded.UnfoldMore, contentDescription = null) },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-          )
-          Box(
-            modifier = Modifier
-              .matchParentSize()
-              .clickable { vehicleDropdownOpen = true },
-          )
-          DropdownMenu(
-            expanded = vehicleDropdownOpen,
-            onDismissRequest = { vehicleDropdownOpen = false },
+        Surface(
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+          shape = RoundedCornerShape(14.dp),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
           ) {
-            vehiclePresets.forEach { (vehName, cap) ->
-              DropdownMenuItem(
-                text = { Text("$vehName • Cap: $cap Crates") },
-                onClick = {
-                  selectedVehicle = vehName
-                  maxCrates = cap
-                  vehicleDropdownOpen = false
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.DirectionsCar,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(18.dp),
+                )
+                Text(
+                  text = "Vehicle Details",
+                  style = MaterialTheme.typography.labelLarge,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface,
+                )
+              }
+
+              Box {
+                Surface(
+                  color = MaterialTheme.colorScheme.primaryContainer,
+                  shape = RoundedCornerShape(999.dp),
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable { vehicleDropdownOpen = true }
+                    .testTag("modal_vehicle_preset_button"),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  ) {
+                    Text(
+                      text = "Load Preset",
+                      style = MaterialTheme.typography.labelSmall,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Icon(
+                      imageVector = Icons.Rounded.UnfoldMore,
+                      contentDescription = "Choose vehicle preset",
+                      tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                      modifier = Modifier.size(14.dp),
+                    )
+                  }
+                }
+                DropdownMenu(
+                  expanded = vehicleDropdownOpen,
+                  onDismissRequest = { vehicleDropdownOpen = false },
+                ) {
+                  vehiclePresets.forEach { (vehName, cap) ->
+                    val presetSummary = parseVehicleSummary(vehName)
+                    DropdownMenuItem(
+                      text = { Text("$vehName • Cap: $cap Crates") },
+                      onClick = {
+                        vehicleModel = presetSummary.modelName
+                        vehicleNumber = presetSummary.plateNumber
+                        vehicleDetails = presetSummary.extraDetails
+                        maxCratesText = cap.toString()
+                        vehicleDropdownOpen = false
+                      },
+                    )
+                  }
+                }
+              }
+            }
+
+            OutlinedTextField(
+              value = vehicleModel,
+              onValueChange = { vehicleModel = it },
+              label = { Text("Vehicle Model / Name") },
+              placeholder = { Text("e.g., Tata Ace Gold, Bolero Pickup") },
+              leadingIcon = {
+                Icon(Icons.Rounded.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+              },
+              singleLine = true,
+              shape = RoundedCornerShape(12.dp),
+              modifier = Modifier
+                .fillMaxWidth()
+                .testTag("modal_vehicle_model_input"),
+            )
+
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              OutlinedTextField(
+                value = vehicleNumber,
+                onValueChange = { input ->
+                  vehicleNumber = input.uppercase(Locale.US)
                 },
+                label = { Text("Vehicle Number") },
+                placeholder = { Text("KL-07-CD-4190") },
+                leadingIcon = {
+                  Icon(Icons.Rounded.Pin, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                  .weight(1.35f)
+                  .testTag("modal_vehicle_number_input"),
+              )
+              OutlinedTextField(
+                value = maxCratesText,
+                onValueChange = { raw ->
+                  val digits = raw.filter { it.isDigit() }.take(3)
+                  maxCratesText = digits
+                },
+                label = { Text("Max Crates") },
+                placeholder = { Text("35") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                  .weight(0.85f)
+                  .testTag("modal_vehicle_capacity_input"),
               )
             }
+
+            OutlinedTextField(
+              value = vehicleDetails,
+              onValueChange = { vehicleDetails = it },
+              label = { Text("Vehicle Details / Body & Notes") },
+              placeholder = { Text("e.g., Covered Mini Truck, Reefer, Permit info") },
+              leadingIcon = {
+                Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+              },
+              singleLine = true,
+              shape = RoundedCornerShape(12.dp),
+              modifier = Modifier
+                .fillMaxWidth()
+                .testTag("modal_vehicle_details_input"),
+            )
           }
         }
 
@@ -1387,21 +1515,25 @@ fun EditRouteBottomSheet(
           Box(modifier = Modifier.weight(1f)) {
             OutlinedTextField(
               value = stagingBay,
-              onValueChange = {},
-              readOnly = true,
+              onValueChange = { stagingBay = it },
               label = { Text("Staging Bay") },
               leadingIcon = {
                 Icon(Icons.Rounded.Warehouse, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
               },
-              trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, contentDescription = null) },
+              trailingIcon = {
+                Icon(
+                  imageVector = Icons.Rounded.ArrowDropDown,
+                  contentDescription = "Choose staging bay",
+                  modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable { bayDropdownOpen = true },
+                )
+              },
               singleLine = true,
               shape = RoundedCornerShape(12.dp),
-              modifier = Modifier.fillMaxWidth(),
-            )
-            Box(
               modifier = Modifier
-                .matchParentSize()
-                .clickable { bayDropdownOpen = true },
+                .fillMaxWidth()
+                .testTag("modal_staging_bay_input"),
             )
             DropdownMenu(
               expanded = bayDropdownOpen,
@@ -1428,7 +1560,9 @@ fun EditRouteBottomSheet(
             },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+              .weight(1f)
+              .testTag("modal_dispatch_window_input"),
           )
         }
 
@@ -1509,18 +1643,24 @@ fun EditRouteBottomSheet(
               append("-")
               append(safeName.uppercase().replace(Regex("[^A-Z0-9]+"), "-").trim('-').take(20))
             }
+            val formattedVehicle = formatVehicleSummary(
+              modelName = vehicleModel,
+              plateNumber = vehicleNumber,
+              extraDetails = vehicleDetails,
+            )
             onSaveRoute(
               DeliveryRoute(
                 id = generatedId,
                 name = safeName,
-                vehicle = selectedVehicle,
+                vehicle = formattedVehicle,
                 maxCrates = maxCrates,
                 driverName = driverName.trim().ifBlank { "Field Driver" },
                 driverPhone = driverPhone.trim(),
                 dispatchWindow = dispatchWindow.trim(),
-                stagingBay = stagingBay,
+                stagingBay = stagingBay.trim().ifBlank { "Central Dock" },
                 colorIndex = selectedColorIndex,
-                isActive = true,
+                isActive = initialRoute?.isActive ?: true,
+                stopOrderIds = initialRoute?.stopOrderIds.orEmpty(),
               )
             )
           },

@@ -8,12 +8,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,9 +65,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.model.DeliveryRoute
@@ -74,6 +81,7 @@ import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.StandardRouteDropdown
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
+import com.example.ui.theme.PlusJakartaFontFamily
 import com.example.ui.theme.semanticColors
 import java.io.File
 
@@ -84,6 +92,7 @@ private enum class ShopSectionTab(val label: String) {
   INACTIVE("Inactive Shops"),
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ShopListScreen(
   shops: List<Shop>,
@@ -156,78 +165,122 @@ fun ShopListScreen(
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically,
             ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f),
+              Text(
+                text = "Registered Shops",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                  .weight(1f)
+                  .padding(end = 8.dp),
+              )
+
+              Box(
+                modifier = Modifier
+                  .heightIn(min = 48.dp)
+                  .minimumInteractiveComponentSize()
+                  .clip(RoundedCornerShape(999.dp))
+                  .clickable(onClick = onOpenSyncServers)
+                  .testTag("shop_sync_servers_button"),
+                contentAlignment = Alignment.Center,
               ) {
-                Text(
-                  text = "Registered Shops",
-                  style = MaterialTheme.typography.titleMedium,
-                  fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.onSurface,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
                 Surface(
-                  color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+                  color = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warningContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
                   shape = RoundedCornerShape(999.dp),
                 ) {
-                  Text(
-                    text = "$registeredCount shops",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                  )
-                }
-                if (offlinePendingCount > 0) {
-                  Surface(
-                    color = MaterialTheme.semanticColors.warningContainer,
-                    shape = RoundedCornerShape(999.dp),
+                  Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                   ) {
+                    Icon(
+                      imageVector = Icons.Rounded.Sync,
+                      contentDescription = "Open Phone Queue and Servers",
+                      tint = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warning else MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.size(14.dp),
+                    )
                     Text(
-                      text = "$offlinePendingCount pending",
+                      text = if (offlinePendingCount > 0) {
+                        "Queue ($offlinePendingCount)"
+                      } else if (laptopServerEnabled) {
+                        "Servers"
+                      } else {
+                        "Sync"
+                      },
                       style = MaterialTheme.typography.labelSmall,
                       fontWeight = FontWeight.SemiBold,
-                      color = MaterialTheme.semanticColors.warning,
-                      modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                      color = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warning else MaterialTheme.colorScheme.onPrimaryContainer,
+                      maxLines = 1,
+                      softWrap = false,
                     )
                   }
                 }
               }
+            }
 
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              val badgeTextStyle = TextStyle(
+                fontFamily = PlusJakartaFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+              )
               Surface(
-                color = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warningContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
                 shape = RoundedCornerShape(999.dp),
                 modifier = Modifier
-                  .clip(RoundedCornerShape(999.dp))
-                  .clickable(onClick = onOpenSyncServers)
-                  .testTag("shop_sync_servers_button"),
+                  .heightIn(min = 22.dp, max = 28.dp)
+                  .testTag("shop_count_badge"),
               ) {
-                Row(
-                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(4.dp),
+                Box(
+                  contentAlignment = Alignment.Center,
+                  modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                 ) {
-                  Icon(
-                    imageVector = Icons.Rounded.Sync,
-                    contentDescription = "Open Phone Queue and Servers",
-                    tint = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warning else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp),
-                  )
                   Text(
-                    text = if (offlinePendingCount > 0) {
-                      "Queue ($offlinePendingCount)"
-                    } else if (laptopServerEnabled) {
-                      "Servers"
-                    } else {
-                      "Sync"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (offlinePendingCount > 0) MaterialTheme.semanticColors.warning else MaterialTheme.colorScheme.onPrimaryContainer,
+                    text = "$registeredCount shops",
+                    style = badgeTextStyle,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1,
+                    softWrap = false,
                   )
+                }
+              }
+              if (offlinePendingCount > 0) {
+                Surface(
+                  color = MaterialTheme.semanticColors.warningContainer,
+                  shape = RoundedCornerShape(999.dp),
+                  modifier = Modifier
+                    .heightIn(min = 22.dp, max = 28.dp)
+                    .testTag("shop_pending_badge"),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.CloudOff,
+                      contentDescription = null,
+                      tint = MaterialTheme.semanticColors.warning,
+                      modifier = Modifier.size(12.dp),
+                    )
+                    Text(
+                      text = "$offlinePendingCount pending",
+                      style = badgeTextStyle,
+                      color = MaterialTheme.semanticColors.warning,
+                      maxLines = 1,
+                      softWrap = false,
+                    )
+                  }
                 }
               }
             }
@@ -365,6 +418,7 @@ fun ShopListScreen(
   }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ShopCardItem(
   shop: Shop,
@@ -419,19 +473,22 @@ private fun ShopCardItem(
           modifier = Modifier.weight(1f),
           verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
+          FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
             Surface(
               color = MaterialTheme.colorScheme.primaryContainer,
               shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.align(Alignment.CenterVertically),
             ) {
               Text(
                 text = shop.shopCode,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1,
+                softWrap = false,
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
               )
             }
@@ -439,6 +496,7 @@ private fun ShopCardItem(
               Surface(
                 color = MaterialTheme.semanticColors.warningContainer,
                 shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.align(Alignment.CenterVertically),
               ) {
                 Row(
                   modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -455,6 +513,8 @@ private fun ShopCardItem(
                     text = "Offline Pending",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.semanticColors.warning,
+                    maxLines = 1,
+                    softWrap = false,
                   )
                 }
               }

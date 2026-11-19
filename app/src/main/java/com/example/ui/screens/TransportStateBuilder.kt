@@ -71,30 +71,103 @@ data class VehicleSummary(
   val modelName: String,
   val plateNumber: String,
   val vehicleTypeTag: String,
+  val extraDetails: String = "",
 )
+
+private val platePatternRegex =
+  Regex("^[A-Za-z]{2}[- ]?\\d{1,2}[- ]?[A-Za-z0-9]{1,4}[- ]?\\d{1,4}$")
+
+fun formatVehicleSummary(
+  modelName: String,
+  plateNumber: String,
+  extraDetails: String = "",
+): String {
+  val cleanModel = modelName
+    .replace('(', ' ')
+    .replace(')', ' ')
+    .replace(Regex("\\s+"), " ")
+    .trim()
+  val cleanPlate = plateNumber
+    .replace('(', ' ')
+    .replace(')', ' ')
+    .replace(Regex("\\s+"), " ")
+    .trim()
+    .uppercase(Locale.US)
+  val cleanDetails = extraDetails
+    .replace(Regex("\\s*•\\s*"), ", ")
+    .replace(Regex("\\s+"), " ")
+    .trim()
+
+  val base = when {
+    cleanModel.isNotBlank() && cleanPlate.isNotBlank() -> "$cleanModel ($cleanPlate)"
+    cleanPlate.isNotBlank() -> "Delivery Vehicle ($cleanPlate)"
+    cleanModel.isNotBlank() -> cleanModel
+    else -> "Tata Ace (KL-07-CD-4190)"
+  }
+
+  return if (cleanDetails.isNotBlank()) {
+    "$base • $cleanDetails"
+  } else {
+    base
+  }
+}
 
 fun parseVehicleSummary(rawVehicle: String): VehicleSummary {
   val trimmed = rawVehicle.trim()
+  if (trimmed.isBlank()) {
+    return VehicleSummary(
+      modelName = "Tata Ace",
+      plateNumber = "KL-07-CD-4190",
+      vehicleTypeTag = "Mini Truck",
+      extraDetails = "",
+    )
+  }
+
   val parenStart = trimmed.indexOf('(')
   val parenEnd = trimmed.indexOf(')')
-  val model = if (parenStart > 0) {
-    trimmed.substring(0, parenStart).trim()
+  val model: String
+  val plate: String
+  val details: String
+
+  if (parenStart >= 0 && parenEnd > parenStart) {
+    model = trimmed.substring(0, parenStart).trim().ifBlank { "Delivery Vehicle" }
+    plate = trimmed.substring(parenStart + 1, parenEnd).trim()
+    details = trimmed.substring(parenEnd + 1)
+      .trim()
+      .removePrefix("•")
+      .removePrefix("|")
+      .removePrefix("-")
+      .trim()
   } else {
-    trimmed.ifBlank { "Tata Ace" }
+    val sepIdx = listOf(trimmed.indexOf('•'), trimmed.indexOf('|'))
+      .filter { it >= 0 }
+      .minOrNull() ?: -1
+    val head = if (sepIdx >= 0) trimmed.substring(0, sepIdx).trim() else trimmed
+    details = if (sepIdx >= 0) trimmed.substring(sepIdx + 1).trim() else ""
+    if (platePatternRegex.matches(head)) {
+      model = "Delivery Vehicle"
+      plate = head.uppercase(Locale.US)
+    } else {
+      model = head.ifBlank { "Delivery Vehicle" }
+      plate = ""
+    }
   }
-  val plate = if (parenStart >= 0 && parenEnd > parenStart + 1) {
-    trimmed.substring(parenStart + 1, parenEnd).trim()
-  } else {
-    "KL-07-CD-4190"
-  }
-  val lower = model.lowercase(Locale.US)
+
+  val combinedForTag = "$model $details".lowercase(Locale.US)
   val typeTag = when {
-    lower.contains("bolero") || lower.contains("pickup") -> "Pickup Van"
-    lower.contains("dost") || lower.contains("eicher") || lower.contains("maxi") -> "Maxi Truck"
-    lower.contains("ape") || lower.contains("auto") -> "3-Wheeler"
+    combinedForTag.contains("reefer") || combinedForTag.contains("cold") || combinedForTag.contains("chiller") -> "Reefer Van"
+    combinedForTag.contains("bolero") || combinedForTag.contains("pickup") -> "Pickup Van"
+    combinedForTag.contains("dost") || combinedForTag.contains("eicher") || combinedForTag.contains("maxi") || combinedForTag.contains("canter") -> "Maxi Truck"
+    combinedForTag.contains("ape") || combinedForTag.contains("auto") || combinedForTag.contains("3-wheeler") -> "3-Wheeler"
+    combinedForTag.contains("van") || combinedForTag.contains("eecco") || combinedForTag.contains("omni") -> "Cargo Van"
     else -> "Mini Truck"
   }
-  return VehicleSummary(modelName = model, plateNumber = plate, vehicleTypeTag = typeTag)
+  return VehicleSummary(
+    modelName = model,
+    plateNumber = plate,
+    vehicleTypeTag = typeTag,
+    extraDetails = details,
+  )
 }
 
 fun buildTransportRoutePlanState(
@@ -115,8 +188,9 @@ fun buildTransportRoutePlanState(
     userLongitude != null &&
     (userLatitude != 0.0 || userLongitude != 0.0)
 
+  val uniqueOrders = allOrders.distinctBy { it.id.ifBlank { it.orderCode } }
   val preliminaryStops = orderedShops.mapIndexed { index, shop ->
-    val shopOrders = allOrders.filter { ord ->
+    val shopOrders = uniqueOrders.filter { ord ->
       ord.shopId == shop.id ||
         (ord.shopCode.isNotBlank() && ord.shopCode.equals(shop.shopCode, ignoreCase = true))
     }
