@@ -84,7 +84,7 @@ object OsrmRoutingClient {
       runCatching {
         val request = Request.Builder()
           .url(url)
-          .header("User-Agent", "SnackRouteFieldOps/1.0")
+          .header("User-Agent", "HomelyByHomieFieldOps/1.0")
           .build()
         client.newCall(request).execute().use { response ->
           if (!response.isSuccessful) return@use null

@@ -93,6 +93,8 @@ import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import com.example.ui.components.RealOsmMapView
+import com.example.ui.components.rememberFileExistsAsync
+import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.data.model.SnackCatalog
 import com.example.ui.theme.semanticColors
 import java.io.File
@@ -176,7 +178,7 @@ fun ShopInfoSectionCard(
   onUploadImage: () -> Unit,
   onRemovePhoto: () -> Unit,
 ) {
-  val hasCustomPhoto = photoPath.isNotBlank() && File(photoPath).exists()
+  val hasCustomPhoto = rememberFileExistsAsync(photoPath)
   val isNameValid = shopName.trim().length >= 3
 
   Card(
@@ -407,8 +409,13 @@ fun ShopInfoSectionCard(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
               if (hasCustomPhoto) {
+                val photoRequest = rememberThumbnailImageRequest(
+                  path = photoPath,
+                  targetSizePx = 512,
+                  fallbackDrawableRes = R.drawable.img_shop_placeholder,
+                )
                 AsyncImage(
-                  model = File(photoPath),
+                  model = photoRequest,
                   contentDescription = "Captured shop frontage photo",
                   contentScale = ContentScale.Crop,
                   modifier = Modifier.fillMaxSize(),

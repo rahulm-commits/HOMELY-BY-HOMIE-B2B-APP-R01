@@ -23,7 +23,7 @@ import com.example.data.model.StockItem
 import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import com.example.data.remote.LaptopHealthInfo
-import com.example.data.repository.SnackRouteDataSource
+import com.example.data.repository.HomelyDataSource
 import com.example.data.repository.SyncCoordinatorRepository
 import com.example.ui.components.formatInr
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -46,8 +46,8 @@ sealed interface UiState<out T> {
   data class Error(val message: String) : UiState<Nothing>
 }
 
-class SnackRouteViewModel(
-  private val repository: SnackRouteDataSource,
+class HomelyViewModel(
+  private val repository: HomelyDataSource,
   private val currentUserId: String,
 ) : ViewModel() {
 
@@ -582,20 +582,32 @@ class SnackRouteViewModel(
     }
   }
 
-  fun testLaptopConnection(url: String, token: String) {
+  fun saveAndTestLaptopConnection(
+    globalSyncEnabled: Boolean,
+    laptopServerEnabled: Boolean,
+    laptopServerUrl: String,
+    laptopApiToken: String,
+    autoDeleteSyncedFromPhone: Boolean,
+  ) {
     val coord = coordinator ?: return
     viewModelScope.launch {
+      coord.updateServerSettings(
+        globalSyncEnabled = globalSyncEnabled,
+        laptopServerEnabled = laptopServerEnabled,
+        laptopServerUrl = laptopServerUrl,
+        laptopApiToken = laptopApiToken,
+        autoDeleteSyncedFromPhone = autoDeleteSyncedFromPhone,
+      )
       _laptopHealth.value = LaptopHealthInfo(reachable = false, message = "Testing connection...")
-      val result = coord.testLaptopConnection(url, token)
+      val result = coord.testLaptopConnection(laptopServerUrl, laptopApiToken)
       if (result.reachable) {
-        val cur = serverSettings.value
-        if (!cur.laptopServerEnabled) {
+        if (!laptopServerEnabled) {
           coord.updateServerSettings(
-            globalSyncEnabled = cur.globalSyncEnabled,
+            globalSyncEnabled = globalSyncEnabled,
             laptopServerEnabled = true,
-            laptopServerUrl = url,
-            laptopApiToken = token,
-            autoDeleteSyncedFromPhone = cur.autoDeleteSyncedFromPhone,
+            laptopServerUrl = laptopServerUrl,
+            laptopApiToken = laptopApiToken,
+            autoDeleteSyncedFromPhone = autoDeleteSyncedFromPhone,
           )
         }
         _laptopHealth.value = result.copy(message = "${result.message} • Laptop sync active")
@@ -607,16 +619,127 @@ class SnackRouteViewModel(
     }
   }
 
+  fun testLaptopConnection(url: String, token: String) {
+    val cur = serverSettings.value
+    saveAndTestLaptopConnection(
+      globalSyncEnabled = cur.globalSyncEnabled,
+      laptopServerEnabled = cur.laptopServerEnabled,
+      laptopServerUrl = url,
+      laptopApiToken = token,
+      autoDeleteSyncedFromPhone = cur.autoDeleteSyncedFromPhone,
+    )
+  }
+
+  fun saveAndSyncNow(
+    globalSyncEnabled: Boolean,
+    laptopServerEnabled: Boolean,
+    laptopServerUrl: String,
+    laptopApiToken: String,
+    autoDeleteSyncedFromPhone: Boolean,
+  ) {
+    val coord = coordinator ?: return
+    if (_isSyncing.value) {
+      pendingManualResync = true
+      viewModelScope.launch {
+        coord.updateServerSettings(
+          globalSyncEnabled = globalSyncEnabled,
+          laptopServerEnabled = laptopServerEnabled,
+          laptopServerUrl = laptopServerUrl,
+          laptopApiToken = laptopApiToken,
+          autoDeleteSyncedFromPhone = autoDeleteSyncedFromPhone,
+        )
+      }
+      return
+    }
+    viewModelScope.launch {
+      _isSyncing.value = true
+      try {
+        coord.updateServerSettings(
+          globalSyncEnabled = globalSyncEnabled,
+          laptopServerEnabled = laptopServerEnabled,
+          laptopServerUrl = laptopServerUrl,
+          laptopApiToken = laptopApiToken,
+          autoDeleteSyncedFromPhone = autoDeleteSyncedFromPhone,
+        )
+        runSyncCycle(coord, silent = false)
+      } finally {
+        _isSyncing.value = false
+      }
+    }
+  }
+
+  @Volatile
+  private var pendingManualResync = false
+
   fun syncNow(silent: Boolean = false) {
+    val coord = coordinator ?: return
+    if (_isSyncing.value) {
+      if (!silent) {
+        pendingManualResync = true
+      }
+      return
+    }
+    viewModelScope.launch {
+      _isSyncing.value = true
+      try {
+        runSyncCycle(coord, silent = silent)
+      } finally {
+        _isSyncing.value = false
+      }
+    }
+  }
+
+  private suspend fun runSyncCycle(coord: SyncCoordinatorRepository, silent: Boolean) {
+    var shouldRun = true
+    var currentSilent = silent
+    while (shouldRun) {
+      pendingManualResync = false
+      val settings = serverSettings.value
+      if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
+        val health = coord.testLaptopConnection(settings.laptopServerUrl, settings.laptopApiToken)
+        _laptopHealth.value = if (health.reachable) {
+          health.copy(message = "${health.message} • Laptop sync active")
+        } else {
+          health
+        }
+      }
+      val outcome = coord.syncAllPending()
+      if (!currentSilent || outcome.syncedCount > 0) {
+        _feedback.tryEmit(outcome.message)
+      }
+      if (pendingManualResync) {
+        shouldRun = true
+        currentSilent = false
+      } else {
+        shouldRun = false
+      }
+    }
+  }
+
+  fun saveAndPullFromLaptopServer(
+    globalSyncEnabled: Boolean,
+    laptopServerEnabled: Boolean,
+    laptopServerUrl: String,
+    laptopApiToken: String,
+    autoDeleteSyncedFromPhone: Boolean,
+  ) {
     val coord = coordinator ?: return
     if (_isSyncing.value) return
     viewModelScope.launch {
       _isSyncing.value = true
       try {
-        val outcome = coord.syncAllPending()
-        if (!silent || outcome.syncedCount > 0) {
-          _feedback.tryEmit(outcome.message)
+        coord.updateServerSettings(
+          globalSyncEnabled = globalSyncEnabled,
+          laptopServerEnabled = laptopServerEnabled,
+          laptopServerUrl = laptopServerUrl,
+          laptopApiToken = laptopApiToken,
+          autoDeleteSyncedFromPhone = autoDeleteSyncedFromPhone,
+        )
+        if (laptopServerEnabled && laptopServerUrl.isNotBlank()) {
+          _laptopHealth.value = coord.testLaptopConnection(laptopServerUrl, laptopApiToken)
         }
+        val outcome = coord.pullFromLaptopServer()
+        _feedback.tryEmit(outcome.message)
       } finally {
         _isSyncing.value = false
       }
@@ -662,6 +785,38 @@ class SnackRouteViewModel(
     viewModelScope.launch {
       coord.deletePendingOrderById(localId)
       _feedback.tryEmit("Removed order from phone queue")
+    }
+  }
+
+  fun deletePendingProduct(localId: String) {
+    val coord = coordinator ?: return
+    viewModelScope.launch {
+      coord.deletePendingProductById(localId)
+      _feedback.tryEmit("Removed product from phone queue")
+    }
+  }
+
+  fun deletePendingPayment(localId: String) {
+    val coord = coordinator ?: return
+    viewModelScope.launch {
+      coord.deletePendingPaymentById(localId)
+      _feedback.tryEmit("Removed payment from phone queue")
+    }
+  }
+
+  fun deletePendingSupplierBill(localId: String) {
+    val coord = coordinator ?: return
+    viewModelScope.launch {
+      coord.deletePendingSupplierBillById(localId)
+      _feedback.tryEmit("Removed supplier bill from phone queue")
+    }
+  }
+
+  fun deletePendingSupplier(localId: String) {
+    val coord = coordinator ?: return
+    viewModelScope.launch {
+      coord.deletePendingSupplierById(localId)
+      _feedback.tryEmit("Removed supplier from phone queue")
     }
   }
 

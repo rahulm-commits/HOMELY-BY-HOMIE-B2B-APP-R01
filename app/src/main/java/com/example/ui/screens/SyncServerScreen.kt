@@ -74,8 +74,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.local.PendingOrderEntity
+import com.example.data.local.PendingPaymentEntity
+import com.example.data.local.PendingProductEntity
 import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
+import com.example.data.local.PendingSupplierBillEntity
+import com.example.data.local.PendingSupplierEntity
 import com.example.data.local.ServerSettings
 import com.example.data.remote.LaptopHealthInfo
 import com.example.ui.theme.semanticColors
@@ -90,6 +94,10 @@ fun SyncServerScreen(
   pendingShops: List<PendingShopEntity>,
   pendingOrders: List<PendingOrderEntity>,
   pendingStockUpdates: List<PendingStockUpdateEntity> = emptyList(),
+  pendingProducts: List<PendingProductEntity> = emptyList(),
+  pendingPayments: List<PendingPaymentEntity> = emptyList(),
+  pendingSupplierBills: List<PendingSupplierBillEntity> = emptyList(),
+  pendingSuppliers: List<PendingSupplierEntity> = emptyList(),
   isLocalTestMode: Boolean,
   isOnline: Boolean,
   isSyncing: Boolean,
@@ -104,22 +112,59 @@ fun SyncServerScreen(
   onTestLaptopConnection: (url: String, token: String) -> Unit,
   onSyncNow: () -> Unit,
   onPullFromLaptop: () -> Unit,
+  onSaveAndTestLaptopConnection: (
+    globalSyncEnabled: Boolean,
+    laptopServerEnabled: Boolean,
+    laptopServerUrl: String,
+    laptopApiToken: String,
+    autoDeleteSyncedFromPhone: Boolean,
+  ) -> Unit = { _, _, url, token, _ -> onTestLaptopConnection(url, token) },
+  onSaveAndSyncNow: (
+    globalSyncEnabled: Boolean,
+    laptopServerEnabled: Boolean,
+    laptopServerUrl: String,
+    laptopApiToken: String,
+    autoDeleteSyncedFromPhone: Boolean,
+  ) -> Unit = { g, l, url, token, autoDel ->
+    onSaveSettings(g, l, url, token, autoDel)
+    onSyncNow()
+  },
+  onSaveAndPullFromLaptop: (
+    globalSyncEnabled: Boolean,
+    laptopServerEnabled: Boolean,
+    laptopServerUrl: String,
+    laptopApiToken: String,
+    autoDeleteSyncedFromPhone: Boolean,
+  ) -> Unit = { g, l, url, token, autoDel ->
+    onSaveSettings(g, l, url, token, autoDel)
+    onPullFromLaptop()
+  },
   onDeleteSyncedFromPhone: () -> Unit,
   onDeletePendingShop: (localId: String) -> Unit,
   onDeletePendingOrder: (localId: String) -> Unit,
+  onDeletePendingProduct: (localId: String) -> Unit = {},
+  onDeletePendingPayment: (localId: String) -> Unit = {},
+  onDeletePendingSupplierBill: (localId: String) -> Unit = {},
+  onDeletePendingSupplier: (localId: String) -> Unit = {},
   onBack: () -> Unit,
 ) {
   BackHandler(onBack = onBack)
 
-  var globalEnabled by remember(settings) { mutableStateOf(settings.globalSyncEnabled) }
-  var laptopEnabled by remember(settings) { mutableStateOf(settings.laptopServerEnabled) }
-  var laptopUrl by remember(settings) { mutableStateOf(settings.laptopServerUrl) }
-  var laptopToken by remember(settings) { mutableStateOf(settings.laptopApiToken) }
-  var autoDeleteSynced by remember(settings) { mutableStateOf(settings.autoDeleteSyncedFromPhone) }
+  var globalEnabled by remember { mutableStateOf(settings.globalSyncEnabled) }
+  var laptopEnabled by remember { mutableStateOf(settings.laptopServerEnabled) }
+  var laptopUrl by remember { mutableStateOf(settings.laptopServerUrl) }
+  var laptopToken by remember { mutableStateOf(settings.laptopApiToken) }
+  var autoDeleteSynced by remember { mutableStateOf(settings.autoDeleteSyncedFromPhone) }
   var showLaptopGuide by remember { mutableStateOf(false) }
   var confirmForceDeleteShop by remember { mutableStateOf<PendingShopEntity?>(null) }
 
-  LaunchedEffect(settings) {
+  LaunchedEffect(
+    settings.globalSyncEnabled,
+    settings.laptopServerEnabled,
+    settings.laptopServerUrl,
+    settings.laptopApiToken,
+    settings.autoDeleteSyncedFromPhone,
+  ) {
     globalEnabled = settings.globalSyncEnabled
     laptopEnabled = settings.laptopServerEnabled
     laptopUrl = settings.laptopServerUrl
@@ -139,8 +184,23 @@ fun SyncServerScreen(
   val syncedStocksCount = remember(pendingStockUpdates, requireGlobal) {
     pendingStockUpdates.count { !requireGlobal || it.globalSynced }
   }
-  val totalSyncedReadyToDelete = syncedShopsCount + syncedOrdersCount + syncedStocksCount
-  val totalAwaitingUpload = (pendingShops.size + pendingOrders.size + pendingStockUpdates.size) - totalSyncedReadyToDelete
+  val syncedProductsCount = remember(pendingProducts, requireGlobal) {
+    pendingProducts.count { it.isFullySynced(requireGlobal) }
+  }
+  val syncedPaymentsCount = remember(pendingPayments, requireGlobal) {
+    pendingPayments.count { it.isFullySynced(requireGlobal) }
+  }
+  val syncedBillsCount = remember(pendingSupplierBills, requireGlobal) {
+    pendingSupplierBills.count { it.isFullySynced(requireGlobal) }
+  }
+  val syncedSuppliersCount = remember(pendingSuppliers, requireGlobal) {
+    pendingSuppliers.count { it.isFullySynced(requireGlobal) }
+  }
+  val totalQueueRecords = pendingShops.size + pendingOrders.size + pendingStockUpdates.size +
+    pendingProducts.size + pendingPayments.size + pendingSupplierBills.size + pendingSuppliers.size
+  val totalSyncedReadyToDelete = syncedShopsCount + syncedOrdersCount + syncedStocksCount +
+    syncedProductsCount + syncedPaymentsCount + syncedBillsCount + syncedSuppliersCount
+  val totalAwaitingUpload = totalQueueRecords - totalSyncedReadyToDelete
 
   Scaffold(
     contentWindowInsets = WindowInsets.safeDrawing,
@@ -269,7 +329,9 @@ fun SyncServerScreen(
               horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
               Button(
-                onClick = onSyncNow,
+                onClick = {
+                  onSaveAndSyncNow(globalEnabled, laptopEnabled, laptopUrl, laptopToken, autoDeleteSynced)
+                },
                 enabled = !isSyncing,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
@@ -550,8 +612,7 @@ fun SyncServerScreen(
             ) {
               Button(
                 onClick = {
-                  onSaveSettings(globalEnabled, laptopEnabled, laptopUrl, laptopToken, autoDeleteSynced)
-                  onTestLaptopConnection(laptopUrl, laptopToken)
+                  onSaveAndTestLaptopConnection(globalEnabled, laptopEnabled, laptopUrl, laptopToken, autoDeleteSynced)
                 },
                 colors = ButtonDefaults.buttonColors(
                   containerColor = MaterialTheme.colorScheme.secondary,
@@ -570,8 +631,7 @@ fun SyncServerScreen(
 
               OutlinedButton(
                 onClick = {
-                  onSaveSettings(globalEnabled, laptopEnabled, laptopUrl, laptopToken, autoDeleteSynced)
-                  onPullFromLaptop()
+                  onSaveAndPullFromLaptop(globalEnabled, laptopEnabled, laptopUrl, laptopToken, autoDeleteSynced)
                 },
                 enabled = laptopEnabled && !isSyncing,
                 shape = RoundedCornerShape(10.dp),
@@ -640,7 +700,7 @@ fun SyncServerScreen(
                     style = MaterialTheme.typography.bodySmall,
                   )
                   Text(
-                    text = "2. Copy laptop_server files into D:\\IDEAS AND PLANS\\1 BANANA CHIPS\\LOCAL SERVER and run start_snackroute_server.bat (or):",
+                    text = "2. Copy laptop_server files into D:\\IDEAS AND PLANS\\1 BANANA CHIPS\\LOCAL SERVER and run start_homely_server.bat (or):",
                     style = MaterialTheme.typography.bodySmall,
                   )
                   Surface(
@@ -674,19 +734,19 @@ fun SyncServerScreen(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Text(
-            text = "Saved Records on Phone (${pendingShops.size + pendingOrders.size + pendingStockUpdates.size})",
+            text = "Saved Records on Phone ($totalQueueRecords)",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
           )
           Text(
-            text = if (pendingShops.isEmpty() && pendingOrders.isEmpty() && pendingStockUpdates.isEmpty()) "Queue Clear" else "Stored in SQLite",
+            text = if (totalQueueRecords == 0) "Queue Clear" else "Stored in SQLite",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
       }
 
-      if (pendingShops.isEmpty() && pendingOrders.isEmpty() && pendingStockUpdates.isEmpty()) {
+      if (totalQueueRecords == 0) {
         item {
           Surface(
             color = MaterialTheme.colorScheme.surface,
@@ -712,7 +772,7 @@ fun SyncServerScreen(
                 fontWeight = FontWeight.SemiBold,
               )
               Text(
-                text = "When you add or edit shops offline, they will appear here safely until synced and deleted.",
+                text = "When you add or edit shops, orders, products, or payments offline, they stay here safely until synced.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
@@ -771,6 +831,13 @@ fun SyncServerScreen(
                   TargetSyncChip("Cloud", order.globalSynced, requireGlobal)
                   TargetSyncChip("Laptop", order.localServerSynced, requireLaptop)
                 }
+                if (order.lastError.isNotBlank() && !fullySynced) {
+                  Text(
+                    text = order.lastError,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.semanticColors.danger,
+                  )
+                }
               }
               if (fullySynced) {
                 IconButton(onClick = { onDeletePendingOrder(order.localId) }) {
@@ -786,6 +853,7 @@ fun SyncServerScreen(
         }
 
         items(pendingStockUpdates, key = { "stock_${it.stockId}" }) { stockUpdate ->
+          val fullySynced = !requireGlobal || stockUpdate.globalSynced
           Card(
             shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -808,6 +876,181 @@ fun SyncServerScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
               TargetSyncChip(label = "Global Cloud", synced = stockUpdate.globalSynced, active = requireGlobal)
+              if (stockUpdate.lastError.isNotBlank() && !fullySynced) {
+                Text(
+                  text = stockUpdate.lastError,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.semanticColors.danger,
+                )
+              }
+            }
+          }
+        }
+
+        items(pendingProducts, key = { "prod_${it.localId}" }) { product ->
+          val fullySynced = product.isFullySynced(requireGlobal)
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Row(
+              modifier = Modifier.padding(12.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                  text = "Product ${product.productCode} • ${product.name}",
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                )
+                TargetSyncChip(label = "Global Cloud", synced = product.globalSynced, active = requireGlobal)
+                if (product.lastError.isNotBlank() && !fullySynced) {
+                  Text(
+                    text = product.lastError,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+              if (fullySynced) {
+                IconButton(onClick = { onDeletePendingProduct(product.localId) }) {
+                  Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "Delete synced product from phone",
+                    tint = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        items(pendingPayments, key = { "pay_${it.localId}" }) { payment ->
+          val fullySynced = payment.isFullySynced(requireGlobal)
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Row(
+              modifier = Modifier.padding(12.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                  text = "Payment ${payment.receiptCode} • ${payment.partyName}",
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                )
+                TargetSyncChip(label = "Global Cloud", synced = payment.globalSynced, active = requireGlobal)
+                if (payment.lastError.isNotBlank() && !fullySynced) {
+                  Text(
+                    text = payment.lastError,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+              if (fullySynced) {
+                IconButton(onClick = { onDeletePendingPayment(payment.localId) }) {
+                  Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "Delete synced payment from phone",
+                    tint = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        items(pendingSupplierBills, key = { "bill_${it.localId}" }) { bill ->
+          val fullySynced = bill.isFullySynced(requireGlobal)
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Row(
+              modifier = Modifier.padding(12.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                  text = "Supplier Bill ${bill.billNumber} • ${bill.supplierName}",
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                )
+                TargetSyncChip(label = "Global Cloud", synced = bill.globalSynced, active = requireGlobal)
+                if (bill.lastError.isNotBlank() && !fullySynced) {
+                  Text(
+                    text = bill.lastError,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+              if (fullySynced) {
+                IconButton(onClick = { onDeletePendingSupplierBill(bill.localId) }) {
+                  Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "Delete synced supplier bill from phone",
+                    tint = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        items(pendingSuppliers, key = { "sup_${it.localId}" }) { supplier ->
+          val fullySynced = supplier.isFullySynced(requireGlobal)
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Row(
+              modifier = Modifier.padding(12.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                  text = "Supplier ${supplier.supplierCode} • ${supplier.name}",
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                )
+                TargetSyncChip(label = "Global Cloud", synced = supplier.globalSynced, active = requireGlobal)
+                if (supplier.lastError.isNotBlank() && !fullySynced) {
+                  Text(
+                    text = supplier.lastError,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+              if (fullySynced) {
+                IconButton(onClick = { onDeletePendingSupplier(supplier.localId) }) {
+                  Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "Delete synced supplier from phone",
+                    tint = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
             }
           }
         }

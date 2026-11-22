@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.update
  * In-memory local repository used ONLY when the user selects "Skip Login (Test Mode)".
  * Never touches Firebase Auth or Firestore so zero unauthenticated network calls occur.
  */
-class LocalTestRepository : SnackRouteDataSource {
+class LocalTestRepository : HomelyDataSource {
 
   private val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
   private val yesterday = daysAgoString(1)

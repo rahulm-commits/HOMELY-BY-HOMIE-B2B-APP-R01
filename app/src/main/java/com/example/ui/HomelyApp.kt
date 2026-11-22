@@ -40,7 +40,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.R
 import com.example.data.local.ServerConfigStore
-import com.example.data.local.SnackRouteDatabase
+import com.example.data.local.HomelyDatabase
 import com.example.data.model.PaymentDirection
 import com.example.data.model.Product
 import com.example.data.model.ProductCatalogHelper
@@ -48,12 +48,12 @@ import com.example.data.model.Shop
 import com.example.data.model.Supplier
 import com.example.data.remote.LaptopServerClient
 import com.example.data.repository.LocalTestRepository
-import com.example.data.repository.SnackRouteRepository
+import com.example.data.repository.HomelyRepository
 import com.example.data.repository.SyncCoordinatorRepository
 import com.example.ui.auth.AuthScreen
 import com.example.ui.auth.signOutUser
 import com.example.ui.components.AppDestination
-import com.example.ui.components.SnackRouteBottomBar
+import com.example.ui.components.HomelyBottomBar
 import com.example.ui.components.isNetworkAvailable
 import com.example.ui.screens.AddEditProductScreen
 import com.example.ui.screens.AddEditShopScreen
@@ -70,7 +70,7 @@ import com.example.ui.screens.ShopListScreen
 import com.example.ui.screens.SuppliersScreen
 import com.example.ui.screens.SyncServerScreen
 import com.example.ui.screens.TransportScreen
-import com.example.ui.viewmodel.SnackRouteViewModel
+import com.example.ui.viewmodel.HomelyViewModel
 import com.example.ui.viewmodel.UiState
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -98,7 +98,7 @@ internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
 }
 
 @Composable
-fun SnackRouteApp(auth: FirebaseAuth = Firebase.auth) {
+fun HomelyApp(auth: FirebaseAuth = Firebase.auth) {
   val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
   var isTestModeBypass by rememberSaveable { mutableStateOf(false) }
   val user = currentUser
@@ -141,7 +141,7 @@ private fun AuthenticatedAppShell(
   val scope = rememberCoroutineScope()
   val credentialManager = remember(context) { CredentialManager.create(context) }
 
-  val viewModel: SnackRouteViewModel = viewModel(
+  val viewModel: HomelyViewModel = viewModel(
     key = "$currentUserId:$isLocalTestMode",
     factory = viewModelFactory {
       initializer {
@@ -153,19 +153,19 @@ private fun AuthenticatedAppShell(
         } else {
           val databaseId = app.getString(R.string.firestore_database_id)
           val db = FirebaseFirestore.getInstance(databaseId)
-          SnackRouteRepository(db, Firebase.auth)
+          HomelyRepository(db, Firebase.auth)
         }
-        val roomDb = SnackRouteDatabase.getInstance(app)
+        val roomDb = HomelyDatabase.getInstance(app)
         val coordinator = SyncCoordinatorRepository(
           appContext = app,
           primary = primary,
-          dao = roomDb.snackRouteDao(),
+          dao = roomDb.homelyDao(),
           configStore = ServerConfigStore(app),
           laptopClient = LaptopServerClient(),
           currentUserId = currentUserId,
           isLocalTestMode = isLocalTestMode,
         )
-        SnackRouteViewModel(coordinator, currentUserId)
+        HomelyViewModel(coordinator, currentUserId)
       }
     },
   )
@@ -269,7 +269,7 @@ private fun AuthenticatedAppShell(
         contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
-          SnackRouteBottomBar(
+          HomelyBottomBar(
             currentDestination = currentTab,
             isMoreExpanded = isMoreExpanded,
             onToggleMore = { isMoreExpanded = !isMoreExpanded },
@@ -677,6 +677,10 @@ private fun AuthenticatedAppShell(
         pendingShops = pendingShops,
         pendingOrders = pendingOrders,
         pendingStockUpdates = pendingStockUpdates,
+        pendingProducts = pendingProducts,
+        pendingPayments = pendingPayments,
+        pendingSupplierBills = pendingSupplierBills,
+        pendingSuppliers = pendingSuppliers,
         isLocalTestMode = isLocalTestMode,
         isOnline = isNetworkAvailable(context),
         isSyncing = isSyncing,
@@ -689,9 +693,22 @@ private fun AuthenticatedAppShell(
         },
         onSyncNow = { viewModel.syncNow(silent = false) },
         onPullFromLaptop = { viewModel.pullFromLaptopServer() },
+        onSaveAndTestLaptopConnection = { g, l, url, token, autoDel ->
+          viewModel.saveAndTestLaptopConnection(g, l, url, token, autoDel)
+        },
+        onSaveAndSyncNow = { g, l, url, token, autoDel ->
+          viewModel.saveAndSyncNow(g, l, url, token, autoDel)
+        },
+        onSaveAndPullFromLaptop = { g, l, url, token, autoDel ->
+          viewModel.saveAndPullFromLaptopServer(g, l, url, token, autoDel)
+        },
         onDeleteSyncedFromPhone = { viewModel.deleteSyncedFromPhone() },
         onDeletePendingShop = { localId -> viewModel.deletePendingShop(localId) },
         onDeletePendingOrder = { localId -> viewModel.deletePendingOrder(localId) },
+        onDeletePendingProduct = { localId -> viewModel.deletePendingProduct(localId) },
+        onDeletePendingPayment = { localId -> viewModel.deletePendingPayment(localId) },
+        onDeletePendingSupplierBill = { localId -> viewModel.deletePendingSupplierBill(localId) },
+        onDeletePendingSupplier = { localId -> viewModel.deletePendingSupplier(localId) },
         onBack = { navController.popBackStack() },
       )
     }

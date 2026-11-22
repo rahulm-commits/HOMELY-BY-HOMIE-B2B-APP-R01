@@ -16,12 +16,12 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SnackRouteRepositoryRuleTest : FirestoreEmulatorTestBase() {
+class HomelyRepositoryRuleTest : FirestoreEmulatorTestBase() {
 
   @Test
   fun saveShop_authenticatedOwner_createsAndReadsShop() = runBlocking {
     val uid = signInTestUser(ALICE_EMAIL)
-    val repo = SnackRouteRepository(firestore, auth)
+    val repo = HomelyRepository(firestore, auth)
 
     val uniqueCode = "SHP-${UUID.randomUUID().toString().take(6)}"
     val shop = Shop(
@@ -52,7 +52,7 @@ class SnackRouteRepositoryRuleTest : FirestoreEmulatorTestBase() {
   @Test
   fun placeOrder_authenticatedOwner_createsOrderAndUpdatesShopStatus() = runBlocking {
     val uid = signInTestUser(ALICE_EMAIL)
-    val repo = SnackRouteRepository(firestore, auth)
+    val repo = HomelyRepository(firestore, auth)
 
     val shop = Shop(
       shopCode = "SHP-${UUID.randomUUID().toString().take(5)}",
@@ -83,7 +83,7 @@ class SnackRouteRepositoryRuleTest : FirestoreEmulatorTestBase() {
   @Test
   fun observeShops_crossUserAccess_failsWithPermissionDenied() = runBlocking {
     val aliceUid = signInTestUser(ALICE_EMAIL)
-    val aliceRepo = SnackRouteRepository(firestore, auth)
+    val aliceRepo = HomelyRepository(firestore, auth)
     withTimeout(DEFAULT_TIMEOUT_MS) {
       aliceRepo.saveShop(
         Shop(
@@ -98,7 +98,7 @@ class SnackRouteRepositoryRuleTest : FirestoreEmulatorTestBase() {
     }
 
     signInTestUser(BOB_EMAIL)
-    val bobRepo = SnackRouteRepository(firestore, auth)
+    val bobRepo = HomelyRepository(firestore, auth)
 
     var caught: Throwable? = null
     try {
@@ -117,7 +117,7 @@ class SnackRouteRepositoryRuleTest : FirestoreEmulatorTestBase() {
   @Test
   fun observeShops_unauthenticatedUser_failsWithPermissionDenied() = runBlocking {
     auth.signOut()
-    val repo = SnackRouteRepository(firestore, auth)
+    val repo = HomelyRepository(firestore, auth)
 
     var caught: Throwable? = null
     try {

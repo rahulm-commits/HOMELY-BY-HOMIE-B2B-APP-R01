@@ -92,8 +92,8 @@ import com.example.data.model.Product
 import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.ProductStatus
 import com.example.ui.components.StandardCompactSearchBar
+import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
-import java.io.File
 
 private enum class ProductStatusTab(val label: String) {
   ALL("All"),
@@ -684,7 +684,11 @@ fun ProductsScreen(
             }
           }
         } else {
-          items(filteredProducts, key = { it.id.ifBlank { it.productCode } }) { prod ->
+          items(
+            filteredProducts,
+            key = { it.id.ifBlank { it.productCode } },
+            contentType = { "product_card" },
+          ) { prod ->
             ProductCatalogCard(
               product = prod,
               onEditClick = { onEditProductClick(prod) },
@@ -1031,14 +1035,14 @@ private fun ProductCatalogCard(
               null
             }
           }
-          if (product.photoUri.isNotBlank()) {
-            val model: Any = if (product.photoUri.startsWith("/")) {
-              File(product.photoUri)
-            } else {
-              product.photoUri
-            }
+          val productImageRequest = rememberThumbnailImageRequest(
+            path = product.photoUri,
+            targetSizePx = 240,
+            fallbackDrawableRes = R.drawable.img_snacks_banner,
+          )
+          if (productImageRequest != null) {
             AsyncImage(
-              model = model,
+              model = productImageRequest,
               contentDescription = product.name,
               contentScale = ContentScale.Crop,
               colorFilter = grayscaleFilter,

@@ -5,6 +5,12 @@ import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.Exclude
 import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.ServerTimestamp
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+private val isoDateFormatLocal = ThreadLocal.withInitial {
+  SimpleDateFormat("yyyy-MM-dd", Locale.US)
+}
 
 @IgnoreExtraProperties
 data class Shop(
@@ -374,7 +380,7 @@ object ProductCatalogHelper {
     }
     if (product.addedDate.isNotBlank()) {
       return try {
-        val parsed = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(product.addedDate)
+        val parsed = isoDateFormatLocal.get()!!.parse(product.addedDate)
         parsed != null && parsed.time >= cutoff
       } catch (_: Exception) {
         false
@@ -1034,7 +1040,7 @@ object PaymentLedgerHelper {
     val clean = dateStr.trim()
     if (clean.isBlank()) return null
     return try {
-      java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(clean)?.time
+      isoDateFormatLocal.get()!!.parse(clean)?.time
     } catch (_: Exception) {
       null
     }
@@ -1116,7 +1122,7 @@ object SupplierCatalogHelper {
     }
     if (supplier.addedDate.isNotBlank()) {
       return try {
-        val parsed = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(supplier.addedDate)
+        val parsed = isoDateFormatLocal.get()!!.parse(supplier.addedDate)
         parsed != null && parsed.time >= cutoff
       } catch (_: Exception) {
         false

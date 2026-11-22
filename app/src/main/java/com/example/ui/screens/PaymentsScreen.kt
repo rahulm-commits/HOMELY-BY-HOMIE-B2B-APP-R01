@@ -110,7 +110,7 @@ fun PaymentsScreen(
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
-  val isOnline = isNetworkAvailable(context)
+  val isOnline = remember(context) { isNetworkAvailable(context) }
   val todayIso = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
 
   var selectedDirection by rememberSaveable { mutableStateOf(initialDirection) }
@@ -240,6 +240,18 @@ fun PaymentsScreen(
 
   val shopAgingBuckets = remember(routeFilteredLedgers) { PaymentLedgerHelper.computeShopAgingBuckets(routeFilteredLedgers) }
   val supplierAgingBuckets = remember(supplierBills) { PaymentLedgerHelper.computeSupplierAgingBuckets(supplierBills) }
+
+  val nonRejectedOrderCountsByShopKey = remember(shops, orders) {
+    val activeOrders = orders.filter { it.status != OrderStatus.REJECTED }
+    val countsByShopId = HashMap<String, Int>(shops.size)
+    for (shop in shops) {
+      val c = activeOrders.count { ord ->
+        ord.shopId == shop.id || (shop.shopCode.isNotBlank() && ord.shopCode == shop.shopCode)
+      }
+      countsByShopId[shop.id] = c
+    }
+    countsByShopId
+  }
 
   val routeOptions = remember(routes) {
     (listOf(RoutesCatalog.ALL) + routes.map { it.id } + RoutesCatalog.UNALLOCATED).distinct()
@@ -681,13 +693,16 @@ fun PaymentsScreen(
       PaymentsSectionTab.LEDGER -> {
         if (!isSupplierMode) {
           if (filteredShopLedgers.isEmpty()) {
-            item { EmptyPaymentsPlaceholder("No shops match the selected payment filter.") }
+            item(key = "empty_shops_ledger", contentType = "empty_placeholder") {
+              EmptyPaymentsPlaceholder("No shops match the selected payment filter.")
+            }
           } else {
-            items(filteredShopLedgers, key = { it.shop.id.ifBlank { it.shop.shopCode } }) { ledger ->
-              val shopOrderCount = orders.count { ord ->
-                ord.status != OrderStatus.REJECTED &&
-                  (ord.shopId == ledger.shop.id || (ledger.shop.shopCode.isNotBlank() && ord.shopCode == ledger.shop.shopCode))
-              }
+            items(
+              filteredShopLedgers,
+              key = { it.shop.id.ifBlank { it.shop.shopCode } },
+              contentType = { "shop_payment_card" },
+            ) { ledger ->
+              val shopOrderCount = nonRejectedOrderCountsByShopKey[ledger.shop.id] ?: 0
               ShopPaymentCard(
                 ledger = ledger,
                 totalOrderCount = shopOrderCount,
@@ -698,9 +713,15 @@ fun PaymentsScreen(
           }
         } else {
           if (filteredSupplierBills.isEmpty()) {
-            item { EmptyPaymentsPlaceholder("No supplier bills match the selected filter.") }
+            item(key = "empty_supplier_bills", contentType = "empty_placeholder") {
+              EmptyPaymentsPlaceholder("No supplier bills match the selected filter.")
+            }
           } else {
-            items(filteredSupplierBills, key = { it.id.ifBlank { it.billNumber } }) { bill ->
+            items(
+              filteredSupplierBills,
+              key = { it.id.ifBlank { it.billNumber } },
+              contentType = { "supplier_bill_card" },
+            ) { bill ->
               SupplierBillCard(
                 bill = bill,
                 onPayClick = { activePaymentTarget = PaymentSheetTarget.SupplierPayout(bill) },
@@ -713,13 +734,17 @@ fun PaymentsScreen(
 
       PaymentsSectionTab.TRANSACTIONS -> {
         if (activeTransactions.isEmpty()) {
-          item {
+          item(key = "empty_transactions", contentType = "empty_placeholder") {
             EmptyPaymentsPlaceholder(
               if (isSupplierMode) "No supplier payouts recorded yet." else "No shop collection receipts recorded yet."
             )
           }
         } else {
-          items(activeTransactions, key = { it.id.ifBlank { it.receiptCode } }) { tx ->
+          items(
+            activeTransactions,
+            key = { it.id.ifBlank { it.receiptCode } },
+            contentType = { "payment_tx_card" },
+          ) { tx ->
             PaymentTransactionCard(transaction = tx)
           }
         }
@@ -728,7 +753,11 @@ fun PaymentsScreen(
       PaymentsSectionTab.AGING -> {
         val buckets = if (isSupplierMode) supplierAgingBuckets else shopAgingBuckets
         val bucketTotal = buckets.sumOf { it.amount }
-        itemsIndexed(buckets) { idx, bucket ->
+        itemsIndexed(
+          items = buckets,
+          key = { idx, bucket -> "${if (isSupplierMode) "sup" else "shop"}_${idx}_${bucket.label}" },
+          contentType = { _, _ -> "aging_bucket_card" },
+        ) { idx, bucket ->
           AgingBucketCard(
             bucket = bucket,
             totalAmount = bucketTotal,

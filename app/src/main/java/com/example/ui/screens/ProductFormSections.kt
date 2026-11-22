@@ -67,6 +67,7 @@ import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.ProductVariant
+import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
 import java.io.File
 import java.util.Locale
@@ -228,9 +229,13 @@ internal fun ProductPhotoProofCard(
             .background(MaterialTheme.colorScheme.surface),
         ) {
           if (photoPath.isNotBlank()) {
-            val model: Any = if (photoPath.startsWith("/")) File(photoPath) else photoPath
+            val photoRequest = rememberThumbnailImageRequest(
+              path = photoPath,
+              targetSizePx = 240,
+              fallbackDrawableRes = R.drawable.img_snacks_banner,
+            )
             AsyncImage(
-              model = model,
+              model = photoRequest,
               contentDescription = "Product packaging photo",
               contentScale = ContentScale.Crop,
               modifier = Modifier.fillMaxSize(),

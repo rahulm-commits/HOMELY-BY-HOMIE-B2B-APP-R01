@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.ServerConfigStore
-import com.example.data.local.SnackRouteDatabase
+import com.example.data.local.HomelyDatabase
 import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OperationsMeta
@@ -26,10 +26,10 @@ import com.example.data.model.SupplierBill
 import com.example.data.remote.LaptopServerClient
 import com.example.data.repository.LocalTestRepository
 import com.example.data.repository.RemoteCloudAdapter
-import com.example.data.repository.SnackRouteDataSource
+import com.example.data.repository.HomelyDataSource
 import com.example.data.repository.SyncCoordinatorRepository
 import com.example.ui.screens.ShopListScreen
-import com.example.ui.theme.SnackRouteTheme
+import com.example.ui.theme.HomelyTheme
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,7 +81,7 @@ class ShopListScreenTest {
     )
 
     composeTestRule.setContent {
-      SnackRouteTheme(darkTheme = false) {
+      HomelyTheme(darkTheme = false) {
         ShopListScreen(
           shops = shops,
           pendingQueueCount = 1,
@@ -123,7 +123,7 @@ class ShopListScreenTest {
   @Test
   fun saveShop_normalizesFieldsAndReconcilesConfirmedCloudStream() = runBlocking {
     val context: Context = ApplicationProvider.getApplicationContext()
-    val db = Room.inMemoryDatabaseBuilder(context, SnackRouteDatabase::class.java)
+    val db = Room.inMemoryDatabaseBuilder(context, HomelyDatabase::class.java)
       .allowMainThreadQueries()
       .build()
     val configStore = ServerConfigStore(context)
@@ -139,7 +139,7 @@ class ShopListScreenTest {
     val shopsFlow = MutableStateFlow<List<Shop>>(emptyList())
     var failInitialUpload = true
 
-    val fakeCloud = object : SnackRouteDataSource, RemoteCloudAdapter {
+    val fakeCloud = object : HomelyDataSource, RemoteCloudAdapter {
       override fun observeShops(userId: String): Flow<List<Shop>> = shopsFlow
       override fun observeOrders(userId: String): Flow<List<OrderRecord>> = MutableStateFlow(emptyList())
       override fun observeStocks(userId: String): Flow<List<StockItem>> = MutableStateFlow(emptyList())
@@ -198,7 +198,7 @@ class ShopListScreenTest {
     val coordinator = SyncCoordinatorRepository(
       appContext = context,
       primary = fakeCloud,
-      dao = db.snackRouteDao(),
+      dao = db.homelyDao(),
       configStore = configStore,
       laptopClient = LaptopServerClient(),
       currentUserId = "uid_test",

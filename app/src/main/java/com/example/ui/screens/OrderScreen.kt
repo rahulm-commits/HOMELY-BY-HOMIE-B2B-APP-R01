@@ -90,8 +90,9 @@ import com.example.ui.components.StandardRouteDropdown
 import com.example.ui.components.formatInr
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
+import com.example.ui.components.rememberFileExistsAsync
+import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
-import java.io.File
 import java.util.Locale
 
 private enum class OrderSectionTab(val label: String) {
@@ -271,7 +272,7 @@ fun OrderScreen(
           onCall = { shop -> openDialer(context, shop.phone) },
           onPlaceOrder = onPlaceOrderClick,
           onWhatsApp = { shop ->
-            openWhatsApp(context, shop.phone, "Hello ${shop.ownerName}, calling regarding today's SnackRoute order for ${shop.name}.")
+            openWhatsApp(context, shop.phone, "Hello ${shop.ownerName}, calling regarding today's Homely by Homie order for ${shop.name}.")
           },
           onMarkStatus = onMarkInquiryStatus,
         )
@@ -291,7 +292,7 @@ fun OrderScreen(
           onCall = { shop -> openDialer(context, shop.phone) },
           onPlaceOrder = onPlaceOrderClick,
           onWhatsApp = { shop ->
-            openWhatsApp(context, shop.phone, "Hello ${shop.ownerName}, following up from SnackRoute.")
+            openWhatsApp(context, shop.phone, "Hello ${shop.ownerName}, following up from Homely by Homie.")
           },
           onMarkStatus = onMarkInquiryStatus,
         )
@@ -344,7 +345,11 @@ private fun InquiryShopListContent(
         }
       }
     } else {
-      items(shops, key = { it.id.ifBlank { it.shopCode } }) { shop ->
+      items(
+        shops,
+        key = { it.id.ifBlank { it.shopCode } },
+        contentType = { "inquiry_shop_card" },
+      ) { shop ->
         PendingInquiryShopCard(
           shop = shop,
           showStatusQuickActions = showStatusQuickActions,
@@ -449,15 +454,25 @@ private fun PendingInquiryShopCard(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
+        val hasPhotoFile = rememberFileExistsAsync(shop.photoUri)
+        val imageRequest = if (hasPhotoFile) {
+          rememberThumbnailImageRequest(
+            path = shop.photoUri,
+            targetSizePx = 192,
+            fallbackDrawableRes = R.drawable.img_shop_placeholder,
+          )
+        } else {
+          null
+        }
         Surface(
           shape = RoundedCornerShape(10.dp),
           border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
           color = MaterialTheme.colorScheme.surfaceVariant,
           modifier = Modifier.size(58.dp),
         ) {
-          if (shop.photoUri.isNotBlank() && File(shop.photoUri).exists()) {
+          if (imageRequest != null) {
             AsyncImage(
-              model = File(shop.photoUri),
+              model = imageRequest,
               contentDescription = "${shop.name} photo",
               contentScale = ContentScale.Crop,
               modifier = Modifier.fillMaxSize(),
@@ -851,7 +866,11 @@ private fun ConfirmedOrdersListContent(
         }
       }
     } else {
-      items(orders, key = { it.id.ifBlank { it.orderCode } }) { order ->
+      items(
+        orders,
+        key = { it.id.ifBlank { it.orderCode } },
+        contentType = { "confirmed_order_card" },
+      ) { order ->
         val canEditOrder = order.status != OrderStatus.DELIVERED && order.status != OrderStatus.REJECTED
         Card(
           shape = RoundedCornerShape(16.dp),

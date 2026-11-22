@@ -94,6 +94,7 @@ import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.ui.components.StandardCompactSearchBar
+import com.example.ui.components.haversineDistanceMeters
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
 import com.example.ui.theme.RouteColorDot
@@ -141,11 +142,14 @@ fun AllocationDispatchDrawer(
   onEditSelectedRouteShops: (DeliveryRoute) -> Unit,
   onRemoveShopFromRoute: (Shop) -> Unit,
   onAutoGroupUnallocated: (List<Shop>) -> Unit,
+  onAssignShopToRoute: (Shop, String) -> Unit = { _, _ -> },
+  onBatchAssignUnallocatedToRoute: (List<Shop>, String) -> Unit = { _, _ -> },
   onMoveShopStopOrder: (DeliveryRoute, List<String>) -> Unit = { _, _ -> },
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
   var unallocatedQuery by remember { mutableStateOf("") }
+  var selectedUnallocIds by remember { mutableStateOf(setOf<String>()) }
 
   val unallocatedShops = remember(shops, unallocatedQuery) {
     val q = unallocatedQuery.trim().lowercase()
@@ -283,6 +287,7 @@ fun AllocationDispatchDrawer(
               onMoveShopStopOrder(selectedRoute, mutable)
             }
           },
+          onReorderStops = { orderedIds -> onMoveShopStopOrder(selectedRoute, orderedIds) },
           onClearSelection = onClearRouteFilter,
         )
       }
@@ -506,6 +511,17 @@ fun AllocationDispatchDrawer(
         }
 
         DispatchDrawerTab.UNALLOCATED -> {
+          val unallocIdSet = remember(unallocatedShops) { unallocatedShops.map { it.id }.toSet() }
+          val activeSelectedUnalloc = remember(selectedUnallocIds, unallocIdSet) {
+            selectedUnallocIds.intersect(unallocIdSet)
+          }
+          val selectedBatchShops = remember(unallocatedShops, activeSelectedUnalloc) {
+            unallocatedShops.filter { it.id in activeSelectedUnalloc }
+          }
+          val routeStopCounts = remember(shops, routes) {
+            routes.associate { r -> r.id to shops.count { it.routeId == r.id } }
+          }
+
           Column(
             modifier = Modifier
               .fillMaxWidth()
@@ -519,6 +535,83 @@ fun AllocationDispatchDrawer(
               fieldTestTag = "unallocated_search_input",
               containerColor = MaterialTheme.colorScheme.surface,
             )
+
+            if (selectedBatchShops.isNotEmpty() && routes.isNotEmpty()) {
+              Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
+                border = BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("unallocated_batch_assign_bar"),
+              ) {
+                Column(
+                  modifier = Modifier.padding(11.dp),
+                  verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                      text = "Assign ${selectedBatchShops.size} selected shop(s) to:",
+                      style = MaterialTheme.typography.labelMedium,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                      text = "Clear",
+                      style = MaterialTheme.typography.labelSmall,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { selectedUnallocIds = emptySet() }
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                  }
+                  Row(
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                  ) {
+                    routes.forEachIndexed { idx, route ->
+                      val spec = RouteColorPalette.specForIndex(route.colorIndex)
+                      val shortName = route.name.substringAfter(":").trim().ifBlank { route.name }
+                      Surface(
+                        color = spec.primary,
+                        shape = RoundedCornerShape(9.dp),
+                        modifier = Modifier
+                          .height(36.dp)
+                          .clip(RoundedCornerShape(9.dp))
+                          .clickable {
+                            onBatchAssignUnallocatedToRoute(selectedBatchShops, route.id)
+                            selectedUnallocIds = emptySet()
+                          }
+                          .testTag("batch_assign_route_${route.id}"),
+                      ) {
+                        Row(
+                          modifier = Modifier.padding(horizontal = 10.dp),
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                          RouteColorDot(spec = spec, size = 9.dp)
+                          Text(
+                            text = "R${idx + 1} $shortName",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = spec.contrastInk,
+                            maxLines = 1,
+                          )
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
 
             if (unallocatedShops.isEmpty()) {
               Card(
@@ -537,79 +630,181 @@ fun AllocationDispatchDrawer(
               }
             } else {
               unallocatedShops.forEach { shop ->
+                val isChecked = shop.id in activeSelectedUnalloc
                 Card(
                   shape = RoundedCornerShape(14.dp),
-                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                  colors = CardDefaults.cardColors(
+                    containerColor = if (isChecked) {
+                      MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                    } else {
+                      MaterialTheme.colorScheme.surface
+                    },
+                  ),
+                  border = BorderStroke(
+                    width = if (isChecked) 1.4.dp else 1.dp,
+                    color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                  ),
                   elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                  modifier = Modifier.fillMaxWidth(),
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("unallocated_shop_card_${shop.shopCode}"),
                 ) {
-                  Row(
+                  Column(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                      .padding(start = 6.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                   ) {
                     Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
                       verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(10.dp),
-                      modifier = Modifier.weight(1f),
                     ) {
-                      Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.size(40.dp),
+                      Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.weight(1f),
                       ) {
-                        Box(contentAlignment = Alignment.Center) {
-                          Icon(
-                            imageVector = Icons.Rounded.Storefront,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
+                        Checkbox(
+                          checked = isChecked,
+                          onCheckedChange = { checked ->
+                            selectedUnallocIds = if (checked) {
+                              selectedUnallocIds + shop.id
+                            } else {
+                              selectedUnallocIds - shop.id
+                            }
+                          },
+                          colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
+                          modifier = Modifier.testTag("unalloc_check_${shop.shopCode}"),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                            text = shop.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                          )
+                          Text(
+                            text = "${shop.address} • ${shop.phone}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                          )
+                          Text(
+                            text = "Unallocated • ${shop.shopCode}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.semanticColors.danger,
                           )
                         }
                       }
-                      Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                          text = shop.name,
-                          style = MaterialTheme.typography.titleSmall,
-                          fontWeight = FontWeight.SemiBold,
-                          maxLines = 1,
-                          overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                          text = "${shop.address} • ${shop.phone}",
-                          style = MaterialTheme.typography.bodySmall,
-                          color = MaterialTheme.colorScheme.onSurfaceVariant,
-                          maxLines = 1,
-                          overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                          text = "Unallocated • ${shop.shopCode}",
-                          style = MaterialTheme.typography.labelSmall,
-                          color = MaterialTheme.semanticColors.danger,
-                        )
+                      Spacer(modifier = Modifier.width(6.dp))
+                      Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(9.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                          .height(34.dp)
+                          .clip(RoundedCornerShape(9.dp))
+                          .clickable { onFocusShopOnMap(shop) }
+                          .testTag("unalloc_focus_map_${shop.shopCode}"),
+                      ) {
+                        Row(
+                          modifier = Modifier.padding(horizontal = 9.dp),
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                          Icon(
+                            imageVector = Icons.Rounded.LocationOn,
+                            contentDescription = "Locate ${shop.name} on map",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp),
+                          )
+                          Text(
+                            text = "Map",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                          )
+                        }
                       }
                     }
-                    Surface(
-                      color = MaterialTheme.colorScheme.primary,
-                      shape = RoundedCornerShape(9.dp),
-                      modifier = Modifier
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(9.dp))
-                        .clickable { onFocusShopOnMap(shop) },
+
+                    // Inline 1-Tap Route Assignment Pills directly inside the Unallocated card
+                    Column(
+                      modifier = Modifier.padding(start = 10.dp),
+                      verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                      Box(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        contentAlignment = Alignment.Center,
-                      ) {
-                        Text(
-                          text = "+ Assign",
-                          style = MaterialTheme.typography.labelSmall,
-                          fontWeight = FontWeight.Bold,
-                          color = MaterialTheme.colorScheme.onPrimary,
-                        )
+                      Text(
+                        text = if (routes.isEmpty()) "No routes created yet" else "Allocate directly to route:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      )
+                      if (routes.isEmpty()) {
+                        Surface(
+                          color = MaterialTheme.colorScheme.primary,
+                          shape = RoundedCornerShape(9.dp),
+                          modifier = Modifier
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .clickable(onClick = onCreateNewRoute),
+                        ) {
+                          Box(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.Center,
+                          ) {
+                            Text(
+                              text = "+ Create New Route",
+                              style = MaterialTheme.typography.labelSmall,
+                              fontWeight = FontWeight.Bold,
+                              color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                          }
+                        }
+                      } else {
+                        Row(
+                          modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                          horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                          routes.forEachIndexed { idx, route ->
+                            val spec = RouteColorPalette.specForIndex(route.colorIndex)
+                            val count = routeStopCounts[route.id] ?: 0
+                            val cleanName = route.name.substringAfter(":").trim().ifBlank { route.name }
+                            Surface(
+                              color = spec.primary.copy(alpha = 0.14f),
+                              shape = RoundedCornerShape(9.dp),
+                              border = BorderStroke(1.dp, spec.primary.copy(alpha = 0.65f)),
+                              modifier = Modifier
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .clickable {
+                                  selectedUnallocIds = selectedUnallocIds - shop.id
+                                  onAssignShopToRoute(shop, route.id)
+                                }
+                                .testTag("unalloc_assign_${shop.shopCode}_${route.id}"),
+                            ) {
+                              Row(
+                                modifier = Modifier.padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                              ) {
+                                RouteColorDot(spec = spec, size = 9.dp)
+                                Text(
+                                  text = "+ R${idx + 1} $cleanName ($count)",
+                                  style = MaterialTheme.typography.labelSmall,
+                                  fontWeight = FontWeight.Bold,
+                                  color = MaterialTheme.colorScheme.onSurface,
+                                  maxLines = 1,
+                                )
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -779,7 +974,7 @@ fun AllocationDispatchDrawer(
                           openWhatsApp(
                             context,
                             shop.phone,
-                            "Please share live GPS location pin for ${shop.name} (${shop.shopCode}) for SnackRoute dispatch.",
+                            "Please share live GPS location pin for ${shop.name} (${shop.shopCode}) for Homely by Homie dispatch.",
                           )
                         },
                     ) {
@@ -818,6 +1013,7 @@ private fun SelectedRouteChecklistPanel(
   onRemoveFromRoute: (Shop) -> Unit,
   onMoveStopUp: (Int) -> Unit,
   onMoveStopDown: (Int) -> Unit,
+  onReorderStops: (List<String>) -> Unit = {},
   onClearSelection: () -> Unit,
 ) {
   val context = LocalContext.current
@@ -877,6 +1073,28 @@ private fun SelectedRouteChecklistPanel(
           horizontalArrangement = Arrangement.spacedBy(4.dp),
           verticalAlignment = Alignment.CenterVertically,
         ) {
+          val hasGpsStops = routeShops.count { it.latitude != 0.0 || it.longitude != 0.0 } >= 2
+          if (routeShops.size > 1 && hasGpsStops) {
+            Surface(
+              color = MaterialTheme.colorScheme.secondaryContainer,
+              shape = RoundedCornerShape(8.dp),
+              modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                  val ordered = nearestNeighborOrder(routeShops)
+                  onReorderStops(ordered.map { s -> s.id })
+                }
+                .testTag("route_optimize_order_button"),
+            ) {
+              Text(
+                text = "Nearest",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+              )
+            }
+          }
           Surface(
             color = spec.primary,
             shape = RoundedCornerShape(8.dp),
@@ -1898,4 +2116,24 @@ fun EditRouteShopsSheet(
       }
     }
   }
+}
+
+private fun nearestNeighborOrder(shops: List<Shop>): List<Shop> {
+  if (shops.size <= 2) return shops
+  val withGps = shops.filter { it.latitude != 0.0 || it.longitude != 0.0 }.toMutableList()
+  val withoutGps = shops.filter { it.latitude == 0.0 && it.longitude == 0.0 }
+  if (withGps.size <= 1) return shops
+
+  val result = mutableListOf<Shop>()
+  var current = withGps.removeAt(0)
+  result.add(current)
+  while (withGps.isNotEmpty()) {
+    val nextIdx = withGps.indices.minByOrNull { idx ->
+      val cand = withGps[idx]
+      haversineDistanceMeters(current.latitude, current.longitude, cand.latitude, cand.longitude)
+    } ?: 0
+    current = withGps.removeAt(nextIdx)
+    result.add(current)
+  }
+  return result + withoutGps
 }

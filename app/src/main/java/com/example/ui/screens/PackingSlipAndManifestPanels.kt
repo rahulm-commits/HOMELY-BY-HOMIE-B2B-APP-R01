@@ -898,7 +898,7 @@ fun A4ManifestTabPanel(
                 modifier = Modifier.size(18.dp),
               )
               Text(
-                text = "SNACKROUTE B2B",
+                text = "HOMELY BY HOMIE B2B",
                 style = MaterialTheme.typography.titleSmall,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,

@@ -80,11 +80,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.annotation.DrawableRes
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import java.io.File
 import java.text.NumberFormat
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 enum class AppDestination(
   val title: String,
@@ -110,10 +117,57 @@ enum class AppDestination(
   }
 }
 
+private val inrFormatterLocal = ThreadLocal.withInitial {
+  NumberFormat.getCurrencyInstance(Locale.forLanguageTag("en-IN")).apply {
+    maximumFractionDigits = 0
+  }
+}
+
 fun formatInr(amount: Double): String {
-  val format = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("en-IN"))
-  format.maximumFractionDigits = 0
-  return format.format(amount)
+  return inrFormatterLocal.get()!!.format(amount)
+}
+
+@Composable
+fun rememberFileExistsAsync(path: String): Boolean {
+  val trimmed = path.trim()
+  if (trimmed.isEmpty()) return false
+  val exists by produceState(initialValue = false, key1 = trimmed) {
+    value = withContext(Dispatchers.IO) {
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("content://")) {
+        true
+      } else {
+        runCatching { File(trimmed).exists() }.getOrDefault(false)
+      }
+    }
+  }
+  return exists
+}
+
+@Composable
+fun rememberThumbnailImageRequest(
+  path: String,
+  targetSizePx: Int = 240,
+  @DrawableRes fallbackDrawableRes: Int? = null,
+): ImageRequest? {
+  val cleanPath = path.trim()
+  if (cleanPath.isEmpty()) return null
+  val context = LocalContext.current
+  return remember(context, cleanPath, targetSizePx, fallbackDrawableRes) {
+    val modelData: Any = if (cleanPath.startsWith("/")) File(cleanPath) else cleanPath
+    ImageRequest.Builder(context)
+      .data(modelData)
+      .size(targetSizePx, targetSizePx)
+      .precision(Precision.INEXACT)
+      .crossfade(false)
+      .apply {
+        if (fallbackDrawableRes != null) {
+          placeholder(fallbackDrawableRes)
+          error(fallbackDrawableRes)
+          fallback(fallbackDrawableRes)
+        }
+      }
+      .build()
+  }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -340,7 +394,7 @@ fun createCameraPhotoFile(context: Context): File {
 }
 
 @Composable
-fun SnackRouteBottomBar(
+fun HomelyBottomBar(
   currentDestination: AppDestination,
   isMoreExpanded: Boolean,
   onToggleMore: () -> Unit,

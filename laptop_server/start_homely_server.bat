@@ -1,9 +1,9 @@
 @echo off
-title SnackRoute Laptop Local Server
+title Homely by Homie Laptop Local Server
 set "TARGET_DIR=D:\IDEAS AND PLANS\1 BANANA CHIPS\LOCAL SERVER"
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
 echo ============================================================
-echo   SnackRoute Laptop Local Server
+echo   Homely by Homie Laptop Local Server
 echo   Data Folder: %TARGET_DIR%
 echo ============================================================
 where python >nul 2>nul

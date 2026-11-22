@@ -65,6 +65,7 @@ data class TransportRoutePlanState(
   val estimatedFinishText: String,
   val orderedWaypointsForMap: List<Pair<Double, Double>>,
   val hasUserOriginForRouting: Boolean,
+  val isShortestPathMode: Boolean = true,
 )
 
 data class VehicleSummary(
@@ -76,6 +77,9 @@ data class VehicleSummary(
 
 private val platePatternRegex =
   Regex("^[A-Za-z]{2}[- ]?\\d{1,2}[- ]?[A-Za-z0-9]{1,4}[- ]?\\d{1,4}$")
+private val etaTimeFormatLocal = ThreadLocal.withInitial {
+  SimpleDateFormat("hh:mm a", Locale.US)
+}
 
 fun formatVehicleSummary(
   modelName: String,
@@ -170,6 +174,102 @@ fun parseVehicleSummary(rawVehicle: String): VehicleSummary {
   )
 }
 
+private const val DEFAULT_HUB_LAT = 9.9312
+private const val DEFAULT_HUB_LNG = 76.2673
+
+fun orderShopsByShortestPath(
+  routeShops: List<Shop>,
+  userLatitude: Double? = null,
+  userLongitude: Double? = null,
+): List<Shop> {
+  if (routeShops.size <= 1) return routeShops
+  val withGps = routeShops.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+  val withoutGps = routeShops
+    .filter { it.latitude == 0.0 && it.longitude == 0.0 }
+    .sortedWith(compareBy<Shop> { it.shopCode }.thenBy { it.name }.thenBy { it.id })
+
+  if (withGps.size <= 1) return withGps + withoutGps
+
+  val anchorLat = if (userLatitude != null && userLongitude != null && (userLatitude != 0.0 || userLongitude != 0.0)) {
+    userLatitude
+  } else {
+    DEFAULT_HUB_LAT
+  }
+  val anchorLng = if (userLatitude != null && userLongitude != null && (userLatitude != 0.0 || userLongitude != 0.0)) {
+    userLongitude
+  } else {
+    DEFAULT_HUB_LNG
+  }
+
+  val remaining = withGps
+    .sortedWith(compareBy<Shop> { it.shopCode }.thenBy { it.name }.thenBy { it.id })
+    .toMutableList()
+  val tour = mutableListOf<Shop>()
+  var curLat = anchorLat
+  var curLng = anchorLng
+
+  while (remaining.isNotEmpty()) {
+    var bestIdx = 0
+    var bestDist = haversineDistanceMeters(curLat, curLng, remaining[0].latitude, remaining[0].longitude)
+    for (idx in 1 until remaining.size) {
+      val candidate = remaining[idx]
+      val d = haversineDistanceMeters(curLat, curLng, candidate.latitude, candidate.longitude)
+      if (d < bestDist - 1e-6) {
+        bestDist = d
+        bestIdx = idx
+      }
+    }
+    val chosen = remaining.removeAt(bestIdx)
+    tour.add(chosen)
+    curLat = chosen.latitude
+    curLng = chosen.longitude
+  }
+
+  // 2-opt open-path refinement anchored at (anchorLat, anchorLng)
+  val n = tour.size
+  if (n >= 3) {
+    var improved = true
+    var passes = 0
+    while (improved && passes < 32) {
+      improved = false
+      passes++
+      for (i in 0 until n - 1) {
+        val prevLat = if (i == 0) anchorLat else tour[i - 1].latitude
+        val prevLng = if (i == 0) anchorLng else tour[i - 1].longitude
+        for (j in i + 1 until n) {
+          val nextAfterJ = if (j + 1 < n) tour[j + 1] else null
+          val before = haversineDistanceMeters(prevLat, prevLng, tour[i].latitude, tour[i].longitude) +
+            if (nextAfterJ != null) {
+              haversineDistanceMeters(tour[j].latitude, tour[j].longitude, nextAfterJ.latitude, nextAfterJ.longitude)
+            } else {
+              0.0
+            }
+          val after = haversineDistanceMeters(prevLat, prevLng, tour[j].latitude, tour[j].longitude) +
+            if (nextAfterJ != null) {
+              haversineDistanceMeters(tour[i].latitude, tour[i].longitude, nextAfterJ.latitude, nextAfterJ.longitude)
+            } else {
+              0.0
+            }
+          if (after + 1e-3 < before) {
+            var left = i
+            var right = j
+            while (left < right) {
+              val tmp = tour[left]
+              tour[left] = tour[right]
+              tour[right] = tmp
+              left++
+              right--
+            }
+            improved = true
+          }
+        }
+      }
+    }
+  }
+
+  return tour + withoutGps
+}
+
 fun buildTransportRoutePlanState(
   route: DeliveryRoute?,
   allShops: List<Shop>,
@@ -178,11 +278,20 @@ fun buildTransportRoutePlanState(
   localPodNotesByShopId: Map<String, String> = emptyMap(),
   userLatitude: Double? = null,
   userLongitude: Double? = null,
+  useShortestPath: Boolean = true,
 ): TransportRoutePlanState {
   val routeShops = allShops.filter { shop ->
     shop.status == ShopStatus.ACTIVE && (route == null || shop.routeId == route.id)
   }
-  val orderedShops = RoutesCatalog.sortShopsByRouteSequence(routeShops, route)
+  val orderedShops = if (useShortestPath) {
+    orderShopsByShortestPath(
+      routeShops = routeShops,
+      userLatitude = userLatitude,
+      userLongitude = userLongitude,
+    )
+  } else {
+    RoutesCatalog.sortShopsByRouteSequence(routeShops, route)
+  }
 
   val hasValidUserGps = userLatitude != null &&
     userLongitude != null &&
@@ -284,7 +393,7 @@ fun buildTransportRoutePlanState(
   } else {
     val cal = Calendar.getInstance()
     cal.add(Calendar.SECOND, estimatedSeconds.toInt().coerceAtLeast(15 * 60))
-    "Est: ${SimpleDateFormat("hh:mm a", Locale.US).format(cal.time)}"
+    "Est: ${etaTimeFormatLocal.get()!!.format(cal.time)}"
   }
 
   return TransportRoutePlanState(
@@ -301,6 +410,7 @@ fun buildTransportRoutePlanState(
     estimatedFinishText = estFinish,
     orderedWaypointsForMap = waypoints,
     hasUserOriginForRouting = hasValidUserGps && pendingCoords.isNotEmpty(),
+    isShortestPathMode = useShortestPath,
   )
 }
 
@@ -336,14 +446,17 @@ fun launchExternalGoogleMapsNavigation(
   upcomingStops: List<TransportStopItem>,
   userLatitude: Double?,
   userLongitude: Double?,
+  focusedStop: TransportStopItem? = null,
 ) {
   val validUpcoming = upcomingStops.filter { it.shop.latitude != 0.0 || it.shop.longitude != 0.0 }
-  val target = activeStop?.takeIf { it.shop.latitude != 0.0 || it.shop.longitude != 0.0 }
+  val preferredStop = focusedStop ?: activeStop
+  val target = preferredStop?.takeIf { it.shop.latitude != 0.0 || it.shop.longitude != 0.0 }
+    ?: activeStop?.takeIf { it.shop.latitude != 0.0 || it.shop.longitude != 0.0 }
     ?: validUpcoming.firstOrNull()
 
   if (target == null) {
-    if (activeStop != null && activeStop.shop.address.isNotBlank()) {
-      val q = Uri.encode("${activeStop.shop.name}, ${activeStop.shop.address}, ${activeStop.shop.pinCode}")
+    if (preferredStop != null && preferredStop.shop.address.isNotBlank()) {
+      val q = Uri.encode("${preferredStop.shop.name}, ${preferredStop.shop.address}, ${preferredStop.shop.pinCode}")
       val uri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$q")
       runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
         .onFailure { Toast.makeText(context, "No maps app available", Toast.LENGTH_SHORT).show() }

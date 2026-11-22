@@ -46,10 +46,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
-class SnackRouteRepository(
+class HomelyRepository(
   private val db: FirebaseFirestore,
   private val auth: FirebaseAuth = Firebase.auth,
-) : SnackRouteDataSource {
+) : HomelyDataSource {
   constructor(context: Context) : this(
     db = FirebaseFirestore.getInstance(
       context.applicationContext.getString(R.string.firestore_database_id)

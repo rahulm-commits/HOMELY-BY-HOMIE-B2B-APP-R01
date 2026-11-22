@@ -81,8 +81,9 @@ import com.example.data.model.SupplierStatus
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
+import com.example.ui.components.rememberFileExistsAsync
+import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
-import java.io.File
 
 private enum class SupplierFilterTab(val label: String) {
   ALL("All Suppliers"),
@@ -564,7 +565,11 @@ fun SuppliersScreen(
           contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 92.dp),
           verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-          items(filteredSuppliers, key = { it.id.ifBlank { it.supplierCode } }) { supplier ->
+          items(
+            filteredSuppliers,
+            key = { it.id.ifBlank { it.supplierCode } },
+            contentType = { "supplier_card" },
+          ) { supplier ->
             SupplierCardItem(
               supplier = supplier,
               onCardClick = { selectedSheetSupplier = supplier },
@@ -1009,9 +1014,18 @@ private fun SupplierThumbnailBadge(supplier: Supplier) {
       .clip(RoundedCornerShape(12.dp))
       .background(MaterialTheme.colorScheme.surfaceVariant),
   ) {
-    if (supplier.photoUri.isNotBlank() && File(supplier.photoUri).exists()) {
+    val hasPhotoFile = rememberFileExistsAsync(supplier.photoUri)
+    val supplierImageRequest = if (hasPhotoFile) {
+      rememberThumbnailImageRequest(
+        path = supplier.photoUri,
+        targetSizePx = 192,
+      )
+    } else {
+      null
+    }
+    if (supplierImageRequest != null) {
       AsyncImage(
-        model = File(supplier.photoUri),
+        model = supplierImageRequest,
         contentDescription = "${supplier.name} facility",
         contentScale = ContentScale.Crop,
         modifier = Modifier.fillMaxSize(),

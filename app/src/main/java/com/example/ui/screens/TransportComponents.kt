@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.HeadsetMic
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.LocalShipping
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Notifications
@@ -87,6 +88,7 @@ import com.example.ui.components.StopPinState
 import com.example.ui.components.formatDistanceShort
 import com.example.ui.components.formatInr
 import com.example.ui.theme.semanticColors
+import java.util.Locale
 
 @Composable
 fun TransportTopBar(
@@ -710,6 +712,7 @@ fun TransportMapCard(
   recenterTrigger: Int,
   fitBoundsTrigger: Int,
   hasLocationPermission: Boolean,
+  focusShopTrigger: Int = 0,
   onRecenterUserClick: () -> Unit,
   onToggleFullscreenOrFitClick: () -> Unit,
   onPinSelected: (String) -> Unit,
@@ -792,6 +795,7 @@ fun TransportMapCard(
         followUserLocation = followUserLocation,
         showBuiltInZoomControls = false,
         fitBoundsIncludesUser = true,
+        focusShopTrigger = focusShopTrigger,
         onPinSelected = onPinSelected,
         modifier = Modifier.fillMaxSize(),
       )
@@ -973,6 +977,8 @@ fun UpcomingStopCard(
   onCallShop: () -> Unit,
   onMarkDelivered: () -> Unit,
   modifier: Modifier = Modifier,
+  activeTargetStopNumber: Int? = null,
+  onFocusActiveStop: () -> Unit = {},
 ) {
   Surface(
     color = MaterialTheme.colorScheme.surface,
@@ -1051,17 +1057,35 @@ fun UpcomingStopCard(
           }
         }
 
+        val activeNumStr = activeTargetStopNumber?.let { String.format(Locale.US, "%02d", it) }
         Surface(
           color = if (stop.isActiveTarget) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
           shape = RoundedCornerShape(999.dp),
         ) {
-          Text(
-            text = if (stop.isActiveTarget) "Next Target" else "Queued",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = if (stop.isActiveTarget) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+          Row(
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
-          )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            if (!stop.isActiveTarget) {
+              Icon(
+                imageVector = Icons.Rounded.Lock,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(11.dp),
+              )
+            }
+            Text(
+              text = when {
+                stop.isActiveTarget -> "Next Target"
+                activeNumStr != null -> "After #$activeNumStr"
+                else -> "Queued"
+              },
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = if (stop.isActiveTarget) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
         }
       }
 
@@ -1148,33 +1172,69 @@ fun UpcomingStopCard(
             }
           }
 
-          Surface(
-            color = MaterialTheme.colorScheme.primary,
-            shape = RoundedCornerShape(9.dp),
-            modifier = Modifier
-              .weight(1.4f)
-              .clip(RoundedCornerShape(9.dp))
-              .clickable(onClick = onMarkDelivered)
-              .testTag("transport_mark_delivered_${stop.stopNumber}"),
-          ) {
-            Row(
-              modifier = Modifier.padding(vertical = 7.dp),
-              horizontalArrangement = Arrangement.Center,
-              verticalAlignment = Alignment.CenterVertically,
+          if (stop.isActiveTarget) {
+            Surface(
+              color = MaterialTheme.colorScheme.primary,
+              shape = RoundedCornerShape(9.dp),
+              modifier = Modifier
+                .weight(1.4f)
+                .clip(RoundedCornerShape(9.dp))
+                .clickable(onClick = onMarkDelivered)
+                .testTag("transport_mark_delivered_${stop.stopNumber}"),
             ) {
-              Icon(
-                imageVector = Icons.Rounded.TaskAlt,
-                contentDescription = "Mark Delivered",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(15.dp),
-              )
-              Spacer(modifier = Modifier.width(4.dp))
-              Text(
-                text = "Mark Delivered",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary,
-              )
+              Row(
+                modifier = Modifier.padding(vertical = 7.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.TaskAlt,
+                  contentDescription = "Mark Delivered",
+                  tint = MaterialTheme.colorScheme.onPrimary,
+                  modifier = Modifier.size(15.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                  text = "Mark Delivered",
+                  style = MaterialTheme.typography.labelMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onPrimary,
+                )
+              }
+            }
+          } else {
+            val activeLabel = activeTargetStopNumber?.let { String.format(Locale.US, "%02d", it) } ?: "Next"
+            Surface(
+              color = MaterialTheme.colorScheme.surfaceVariant,
+              shape = RoundedCornerShape(9.dp),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+              modifier = Modifier
+                .weight(1.4f)
+                .clip(RoundedCornerShape(9.dp))
+                .clickable(onClick = onFocusActiveStop)
+                .testTag("transport_locked_stop_${stop.stopNumber}"),
+            ) {
+              Row(
+                modifier = Modifier.padding(vertical = 7.dp, horizontal = 6.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Lock,
+                  contentDescription = "Stop locked until Stop $activeLabel is delivered",
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.size(14.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                  text = "Deliver #$activeLabel First",
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
             }
           }
         }
@@ -1295,7 +1355,7 @@ fun TransportActionDock(
   modifier: Modifier = Modifier,
 ) {
   val primaryLabel = if (activeStop != null) {
-    "Navigate Stop ${activeStop.formattedStopNum} (${activeStop.shortShopName})"
+    "Start Navigation"
   } else {
     "Route Complete"
   }

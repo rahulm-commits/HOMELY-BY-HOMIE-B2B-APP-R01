@@ -469,6 +469,76 @@ fun InteractiveRouteMapViewport(
           )
         }
       }
+
+      // Direct On-Map Route Name Pills Strip so route names and colors are always visible on the map
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .horizontalScroll(rememberScrollState())
+          .testTag("map_route_name_pills_row"),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        val isAllSelected = selectedRouteId == RoutesCatalog.ALL
+        Surface(
+          color = if (isAllSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+          shape = RoundedCornerShape(999.dp),
+          border = BorderStroke(
+            width = 1.dp,
+            color = if (isAllSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+          ),
+          shadowElevation = 1.dp,
+          modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .clickable { onSelectRouteFilter(RoutesCatalog.ALL) }
+            .testTag("map_route_pill_all"),
+        ) {
+          Text(
+            text = "All Routes (${shops.size})",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (isAllSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+          )
+        }
+
+        routes.forEachIndexed { idx, route ->
+          val isRouteSelected = selectedRouteId == route.id
+          val spec = RouteColorPalette.specForIndex(route.colorIndex)
+          val count = shops.count { it.routeId == route.id }
+          val cleanRouteName = route.name.substringAfter(":").trim().ifBlank { route.name }
+          Surface(
+            color = if (isRouteSelected) spec.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            shape = RoundedCornerShape(999.dp),
+            border = BorderStroke(
+              width = if (isRouteSelected) 1.5.dp else 1.dp,
+              color = if (isRouteSelected && spec.secondary != null) spec.secondary else spec.primary.copy(alpha = 0.65f),
+            ),
+            shadowElevation = if (isRouteSelected) 3.dp else 1.dp,
+            modifier = Modifier
+              .clip(RoundedCornerShape(999.dp))
+              .clickable {
+                onSelectRouteFilter(if (isRouteSelected) RoutesCatalog.ALL else route.id)
+              }
+              .testTag("map_route_pill_${route.id}"),
+          ) {
+            Row(
+              modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+              RouteColorDot(spec = spec, size = 9.dp)
+              Text(
+                text = "R${idx + 1} $cleanRouteName ($count)",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (isRouteSelected) FontWeight.Bold else FontWeight.SemiBold,
+                color = if (isRouteSelected) spec.contrastInk else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+              )
+            }
+          }
+        }
+      }
     }
 
     // Bottom-Left Helpful Tip Chip when no popup is open
@@ -733,7 +803,7 @@ private fun SelectedShopMapPopupCard(
       // Quick Assign Corridor Buttons
       Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(
-          text = "Quick Assign Route:",
+          text = "Assign to Route:",
           style = MaterialTheme.typography.labelSmall,
           fontWeight = FontWeight.SemiBold,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -747,17 +817,18 @@ private fun SelectedShopMapPopupCard(
           routes.forEachIndexed { idx, route ->
             val spec = RouteColorPalette.specForIndex(route.colorIndex)
             val isCurrent = shop.routeId == route.id
-            val shortLabel = "+ R${idx + 1} ${route.name.substringAfter(":").trim().take(12)}"
+            val routeLabel = route.name.substringAfter(":").trim().ifBlank { route.name }
+            val shortLabel = "R${idx + 1}: $routeLabel"
             Surface(
               color = if (isCurrent) spec.primary else MaterialTheme.colorScheme.surfaceVariant,
               shape = RoundedCornerShape(9.dp),
               border = if (isCurrent && spec.secondary != null) {
                 BorderStroke(1.5.dp, spec.secondary)
               } else if (!isCurrent) {
-                BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                BorderStroke(1.dp, spec.primary.copy(alpha = 0.5f))
               } else null,
               modifier = Modifier
-                .height(36.dp)
+                .height(38.dp)
                 .clip(RoundedCornerShape(9.dp))
                 .clickable { onReassignRoute(route.id) }
                 .testTag("quick_assign_${route.id}"),
@@ -769,7 +840,7 @@ private fun SelectedShopMapPopupCard(
               ) {
                 RouteColorDot(spec = spec, size = 10.dp)
                 Text(
-                  text = shortLabel,
+                  text = if (isCurrent) "✓ $shortLabel" else "+ $shortLabel",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.Bold,
                   color = if (isCurrent) spec.contrastInk else MaterialTheme.colorScheme.onSurface,

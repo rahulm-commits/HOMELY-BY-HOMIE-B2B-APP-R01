@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +17,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.AltRoute
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -342,7 +347,7 @@ fun TurnByTurnDirectionsSheet(
         verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         if (steps.isEmpty()) {
-          item {
+          item(key = "empty_steps_info", contentType = "directions_empty") {
             Text(
               text = "Calculating road maneuvers. Use External Maps or follow the highlighted polyline.",
               style = MaterialTheme.typography.bodyMedium,
@@ -350,7 +355,11 @@ fun TurnByTurnDirectionsSheet(
             )
           }
         } else {
-          items(steps) { step ->
+          itemsIndexed(
+            items = steps,
+            key = { idx, step -> "step_${idx}_${step.instruction}" },
+            contentType = { _, _ -> "direction_step" },
+          ) { _, step ->
             Surface(
               color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
               shape = RoundedCornerShape(10.dp),
@@ -396,7 +405,7 @@ fun TurnByTurnDirectionsSheet(
         }
 
         if (planState.upcomingStops.size > 1) {
-          item {
+          item(key = "following_stops_header", contentType = "following_header") {
             Text(
               text = "Following Sequential Stops",
               style = MaterialTheme.typography.labelMedium,
@@ -405,7 +414,11 @@ fun TurnByTurnDirectionsSheet(
               modifier = Modifier.padding(top = 4.dp),
             )
           }
-          items(planState.upcomingStops.drop(1)) { nextStop ->
+          items(
+            items = planState.upcomingStops.drop(1),
+            key = { "next_stop_${it.shop.id}" },
+            contentType = { "following_stop" },
+          ) { nextStop ->
             Row(
               modifier = Modifier
                 .fillMaxWidth()
@@ -467,12 +480,14 @@ fun TurnByTurnDirectionsSheet(
   }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeliveryPodDialog(
   stop: TransportStopItem,
   onConfirmDelivered: (podNote: String) -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val paymentModes = remember(stop.isCod) {
     if (stop.isCod) {
       listOf("Cash Collected", "UPI Paid", "Cheque")
@@ -480,75 +495,167 @@ fun DeliveryPodDialog(
       listOf("Prepaid Verified", "Cash Collected", "UPI Paid")
     }
   }
-  var selectedMode by remember { mutableStateOf(paymentModes.first()) }
-  var receiverName by remember { mutableStateOf(stop.shop.ownerName) }
+  var selectedMode by remember(stop.shop.id) { mutableStateOf(paymentModes.first()) }
+  var receiverName by remember(stop.shop.id) { mutableStateOf(stop.shop.ownerName) }
   var isSubmitting by remember(stop.shop.id) { mutableStateOf(false) }
 
-  AlertDialog(
+  val quickSigners = remember(stop.shop.ownerName) {
+    listOfNotNull(
+      stop.shop.ownerName.takeIf { it.isNotBlank() },
+      "Shop Manager",
+      "Counter Staff",
+    ).distinct()
+  }
+
+  ModalBottomSheet(
     onDismissRequest = onDismiss,
-    title = {
-      Text(
-        text = "Complete Stop ${stop.formattedStopNum}",
-        fontWeight = FontWeight.Bold,
-      )
-    },
-    text = {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-          text = "${stop.shop.name} (${stop.shop.shopCode})",
-          style = MaterialTheme.typography.titleSmall,
-          fontWeight = FontWeight.SemiBold,
-        )
-        if (stop.totalAmountToCollect > 0.0) {
-          Text(
-            text = "Order Amount: ${formatInr(stop.totalAmountToCollect)} • ${stop.totalPacks} packs",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-          )
-        }
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
+    sheetState = sheetState,
+    containerColor = MaterialTheme.colorScheme.surface,
+  ) {
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp)
+        .padding(bottom = 24.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+      ) {
+        Column(
+          modifier = Modifier.weight(1f),
+          verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-          paymentModes.forEach { mode ->
-            FilterChip(
-              selected = selectedMode == mode,
-              onClick = { selectedMode = mode },
-              label = { Text(mode.substringBefore(" "), style = MaterialTheme.typography.labelSmall) },
+          Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(999.dp),
+          ) {
+            Text(
+              text = "Sequential Stop ${stop.formattedStopNum}",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             )
           }
+          Text(
+            text = "Complete Stop ${stop.formattedStopNum}",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Text(
+            text = "${stop.shop.name} (${stop.shop.shopCode})",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
         }
-        OutlinedTextField(
-          value = receiverName,
-          onValueChange = { receiverName = it },
-          label = { Text("POD Signed / Received By") },
-          singleLine = true,
-          modifier = Modifier.fillMaxWidth(),
+        Box(
+          modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .size(36.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onDismiss),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.Close,
+            contentDescription = "Close POD confirmation",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+
+      if (stop.totalAmountToCollect > 0.0) {
+        Text(
+          text = "Order Amount: ${formatInr(stop.totalAmountToCollect)} • ${stop.totalPacks} packs",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.primary,
+          fontWeight = FontWeight.SemiBold,
         )
       }
-    },
-    confirmButton = {
-      Button(
-        onClick = {
-          if (!isSubmitting) {
-            isSubmitting = true
-            val signer = receiverName.trim().ifBlank { stop.shop.ownerName.ifBlank { "Shop Staff" } }
-            onConfirmDelivered("POD Signed by $signer • $selectedMode")
-          }
-        },
-        enabled = !isSubmitting,
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+
+      HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        Text("Mark Delivered")
+        paymentModes.forEach { mode ->
+          FilterChip(
+            selected = selectedMode == mode,
+            onClick = { selectedMode = mode },
+            label = { Text(mode.substringBefore(" "), style = MaterialTheme.typography.labelSmall) },
+          )
+        }
       }
-    },
-    dismissButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Cancel")
+
+      OutlinedTextField(
+        value = receiverName,
+        onValueChange = { receiverName = it },
+        label = { Text("POD Signed / Received By") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+      )
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        quickSigners.forEach { preset ->
+          FilterChip(
+            selected = receiverName == preset,
+            onClick = { receiverName = preset },
+            label = {
+              Text(
+                text = preset,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            },
+          )
+        }
       }
-    },
-  )
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        OutlinedButton(
+          onClick = onDismiss,
+          modifier = Modifier.weight(1f),
+        ) {
+          Text("Cancel")
+        }
+        Button(
+          onClick = {
+            if (!isSubmitting) {
+              isSubmitting = true
+              val signer = receiverName.trim().ifBlank { stop.shop.ownerName.ifBlank { "Shop Staff" } }
+              onConfirmDelivered("POD Signed by $signer • $selectedMode")
+            }
+          },
+          enabled = !isSubmitting,
+          colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+          modifier = Modifier
+            .weight(1.3f)
+            .testTag("confirm_pod_delivered_button"),
+        ) {
+          Icon(Icons.Rounded.TaskAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(modifier = Modifier.width(6.dp))
+          Text("Mark Delivered")
+        }
+      }
+    }
+  }
 }
 
 @Composable
@@ -571,10 +678,25 @@ fun FullscreenNavigationOverlay(
   onOpenExternalMapsClick: () -> Unit,
   onMarkActiveDeliveredClick: () -> Unit,
   modifier: Modifier = Modifier,
+  focusShopTrigger: Int = 0,
+  onFocusPin: (String) -> Unit = onPinSelected,
+  onOpenStopExternalMapsClick: ((TransportStopItem?) -> Unit)? = null,
 ) {
+  val orderedStops = planState.stops
   val activeStop = planState.activeTargetStop
+  val focusedStop = selectedPinShopId
+    ?.let { selId -> orderedStops.firstOrNull { it.shop.id == selId } }
+    ?: activeStop
+    ?: orderedStops.firstOrNull()
+  val focusedIndex = if (focusedStop != null) {
+    orderedStops.indexOfFirst { it.shop.id == focusedStop.shop.id }
+  } else {
+    -1
+  }
+  val isFocusedActive = focusedStop != null && activeStop != null && focusedStop.shop.id == activeStop.shop.id
   val firstStep = routeGeometry?.activeLegSteps?.firstOrNull()
-  val navPins = planState.stops.map { stop ->
+
+  val navPins = orderedStops.map { stop ->
     val distText = if (stop.isActiveTarget && routeGeometry != null && routeGeometry.activeLegDistanceMeters > 0) {
       formatDistanceShort(routeGeometry.activeLegDistanceMeters)
     } else if (stop.distanceFromUserMeters != null) {
@@ -596,10 +718,10 @@ fun FullscreenNavigationOverlay(
 
   Box(modifier = modifier.fillMaxSize()) {
     RealOsmMapView(
-      shops = planState.stops.map { it.shop },
+      shops = orderedStops.map { it.shop },
       routes = routes,
       selectedRouteId = planState.selectedRoute?.id ?: "ALL",
-      selectedShopId = selectedPinShopId ?: activeStop?.shop?.id,
+      selectedShopId = focusedStop?.shop?.id,
       showPolylines = true,
       userLatitude = userLatitude,
       userLongitude = userLongitude,
@@ -611,7 +733,8 @@ fun FullscreenNavigationOverlay(
       followUserLocation = followUserLocation,
       showBuiltInZoomControls = true,
       fitBoundsIncludesUser = true,
-      onPinSelected = onPinSelected,
+      focusShopTrigger = focusShopTrigger,
+      onPinSelected = onFocusPin,
       modifier = Modifier.fillMaxSize(),
     )
 
@@ -639,7 +762,7 @@ fun FullscreenNavigationOverlay(
         ) {
           Box(contentAlignment = Alignment.Center) {
             Icon(
-              imageVector = maneuverIconFor(firstStep),
+              imageVector = maneuverIconFor(if (isFocusedActive) firstStep else null),
               contentDescription = "Next turn",
               tint = MaterialTheme.colorScheme.onPrimary,
               modifier = Modifier.size(24.dp),
@@ -647,21 +770,28 @@ fun FullscreenNavigationOverlay(
           }
         }
         Column(modifier = Modifier.weight(1f)) {
+          val headerTitle = when {
+            focusedStop == null -> "Route Complete"
+            isFocusedActive && firstStep != null && firstStep.instruction.isNotBlank() -> firstStep.instruction
+            else -> "Stop ${focusedStop.stopNumber} of ${planState.totalStops}: ${focusedStop.shop.name}"
+          }
+          val subText = when {
+            focusedStop == null -> "All stops delivered"
+            isFocusedActive && routeGeometry != null && routeGeometry.activeLegDistanceMeters > 0 ->
+              "Stop ${focusedStop.stopNumber}/${planState.totalStops} (${focusedStop.shortShopName}) • ${formatEtaSummary(routeGeometry.activeLegDistanceMeters, routeGeometry.activeLegDurationSeconds)}"
+            focusedStop.distanceFromUserMeters != null ->
+              "Stop ${focusedStop.stopNumber}/${planState.totalStops} • ${formatDistanceShort(focusedStop.distanceFromUserMeters)} • ${focusedStop.shop.address}"
+            else ->
+              "Stop ${focusedStop.stopNumber}/${planState.totalStops} • ${focusedStop.shop.address}"
+          }
           Text(
-            text = firstStep?.instruction ?: activeStop?.let { "Navigate to ${it.shop.name}" } ?: "Route Complete",
+            text = headerTitle,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
           )
-          val subText = if (activeStop != null && routeGeometry != null && routeGeometry.activeLegDistanceMeters > 0) {
-            "Stop ${activeStop.formattedStopNum} (${activeStop.shortShopName}) • ${formatEtaSummary(routeGeometry.activeLegDistanceMeters, routeGeometry.activeLegDurationSeconds)}"
-          } else if (activeStop != null) {
-            "Stop ${activeStop.formattedStopNum} • ${activeStop.shop.address}"
-          } else {
-            "All stops delivered"
-          }
           Text(
             text = subText,
             style = MaterialTheme.typography.labelSmall,
@@ -705,10 +835,11 @@ fun FullscreenNavigationOverlay(
           .minimumInteractiveComponentSize()
           .size(40.dp)
           .clip(RoundedCornerShape(10.dp))
-          .clickable(onClick = onFitRouteClick),
+          .clickable(onClick = onFitRouteClick)
+          .testTag("fullscreen_fit_route_button"),
       ) {
         Box(contentAlignment = Alignment.Center) {
-          Icon(Icons.Rounded.FitScreen, contentDescription = "Fit full route", tint = MaterialTheme.colorScheme.primary)
+          Icon(Icons.Rounded.FitScreen, contentDescription = "Fit all numbered stops on map", tint = MaterialTheme.colorScheme.primary)
         }
       }
 
@@ -720,7 +851,8 @@ fun FullscreenNavigationOverlay(
           .minimumInteractiveComponentSize()
           .size(40.dp)
           .clip(RoundedCornerShape(10.dp))
-          .clickable(onClick = onRecenterClick),
+          .clickable(onClick = onRecenterClick)
+          .testTag("fullscreen_recenter_gps_button"),
       ) {
         Box(contentAlignment = Alignment.Center) {
           Icon(
@@ -747,52 +879,213 @@ fun FullscreenNavigationOverlay(
           .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        if (activeStop != null) {
+        if (orderedStops.isNotEmpty()) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            orderedStops.forEach { stop ->
+              val isFocused = focusedStop?.shop?.id == stop.shop.id
+              val chipBg = when {
+                isFocused && stop.isActiveTarget -> MaterialTheme.colorScheme.primary
+                isFocused -> MaterialTheme.colorScheme.secondary
+                stop.isCompleted -> MaterialTheme.semanticColors.successContainer
+                stop.isActiveTarget -> MaterialTheme.colorScheme.primaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
+              }
+              val chipContent = when {
+                isFocused -> MaterialTheme.colorScheme.onPrimary
+                stop.isCompleted -> MaterialTheme.semanticColors.success
+                stop.isActiveTarget -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+              }
+              Surface(
+                color = chipBg,
+                shape = RoundedCornerShape(999.dp),
+                border = if (isFocused) {
+                  null
+                } else {
+                  BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))
+                },
+                modifier = Modifier
+                  .clip(RoundedCornerShape(999.dp))
+                  .clickable { onFocusPin(stop.shop.id) }
+                  .testTag("nav_stop_chip_${stop.stopNumber}"),
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                  Text(
+                    text = "${stop.stopNumber}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = chipContent,
+                  )
+                  Text(
+                    text = stop.shortShopName,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+                    color = chipContent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        if (focusedStop != null) {
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            Column(modifier = Modifier.weight(1f)) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            Row(
+              modifier = Modifier.weight(1f),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Surface(
+                color = when {
+                  focusedStop.isActiveTarget -> MaterialTheme.colorScheme.primary
+                  focusedStop.isCompleted -> MaterialTheme.semanticColors.success
+                  else -> MaterialTheme.colorScheme.secondary
+                },
+                shape = CircleShape,
+                modifier = Modifier.size(28.dp),
               ) {
-                Surface(color = MaterialTheme.colorScheme.primary, shape = CircleShape, modifier = Modifier.size(24.dp)) {
-                  Box(contentAlignment = Alignment.Center) {
-                    Text(
-                      text = activeStop.formattedStopNum,
-                      style = MaterialTheme.typography.labelSmall,
-                      fontWeight = FontWeight.Bold,
-                      color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                  }
+                Box(contentAlignment = Alignment.Center) {
+                  Text(
+                    text = focusedStop.stopNumber.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                  )
                 }
+              }
+              Column(modifier = Modifier.weight(1f)) {
                 Text(
-                  text = activeStop.shop.name,
+                  text = focusedStop.shop.name,
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
                   color = MaterialTheme.colorScheme.onSurface,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                 )
-              }
-              Text(
-                text = "${activeStop.shop.address} • ${activeStop.paymentLabel}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-              )
-            }
-            if (!hasLocationPermission) {
-              Surface(color = MaterialTheme.semanticColors.warningContainer, shape = RoundedCornerShape(999.dp)) {
                 Text(
-                  text = "GPS Off",
+                  text = "${focusedStop.shop.address} • ${focusedStop.paymentLabel}",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
+            }
+
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+              if (!hasLocationPermission) {
+                Surface(color = MaterialTheme.semanticColors.warningContainer, shape = RoundedCornerShape(999.dp)) {
+                  Text(
+                    text = "GPS Off",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.semanticColors.warning,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                  )
+                }
+              }
+              val canPrev = focusedIndex > 0
+              val canNext = focusedIndex in 0 until (orderedStops.size - 1)
+              Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = CircleShape,
+                modifier = Modifier
+                  .minimumInteractiveComponentSize()
+                  .size(36.dp)
+                  .clip(CircleShape)
+                  .clickable(enabled = canPrev) {
+                    if (canPrev) onFocusPin(orderedStops[focusedIndex - 1].shop.id)
+                  }
+                  .testTag("nav_prev_stop_button"),
+              ) {
+                Box(contentAlignment = Alignment.Center) {
+                  Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                    contentDescription = "Previous stop",
+                    tint = if (canPrev) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.size(20.dp),
+                  )
+                }
+              }
+              Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = CircleShape,
+                modifier = Modifier
+                  .minimumInteractiveComponentSize()
+                  .size(36.dp)
+                  .clip(CircleShape)
+                  .clickable(enabled = canNext) {
+                    if (canNext) onFocusPin(orderedStops[focusedIndex + 1].shop.id)
+                  }
+                  .testTag("nav_next_stop_button"),
+              ) {
+                Box(contentAlignment = Alignment.Center) {
+                  Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    contentDescription = "Next stop",
+                    tint = if (canNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.size(20.dp),
+                  )
+                }
+              }
+            }
+          }
+
+          if (!isFocusedActive && activeStop != null) {
+            Surface(
+              color = MaterialTheme.colorScheme.surfaceVariant,
+              shape = RoundedCornerShape(10.dp),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+              modifier = Modifier.fillMaxWidth(),
+            ) {
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Text(
+                  text = if (focusedStop.isCompleted) {
+                    "Stop ${focusedStop.stopNumber} (${focusedStop.shortShopName}) • Completed"
+                  } else {
+                    "Deliver #${activeStop.stopNumber} (${activeStop.shortShopName}) before completing #${focusedStop.stopNumber}"
+                  },
                   style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.semanticColors.warning,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text = "Go to #${activeStop.stopNumber}",
+                  style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.Bold,
-                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                  color = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onFocusPin(activeStop.shop.id) }
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
                 )
               }
             }
@@ -803,7 +1096,7 @@ fun FullscreenNavigationOverlay(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             OutlinedButton(
-              onClick = { onCallShopClick(activeStop.shop) },
+              onClick = { onCallShopClick(focusedStop.shop) },
               modifier = Modifier.weight(0.8f),
             ) {
               Icon(Icons.Rounded.Call, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -811,21 +1104,55 @@ fun FullscreenNavigationOverlay(
               Text("Call")
             }
             OutlinedButton(
-              onClick = onOpenExternalMapsClick,
+              onClick = {
+                if (onOpenStopExternalMapsClick != null) {
+                  onOpenStopExternalMapsClick(focusedStop)
+                } else {
+                  onOpenExternalMapsClick()
+                }
+              },
               modifier = Modifier.weight(1f),
             ) {
               Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
               Spacer(modifier = Modifier.width(4.dp))
               Text("Maps")
             }
-            Button(
-              onClick = onMarkActiveDeliveredClick,
-              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-              modifier = Modifier.weight(1.3f),
-            ) {
-              Icon(Icons.Rounded.TaskAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Delivered")
+            when {
+              isFocusedActive -> {
+                Button(
+                  onClick = onMarkActiveDeliveredClick,
+                  colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                  modifier = Modifier
+                    .weight(1.3f)
+                    .testTag("fullscreen_mark_delivered_button"),
+                ) {
+                  Icon(Icons.Rounded.TaskAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text("Delivered #${focusedStop.stopNumber}", maxLines = 1)
+                }
+              }
+              activeStop != null -> {
+                Button(
+                  onClick = { onFocusPin(activeStop.shop.id) },
+                  colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                  modifier = Modifier
+                    .weight(1.3f)
+                    .testTag("nav_jump_active_stop_button"),
+                ) {
+                  Icon(Icons.Rounded.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text("Next #${activeStop.stopNumber}", maxLines = 1)
+                }
+              }
+              else -> {
+                Button(
+                  onClick = onExitFullscreen,
+                  colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                  modifier = Modifier.weight(1.3f),
+                ) {
+                  Text("Done")
+                }
+              }
             }
           }
         } else {

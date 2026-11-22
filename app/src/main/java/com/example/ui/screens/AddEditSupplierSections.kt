@@ -74,8 +74,9 @@ import coil.compose.AsyncImage
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.SupplierCatalogHelper
 import com.example.ui.components.RealOsmMapView
+import com.example.ui.components.rememberFileExistsAsync
+import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
-import java.io.File
 import java.util.Locale
 
 @Composable
@@ -99,7 +100,7 @@ fun SupplierInfoSectionCard(
   onUploadImage: () -> Unit,
   onRemovePhoto: () -> Unit,
 ) {
-  val hasCustomPhoto = photoPath.isNotBlank() && File(photoPath).exists()
+  val hasCustomPhoto = rememberFileExistsAsync(photoPath)
   var categoryMenuExpanded by remember { mutableStateOf(false) }
 
   Card(
@@ -287,8 +288,12 @@ fun SupplierInfoSectionCard(
               contentAlignment = Alignment.Center,
             ) {
               if (hasCustomPhoto) {
+                val photoRequest = rememberThumbnailImageRequest(
+                  path = photoPath,
+                  targetSizePx = 256,
+                )
                 AsyncImage(
-                  model = File(photoPath),
+                  model = photoRequest,
                   contentDescription = "Supplier facility photo",
                   contentScale = ContentScale.Crop,
                   modifier = Modifier.fillMaxSize(),

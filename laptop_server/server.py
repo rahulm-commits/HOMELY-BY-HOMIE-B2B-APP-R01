@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-SnackRoute Laptop Local Server (Zero-Dependency Python 3 + SQLite)
+Homely by Homie Laptop Local Server (Zero-Dependency Python 3 + SQLite)
 
 Windows target folder:
     D:\IDEAS AND PLANS\1 BANANA CHIPS\LOCAL SERVER
 
 Run on Windows:
-    Double-click start_snackroute_server.bat
+    Double-click start_homely_server.bat
     or run: python server.py
 
 Features:
 - Stores SQLite database + live JSON & CSV snapshots inside DATA_DIR
   (defaults on Windows to D:\IDEAS AND PLANS\1 BANANA CHIPS\LOCAL SERVER when D:\ is present)
-- REST API compatible with SnackRoute Android App:
+- REST API compatible with Homely by Homie Android App:
     GET    /api/health
     GET    /api/shops
     POST   /api/shops
@@ -38,13 +38,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 DEFAULT_WINDOWS_DIR = r"D:\IDEAS AND PLANS\1 BANANA CHIPS\LOCAL SERVER"
-PORT = int(os.environ.get("SNACKROUTE_PORT", "8787"))
-API_TOKEN = os.environ.get("SNACKROUTE_TOKEN", "").strip()
+PORT = int(os.environ.get("HOMELY_PORT") or os.environ.get("SNACKROUTE_PORT", "8787"))
+API_TOKEN = (os.environ.get("HOMELY_TOKEN") or os.environ.get("SNACKROUTE_TOKEN", "")).strip()
 
 
 def resolve_data_dir(cli_dir: str = "") -> str:
     if cli_dir.strip():
         target = os.path.abspath(cli_dir.strip())
+    elif os.environ.get("HOMELY_DATA_DIR", "").strip():
+        target = os.path.abspath(os.environ["HOMELY_DATA_DIR"].strip())
     elif os.environ.get("SNACKROUTE_DATA_DIR", "").strip():
         target = os.path.abspath(os.environ["SNACKROUTE_DATA_DIR"].strip())
     elif os.name == "nt" and os.path.exists("D:\\"):
@@ -56,9 +58,9 @@ def resolve_data_dir(cli_dir: str = "") -> str:
 
 
 DATA_DIR = resolve_data_dir()
-DB_PATH = os.path.join(DATA_DIR, "snackroute_laptop.db")
-JSON_SNAPSHOT_PATH = os.path.join(DATA_DIR, "snackroute_data.json")
-CSV_SNAPSHOT_PATH = os.path.join(DATA_DIR, "snackroute_shops.csv")
+DB_PATH = os.path.join(DATA_DIR, "homely_laptop.db")
+JSON_SNAPSHOT_PATH = os.path.join(DATA_DIR, "homely_data.json")
+CSV_SNAPSHOT_PATH = os.path.join(DATA_DIR, "homely_shops.csv")
 
 
 def dict_factory(cursor, row):
@@ -130,12 +132,132 @@ def init_db():
                 stagingBay TEXT DEFAULT '',
                 colorIndex INTEGER DEFAULT 0,
                 isActive INTEGER DEFAULT 1,
+                stopOrderIds TEXT DEFAULT '[]',
+                updatedAtMillis INTEGER DEFAULT 0
+            )
+            """
+        )
+        try:
+            conn.execute("ALTER TABLE routes ADD COLUMN stopOrderIds TEXT DEFAULT '[]'")
+        except sqlite3.OperationalError:
+            pass
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS products (
+                id TEXT PRIMARY KEY,
+                userId TEXT DEFAULT '',
+                productCode TEXT NOT NULL,
+                sku TEXT DEFAULT '',
+                barcode TEXT DEFAULT '',
+                name TEXT NOT NULL,
+                category TEXT DEFAULT '',
+                brand TEXT DEFAULT '',
+                baseUnit TEXT DEFAULT 'Gram (g)',
+                sellingUnit TEXT DEFAULT 'Pouch / Packet',
+                casePack TEXT DEFAULT '',
+                packSize TEXT DEFAULT '',
+                wholesalePrice REAL DEFAULT 0.0,
+                mrp REAL DEFAULT 0.0,
+                stockQuantity INTEGER DEFAULT 0,
+                minThreshold INTEGER DEFAULT 30,
+                photoUri TEXT DEFAULT '',
+                notes TEXT DEFAULT '',
+                status TEXT DEFAULT 'active',
+                salesVelocity INTEGER DEFAULT 0,
+                hasVariants INTEGER DEFAULT 0,
+                variantsJson TEXT DEFAULT '',
+                addedDate TEXT DEFAULT '',
+                updatedAtMillis INTEGER DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id TEXT PRIMARY KEY,
+                userId TEXT DEFAULT '',
+                receiptCode TEXT NOT NULL,
+                direction TEXT DEFAULT 'collect',
+                partyId TEXT DEFAULT '',
+                partyCode TEXT DEFAULT '',
+                partyName TEXT DEFAULT '',
+                invoiceRef TEXT DEFAULT '',
+                amount REAL DEFAULT 0.0,
+                paymentMethod TEXT DEFAULT 'UPI',
+                paymentDate TEXT DEFAULT '',
+                referenceNumber TEXT DEFAULT '',
+                note TEXT DEFAULT '',
+                updatedAtMillis INTEGER DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS supplier_bills (
+                id TEXT PRIMARY KEY,
+                userId TEXT DEFAULT '',
+                supplierCode TEXT DEFAULT '',
+                supplierName TEXT DEFAULT '',
+                contactPerson TEXT DEFAULT '',
+                phone TEXT DEFAULT '',
+                location TEXT DEFAULT '',
+                category TEXT DEFAULT '',
+                billNumber TEXT DEFAULT '',
+                totalBilled REAL DEFAULT 0.0,
+                paidAmount REAL DEFAULT 0.0,
+                billDate TEXT DEFAULT '',
+                dueDate TEXT DEFAULT '',
+                status TEXT DEFAULT 'pending',
+                notes TEXT DEFAULT '',
+                updatedAtMillis INTEGER DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS suppliers (
+                id TEXT PRIMARY KEY,
+                userId TEXT DEFAULT '',
+                supplierCode TEXT DEFAULT '',
+                name TEXT NOT NULL,
+                category TEXT DEFAULT '',
+                contactPerson TEXT DEFAULT '',
+                contactRole TEXT DEFAULT '',
+                altContactPerson TEXT DEFAULT '',
+                phone TEXT DEFAULT '',
+                altPhone TEXT DEFAULT '',
+                email TEXT DEFAULT '',
+                address TEXT DEFAULT '',
+                pinCode TEXT DEFAULT '',
+                mapsLink TEXT DEFAULT '',
+                photoUri TEXT DEFAULT '',
+                gstin TEXT DEFAULT '',
+                creditTerms TEXT DEFAULT '',
+                confirmedPriceNotes TEXT DEFAULT '',
+                notes TEXT DEFAULT '',
+                status TEXT DEFAULT 'active',
+                addedDate TEXT DEFAULT '',
+                addedBy TEXT DEFAULT '',
                 updatedAtMillis INTEGER DEFAULT 0
             )
             """
         )
         conn.commit()
     write_snapshots()
+
+
+def decode_route_row(r):
+    row = dict(r)
+    raw = row.get("stopOrderIds", "[]")
+    if isinstance(raw, str):
+        try:
+            row["stopOrderIds"] = json.loads(raw) if raw.strip() else []
+        except Exception:
+            row["stopOrderIds"] = []
+    elif not isinstance(raw, list):
+        row["stopOrderIds"] = []
+    row["isActive"] = bool(row.get("isActive", 1))
+    return row
 
 
 def write_snapshots():
@@ -145,7 +267,11 @@ def write_snapshots():
             conn.row_factory = dict_factory
             shops = conn.execute("SELECT * FROM shops ORDER BY updatedAtMillis DESC").fetchall()
             orders = conn.execute("SELECT * FROM orders ORDER BY updatedAtMillis DESC").fetchall()
-            routes = conn.execute("SELECT * FROM routes ORDER BY colorIndex ASC, id ASC").fetchall()
+            routes = [decode_route_row(r) for r in conn.execute("SELECT * FROM routes ORDER BY colorIndex ASC, id ASC").fetchall()]
+            products = conn.execute("SELECT * FROM products ORDER BY updatedAtMillis DESC").fetchall()
+            payments = conn.execute("SELECT * FROM payments ORDER BY updatedAtMillis DESC").fetchall()
+            supplier_bills = conn.execute("SELECT * FROM supplier_bills ORDER BY updatedAtMillis DESC").fetchall()
+            suppliers = conn.execute("SELECT * FROM suppliers ORDER BY updatedAtMillis DESC").fetchall()
 
         with open(JSON_SNAPSHOT_PATH, "w", encoding="utf-8") as f:
             json.dump(
@@ -155,6 +281,10 @@ def write_snapshots():
                     "routes": routes,
                     "shops": shops,
                     "orders": orders,
+                    "products": products,
+                    "payments": payments,
+                    "supplierBills": supplier_bills,
+                    "suppliers": suppliers,
                 },
                 f,
                 indent=2,
@@ -200,7 +330,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SnackRoute Laptop Local Server</title>
+  <title>Homely by Homie Laptop Local Server</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background: #FAF7F2; color: #1A1F1C; margin: 0; padding: 20px; }
     .wrap { max-width: 1120px; margin: 0 auto; }
@@ -225,7 +355,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <div class="wrap">
   <div class="header">
     <div>
-      <h1>SnackRoute Laptop Local Server</h1>
+      <h1>Homely by Homie Laptop Local Server</h1>
       <p>Live SQLite + JSON + CSV Storage • Bidirectional Sync with Phone & Global Cloud</p>
     </div>
     <div style="display:flex;gap:8px;">
@@ -365,13 +495,17 @@ loadAll();
 """
 
 
-class SnackRouteHandler(BaseHTTPRequestHandler):
+class HomelyHandler(BaseHTTPRequestHandler):
     def _check_auth(self):
         if not API_TOKEN:
             return True
-        provided = self.headers.get("X-SnackRoute-Token", "").strip()
+        provided = (
+            self.headers.get("X-Homely-Token")
+            or self.headers.get("X-SnackRoute-Token")
+            or ""
+        ).strip()
         if provided != API_TOKEN:
-            self._send_json(401, {"ok": False, "error": "Invalid X-SnackRoute-Token"})
+            self._send_json(401, {"ok": False, "error": "Invalid X-Homely-Token"})
             return False
         return True
 
@@ -393,7 +527,7 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-SnackRoute-Token")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Homely-Token, X-SnackRoute-Token")
         self.end_headers()
 
     def do_GET(self):
@@ -418,15 +552,19 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                 shop_count = conn.execute("SELECT COUNT(*) AS c FROM shops").fetchone()["c"]
                 order_count = conn.execute("SELECT COUNT(*) AS c FROM orders").fetchone()["c"]
                 route_count = conn.execute("SELECT COUNT(*) AS c FROM routes").fetchone()["c"]
+                product_count = conn.execute("SELECT COUNT(*) AS c FROM products").fetchone()["c"]
+                payment_count = conn.execute("SELECT COUNT(*) AS c FROM payments").fetchone()["c"]
                 urls = [f"http://{ip}:{PORT}" for ip in get_lan_ips()]
                 self._send_json(200, {
                     "ok": True,
-                    "server": "SnackRoute Laptop Server",
+                    "server": "Homely by Homie Laptop Server",
                     "dataDir": DATA_DIR,
                     "urls": urls,
                     "shopCount": shop_count,
                     "orderCount": order_count,
                     "routeCount": route_count,
+                    "productCount": product_count,
+                    "paymentCount": payment_count,
                     "timestamp": int(time.time() * 1000),
                 })
             elif path == "/api/shops":
@@ -436,13 +574,38 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                 rows = conn.execute("SELECT * FROM orders ORDER BY updatedAtMillis DESC").fetchall()
                 self._send_json(200, rows)
             elif path == "/api/routes":
-                rows = conn.execute("SELECT * FROM routes ORDER BY colorIndex ASC, id ASC").fetchall()
+                rows = [decode_route_row(r) for r in conn.execute("SELECT * FROM routes ORDER BY colorIndex ASC, id ASC").fetchall()]
+                self._send_json(200, rows)
+            elif path == "/api/products":
+                rows = conn.execute("SELECT * FROM products ORDER BY updatedAtMillis DESC").fetchall()
+                self._send_json(200, rows)
+            elif path == "/api/payments":
+                rows = conn.execute("SELECT * FROM payments ORDER BY updatedAtMillis DESC").fetchall()
+                self._send_json(200, rows)
+            elif path == "/api/supplier_bills":
+                rows = conn.execute("SELECT * FROM supplier_bills ORDER BY updatedAtMillis DESC").fetchall()
+                self._send_json(200, rows)
+            elif path == "/api/suppliers":
+                rows = conn.execute("SELECT * FROM suppliers ORDER BY updatedAtMillis DESC").fetchall()
                 self._send_json(200, rows)
             elif path == "/api/export.json":
                 shops = conn.execute("SELECT * FROM shops ORDER BY updatedAtMillis DESC").fetchall()
                 orders = conn.execute("SELECT * FROM orders ORDER BY updatedAtMillis DESC").fetchall()
-                routes = conn.execute("SELECT * FROM routes ORDER BY colorIndex ASC, id ASC").fetchall()
-                self._send_json(200, {"dataDir": DATA_DIR, "routes": routes, "shops": shops, "orders": orders})
+                routes = [decode_route_row(r) for r in conn.execute("SELECT * FROM routes ORDER BY colorIndex ASC, id ASC").fetchall()]
+                products = conn.execute("SELECT * FROM products ORDER BY updatedAtMillis DESC").fetchall()
+                payments = conn.execute("SELECT * FROM payments ORDER BY updatedAtMillis DESC").fetchall()
+                supplier_bills = conn.execute("SELECT * FROM supplier_bills ORDER BY updatedAtMillis DESC").fetchall()
+                suppliers = conn.execute("SELECT * FROM suppliers ORDER BY updatedAtMillis DESC").fetchall()
+                self._send_json(200, {
+                    "dataDir": DATA_DIR,
+                    "routes": routes,
+                    "shops": shops,
+                    "orders": orders,
+                    "products": products,
+                    "payments": payments,
+                    "supplierBills": supplier_bills,
+                    "suppliers": suppliers,
+                })
             elif path == "/api/export.csv":
                 shops = conn.execute("SELECT * FROM shops ORDER BY updatedAtMillis DESC").fetchall()
                 out = io.StringIO()
@@ -454,7 +617,7 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                 data = out.getvalue().encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/csv; charset=utf-8")
-                self.send_header("Content-Disposition", "attachment; filename=snackroute_shops.csv")
+                self.send_header("Content-Disposition", "attachment; filename=homely_shops.csv")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -547,10 +710,16 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                         status, totalAmount, itemCount, itemsSummary, orderDate, note, updatedAtMillis
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
+                        orderCode=excluded.orderCode,
+                        shopId=excluded.shopId,
+                        shopCode=excluded.shopCode,
+                        shopName=excluded.shopName,
+                        routeId=excluded.routeId,
                         status=excluded.status,
                         totalAmount=excluded.totalAmount,
                         itemCount=excluded.itemCount,
                         itemsSummary=excluded.itemsSummary,
+                        orderDate=excluded.orderDate,
                         note=excluded.note,
                         updatedAtMillis=excluded.updatedAtMillis
                     """,
@@ -576,12 +745,14 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                 self._send_json(200, {"ok": True, "id": order_id})
             elif path == "/api/routes":
                 route_id = str(data.get("id") or f"R_{int(time.time() * 1000)}")
+                stop_order_raw = data.get("stopOrderIds", [])
+                stop_order_json = json.dumps(stop_order_raw) if isinstance(stop_order_raw, list) else str(stop_order_raw or "[]")
                 conn.execute(
                     """
                     INSERT INTO routes (
                         id, name, vehicle, maxCrates, driverName, driverPhone,
-                        dispatchWindow, stagingBay, colorIndex, isActive, updatedAtMillis
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        dispatchWindow, stagingBay, colorIndex, isActive, stopOrderIds, updatedAtMillis
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         name=excluded.name,
                         vehicle=excluded.vehicle,
@@ -592,6 +763,7 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                         stagingBay=excluded.stagingBay,
                         colorIndex=excluded.colorIndex,
                         isActive=excluded.isActive,
+                        stopOrderIds=excluded.stopOrderIds,
                         updatedAtMillis=excluded.updatedAtMillis
                     """,
                     (
@@ -605,12 +777,232 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
                         data.get("stagingBay", ""),
                         int(data.get("colorIndex", 0) or 0),
                         1 if data.get("isActive", True) else 0,
+                        stop_order_json,
                         int(data.get("updatedAtMillis", int(time.time() * 1000)) or 0),
                     ),
                 )
                 conn.commit()
                 write_snapshots()
                 self._send_json(200, {"ok": True, "id": route_id})
+            elif path == "/api/products":
+                prod_id = str(data.get("id") or data.get("productCode") or f"prod_{int(time.time() * 1000)}")
+                conn.execute(
+                    """
+                    INSERT INTO products (
+                        id, userId, productCode, sku, barcode, name, category, brand,
+                        baseUnit, sellingUnit, casePack, packSize, wholesalePrice, mrp,
+                        stockQuantity, minThreshold, photoUri, notes, status, salesVelocity,
+                        hasVariants, variantsJson, addedDate, updatedAtMillis
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        userId=excluded.userId,
+                        productCode=excluded.productCode,
+                        sku=excluded.sku,
+                        barcode=excluded.barcode,
+                        name=excluded.name,
+                        category=excluded.category,
+                        brand=excluded.brand,
+                        baseUnit=excluded.baseUnit,
+                        sellingUnit=excluded.sellingUnit,
+                        casePack=excluded.casePack,
+                        packSize=excluded.packSize,
+                        wholesalePrice=excluded.wholesalePrice,
+                        mrp=excluded.mrp,
+                        stockQuantity=excluded.stockQuantity,
+                        minThreshold=excluded.minThreshold,
+                        photoUri=excluded.photoUri,
+                        notes=excluded.notes,
+                        status=excluded.status,
+                        salesVelocity=excluded.salesVelocity,
+                        hasVariants=excluded.hasVariants,
+                        variantsJson=excluded.variantsJson,
+                        addedDate=excluded.addedDate,
+                        updatedAtMillis=excluded.updatedAtMillis
+                    """,
+                    (
+                        prod_id,
+                        data.get("userId", ""),
+                        data.get("productCode", ""),
+                        data.get("sku", ""),
+                        data.get("barcode", ""),
+                        data.get("name", ""),
+                        data.get("category", ""),
+                        data.get("brand", ""),
+                        data.get("baseUnit", "Gram (g)"),
+                        data.get("sellingUnit", "Pouch / Packet"),
+                        data.get("casePack", ""),
+                        data.get("packSize", ""),
+                        float(data.get("wholesalePrice", 0.0) or 0.0),
+                        float(data.get("mrp", 0.0) or 0.0),
+                        int(data.get("stockQuantity", 0) or 0),
+                        int(data.get("minThreshold", 30) or 30),
+                        data.get("photoUri", ""),
+                        data.get("notes", ""),
+                        data.get("status", "active"),
+                        int(data.get("salesVelocity", 0) or 0),
+                        1 if data.get("hasVariants", False) else 0,
+                        data.get("variantsJson", ""),
+                        data.get("addedDate", ""),
+                        int(data.get("updatedAtMillis", int(time.time() * 1000)) or 0),
+                    ),
+                )
+                conn.commit()
+                write_snapshots()
+                self._send_json(200, {"ok": True, "id": prod_id})
+            elif path == "/api/payments":
+                pay_id = str(data.get("id") or data.get("receiptCode") or f"pay_{int(time.time() * 1000)}")
+                conn.execute(
+                    """
+                    INSERT INTO payments (
+                        id, userId, receiptCode, direction, partyId, partyCode, partyName,
+                        invoiceRef, amount, paymentMethod, paymentDate, referenceNumber, note, updatedAtMillis
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        userId=excluded.userId,
+                        receiptCode=excluded.receiptCode,
+                        direction=excluded.direction,
+                        partyId=excluded.partyId,
+                        partyCode=excluded.partyCode,
+                        partyName=excluded.partyName,
+                        invoiceRef=excluded.invoiceRef,
+                        amount=excluded.amount,
+                        paymentMethod=excluded.paymentMethod,
+                        paymentDate=excluded.paymentDate,
+                        referenceNumber=excluded.referenceNumber,
+                        note=excluded.note,
+                        updatedAtMillis=excluded.updatedAtMillis
+                    """,
+                    (
+                        pay_id,
+                        data.get("userId", ""),
+                        data.get("receiptCode", ""),
+                        data.get("direction", "collect"),
+                        data.get("partyId", ""),
+                        data.get("partyCode", ""),
+                        data.get("partyName", ""),
+                        data.get("invoiceRef", ""),
+                        float(data.get("amount", 0.0) or 0.0),
+                        data.get("paymentMethod", "UPI"),
+                        data.get("paymentDate", ""),
+                        data.get("referenceNumber", ""),
+                        data.get("note", ""),
+                        int(data.get("updatedAtMillis", int(time.time() * 1000)) or 0),
+                    ),
+                )
+                conn.commit()
+                write_snapshots()
+                self._send_json(200, {"ok": True, "id": pay_id})
+            elif path == "/api/supplier_bills":
+                bill_id = str(data.get("id") or data.get("billNumber") or f"bill_{int(time.time() * 1000)}")
+                conn.execute(
+                    """
+                    INSERT INTO supplier_bills (
+                        id, userId, supplierCode, supplierName, contactPerson, phone,
+                        location, category, billNumber, totalBilled, paidAmount,
+                        billDate, dueDate, status, notes, updatedAtMillis
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        userId=excluded.userId,
+                        supplierCode=excluded.supplierCode,
+                        supplierName=excluded.supplierName,
+                        contactPerson=excluded.contactPerson,
+                        phone=excluded.phone,
+                        location=excluded.location,
+                        category=excluded.category,
+                        billNumber=excluded.billNumber,
+                        totalBilled=excluded.totalBilled,
+                        paidAmount=excluded.paidAmount,
+                        billDate=excluded.billDate,
+                        dueDate=excluded.dueDate,
+                        status=excluded.status,
+                        notes=excluded.notes,
+                        updatedAtMillis=excluded.updatedAtMillis
+                    """,
+                    (
+                        bill_id,
+                        data.get("userId", ""),
+                        data.get("supplierCode", ""),
+                        data.get("supplierName", ""),
+                        data.get("contactPerson", ""),
+                        data.get("phone", ""),
+                        data.get("location", ""),
+                        data.get("category", ""),
+                        data.get("billNumber", ""),
+                        float(data.get("totalBilled", 0.0) or 0.0),
+                        float(data.get("paidAmount", 0.0) or 0.0),
+                        data.get("billDate", ""),
+                        data.get("dueDate", ""),
+                        data.get("status", "pending"),
+                        data.get("notes", ""),
+                        int(data.get("updatedAtMillis", int(time.time() * 1000)) or 0),
+                    ),
+                )
+                conn.commit()
+                write_snapshots()
+                self._send_json(200, {"ok": True, "id": bill_id})
+            elif path == "/api/suppliers":
+                sup_id = str(data.get("id") or data.get("supplierCode") or f"sup_{int(time.time() * 1000)}")
+                conn.execute(
+                    """
+                    INSERT INTO suppliers (
+                        id, userId, supplierCode, name, category, contactPerson, contactRole,
+                        altContactPerson, phone, altPhone, email, address, pinCode,
+                        mapsLink, photoUri, gstin, creditTerms, confirmedPriceNotes, notes,
+                        status, addedDate, addedBy, updatedAtMillis
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        userId=excluded.userId,
+                        supplierCode=excluded.supplierCode,
+                        name=excluded.name,
+                        category=excluded.category,
+                        contactPerson=excluded.contactPerson,
+                        contactRole=excluded.contactRole,
+                        altContactPerson=excluded.altContactPerson,
+                        phone=excluded.phone,
+                        altPhone=excluded.altPhone,
+                        email=excluded.email,
+                        address=excluded.address,
+                        pinCode=excluded.pinCode,
+                        mapsLink=excluded.mapsLink,
+                        photoUri=excluded.photoUri,
+                        gstin=excluded.gstin,
+                        creditTerms=excluded.creditTerms,
+                        confirmedPriceNotes=excluded.confirmedPriceNotes,
+                        notes=excluded.notes,
+                        status=excluded.status,
+                        addedDate=excluded.addedDate,
+                        addedBy=excluded.addedBy,
+                        updatedAtMillis=excluded.updatedAtMillis
+                    """,
+                    (
+                        sup_id,
+                        data.get("userId", ""),
+                        data.get("supplierCode", ""),
+                        data.get("name", ""),
+                        data.get("category", ""),
+                        data.get("contactPerson", ""),
+                        data.get("contactRole", ""),
+                        data.get("altContactPerson", ""),
+                        data.get("phone", ""),
+                        data.get("altPhone", ""),
+                        data.get("email", ""),
+                        data.get("address", ""),
+                        data.get("pinCode", ""),
+                        data.get("mapsLink", ""),
+                        data.get("photoUri", ""),
+                        data.get("gstin", ""),
+                        data.get("creditTerms", ""),
+                        data.get("confirmedPriceNotes", ""),
+                        data.get("notes", ""),
+                        data.get("status", "active"),
+                        data.get("addedDate", ""),
+                        data.get("addedBy", ""),
+                        int(data.get("updatedAtMillis", int(time.time() * 1000)) or 0),
+                    ),
+                )
+                conn.commit()
+                write_snapshots()
+                self._send_json(200, {"ok": True, "id": sup_id})
             else:
                 self._send_json(404, {"ok": False, "error": "Not found"})
 
@@ -638,22 +1030,22 @@ class SnackRouteHandler(BaseHTTPRequestHandler):
 
 def main():
     global DATA_DIR, DB_PATH, JSON_SNAPSHOT_PATH, CSV_SNAPSHOT_PATH, PORT
-    parser = argparse.ArgumentParser(description="SnackRoute Laptop Local Server")
+    parser = argparse.ArgumentParser(description="Homely by Homie Laptop Local Server")
     parser.add_argument("--data-dir", default="", help="Folder to store SQLite DB and JSON/CSV snapshots")
     parser.add_argument("--port", type=int, default=PORT, help="HTTP port (default 8787)")
     args = parser.parse_args()
 
     PORT = args.port
     DATA_DIR = resolve_data_dir(args.data_dir)
-    DB_PATH = os.path.join(DATA_DIR, "snackroute_laptop.db")
-    JSON_SNAPSHOT_PATH = os.path.join(DATA_DIR, "snackroute_data.json")
-    CSV_SNAPSHOT_PATH = os.path.join(DATA_DIR, "snackroute_shops.csv")
+    DB_PATH = os.path.join(DATA_DIR, "homely_laptop.db")
+    JSON_SNAPSHOT_PATH = os.path.join(DATA_DIR, "homely_data.json")
+    CSV_SNAPSHOT_PATH = os.path.join(DATA_DIR, "homely_shops.csv")
 
     init_db()
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), SnackRouteHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), HomelyHandler)
     ips = get_lan_ips()
     print("=" * 64)
-    print("  SnackRoute Laptop Local Server is RUNNING")
+    print("  Homely by Homie Laptop Local Server is RUNNING")
     print(f"  Storage Folder : {DATA_DIR}")
     print(f"  SQLite Database: {DB_PATH}")
     print(f"  JSON Snapshot  : {JSON_SNAPSHOT_PATH}")
@@ -664,7 +1056,7 @@ def main():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down SnackRoute Laptop Local Server.")
+        print("\nShutting down Homely by Homie Laptop Local Server.")
         server.server_close()
 
 

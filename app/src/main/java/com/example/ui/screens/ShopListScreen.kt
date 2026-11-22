@@ -81,9 +81,10 @@ import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.StandardRouteDropdown
 import com.example.ui.components.openDialer
 import com.example.ui.components.openWhatsApp
+import com.example.ui.components.rememberFileExistsAsync
+import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.PlusJakartaFontFamily
 import com.example.ui.theme.semanticColors
-import java.io.File
 
 private enum class ShopSectionTab(val label: String) {
   ALL("All Shops"),
@@ -377,12 +378,16 @@ fun ShopListScreen(
           contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 92.dp),
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          items(filteredShops, key = { it.id.ifBlank { it.shopCode } }) { shop ->
+          items(
+            filteredShops,
+            key = { it.id.ifBlank { it.shopCode } },
+            contentType = { "shop_card" },
+          ) { shop ->
             ShopCardItem(
               shop = shop,
               onCall = { openDialer(context, shop.phone) },
               onWhatsApp = {
-                openWhatsApp(context, shop.phone, "Hello ${shop.ownerName}, contacting from SnackRoute regarding ${shop.name}.")
+                openWhatsApp(context, shop.phone, "Hello ${shop.ownerName}, contacting from Homely by Homie regarding ${shop.name}.")
               },
               onEdit = { onEditShopClick(shop) },
               onChangeStatus = onChangeShopStatus,
@@ -445,16 +450,26 @@ private fun ShopCardItem(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
       ) {
-        // Small shop photo thumbnail
+        // Small shop photo thumbnail (off-main-thread file check + bounded Coil decode)
+        val hasPhotoFile = rememberFileExistsAsync(shop.photoUri)
+        val imageRequest = if (hasPhotoFile) {
+          rememberThumbnailImageRequest(
+            path = shop.photoUri,
+            targetSizePx = 220,
+            fallbackDrawableRes = R.drawable.img_shop_placeholder,
+          )
+        } else {
+          null
+        }
         Surface(
           shape = RoundedCornerShape(14.dp),
           border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
           color = MaterialTheme.colorScheme.surfaceVariant,
           modifier = Modifier.size(68.dp),
         ) {
-          if (shop.photoUri.isNotBlank() && File(shop.photoUri).exists()) {
+          if (imageRequest != null) {
             AsyncImage(
-              model = File(shop.photoUri),
+              model = imageRequest,
               contentDescription = "${shop.name} photo",
               contentScale = ContentScale.Crop,
               modifier = Modifier.fillMaxSize(),

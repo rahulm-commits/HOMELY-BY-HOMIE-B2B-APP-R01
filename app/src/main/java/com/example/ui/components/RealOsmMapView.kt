@@ -87,6 +87,7 @@ import com.example.ui.theme.SaffronPrimary
 import com.example.ui.theme.WarmIvorySurfaceVariant
 import java.io.File
 import java.util.concurrent.TimeUnit
+import androidx.compose.ui.text.TextLayoutResult
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
@@ -163,6 +164,75 @@ private data class PreparedRouteTrack(
   val coordinates: List<Pair<Double, Double>>,
 )
 
+private class MeasuredCityMarker(
+  val lat: Double,
+  val lng: Double,
+  val layout: TextLayoutResult,
+)
+
+private class MeasuredPinRender(
+  val pin: PreparedPinRender,
+  val glyphLayout: TextLayoutResult,
+  val labelLayout: TextLayoutResult?,
+)
+
+private class MeasuredNavPinRender(
+  val pin: NavigationMapPin,
+  val glyphLayout: TextLayoutResult,
+  val labelLayout: TextLayoutResult?,
+)
+
+private class MeasuredTrackRender(
+  val track: PreparedRouteTrack,
+  val labelLayout: TextLayoutResult?,
+)
+
+private class MapCanvasScratch(densityPx: Float) {
+  val path: Path = Path()
+  val clipCirclePath: Path = Path()
+  val triPath: Path = Path()
+  val screenPointsBuffer: MutableList<Offset> = ArrayList(32)
+
+  val coastStroke = Stroke(width = 2f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val ghatsStroke = Stroke(width = 24f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val hwOuterStroke = Stroke(width = 4f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val hwInnerStroke = Stroke(width = 2.2f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackHaloStroke = Stroke(width = 7.5f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackPrimaryStroke = Stroke(width = 4.2f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackSplitStroke = Stroke(width = 3.2f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackRingOuterStroke = Stroke(width = 6.2f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackRingMidStroke = Stroke(width = 3.4f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackRingCoreStroke = Stroke(width = 2.2f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackBgStroke = Stroke(width = 4.8f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val trackDiagStripeStroke = Stroke(
+    width = 3.4f * densityPx,
+    cap = StrokeCap.Round,
+    join = StrokeJoin.Round,
+    pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f * densityPx, 12f * densityPx), 0f),
+  )
+  val trackDashStroke = Stroke(
+    width = 2.8f * densityPx,
+    cap = StrokeCap.Round,
+    join = StrokeJoin.Round,
+    pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f * densityPx, 8f * densityPx), 0f),
+  )
+  val pillTrackStroke = Stroke(width = 1.6f * densityPx)
+  val pillPinStroke = Stroke(width = 1f * densityPx)
+  val pinSelectedStroke = Stroke(width = 3f * densityPx)
+  val pinDefaultStroke = Stroke(width = 2f * densityPx)
+  val navUpcomingHaloStroke = Stroke(width = 6f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val navUpcomingDashStroke = Stroke(
+    width = 3.5f * densityPx,
+    cap = StrokeCap.Round,
+    join = StrokeJoin.Round,
+    pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f * densityPx, 7f * densityPx), 0f),
+  )
+  val navActiveHaloStroke = Stroke(width = 8.5f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val navActiveStroke = Stroke(width = 5f * densityPx, cap = StrokeCap.Round, join = StrokeJoin.Round)
+  val navPinSelectedStroke = Stroke(width = 2.6f * densityPx)
+  val navPinDefaultStroke = Stroke(width = 1.8f * densityPx)
+}
+
 private const val OSM_TILE_SIZE = 256.0
 private const val MIN_ZOOM = 3.5f
 private const val MAX_ZOOM = 18.0f
@@ -192,6 +262,28 @@ private val regionHubCities = listOf(
   Triple("Thrissur", 10.5276, 76.2144),
   Triple("Aluva", 10.1004, 76.3570),
   Triple("Kochi", 9.9312, 76.2673),
+)
+
+private val westOceanCoastCoords = arrayOf(
+  20.5 to 66.0,
+  20.5 to 72.7,
+  19.07 to 72.82,
+  17.00 to 73.28,
+  15.49 to 73.80,
+  12.91 to 74.82,
+  11.87 to 75.35,
+  11.25 to 75.77,
+  9.93 to 76.24,
+  8.52 to 76.92,
+  7.80 to 77.55,
+  7.80 to 66.0,
+)
+
+private val westernGhatsCoords = arrayOf(
+  14.5 to 74.6,
+  12.1 to 75.7,
+  11.4 to 76.5,
+  10.1 to 77.1,
 )
 
 private val highwayNh66 = listOf(
@@ -232,6 +324,8 @@ private val highwayKochiBlr = listOf(
   11.6643 to 78.1460,
   12.9716 to 77.5946,
 )
+
+private val allHighways = arrayOf(highwayNh66, highwayNh48, highwayNh275And544, highwayKochiBlr)
 
 internal fun latToWorldY(lat: Double, zoom: Float): Double {
   val clamped = lat.coerceIn(-85.0511, 85.0511)
@@ -377,66 +471,81 @@ private object OsmTileRepository {
     failedTimestamps[key] = System.currentTimeMillis()
   }
 
+  @Synchronized
+  private fun clearInFlightIfUnloaded(key: OsmTileKey) {
+    inFlight.remove(key)
+  }
+
   private var legacyCacheCleaned = false
 
   suspend fun fetchTile(context: Context, key: OsmTileKey): Boolean = withContext(Dispatchers.IO) {
-    if (!legacyCacheCleaned) {
-      legacyCacheCleaned = true
-      runCatching {
-        File(context.cacheDir, "osm_tiles_v2").deleteRecursively()
-      }
-    }
-
-    val diskFile = File(context.cacheDir, "osm_tiles_v3/${key.z}_${key.x}_${key.y}.png")
-    if (diskFile.exists() && diskFile.length() > 200L) {
-      val decoded = runCatching {
-        BitmapFactory.decodeFile(diskFile.absolutePath)?.asImageBitmap()
-      }.getOrNull()
-      if (decoded != null) {
-        markLoaded(key, decoded)
-        return@withContext true
-      }
-    }
-
-    val urls = listOf(
-      "https://tile.openstreetmap.org/${key.z}/${key.x}/${key.y}.png",
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${key.z}/${key.y}/${key.x}",
-    )
-
-    val userAgent = "SnackRouteFieldOps/1.0 (${context.packageName})"
-    for (url in urls) {
-      val bytes = runCatching {
-        val request = Request.Builder()
-          .url(url)
-          .header("User-Agent", userAgent)
-          .build()
-        httpClient.newCall(request).execute().use { response ->
-          val contentType = response.header("Content-Type").orEmpty()
-          if (response.isSuccessful && (contentType.isBlank() || contentType.startsWith("image/", ignoreCase = true))) {
-            response.body?.bytes()
-          } else {
-            null
-          }
+    var settled = false
+    try {
+      if (!legacyCacheCleaned) {
+        legacyCacheCleaned = true
+        runCatching {
+          File(context.cacheDir, "osm_tiles_v2").deleteRecursively()
         }
-      }.getOrNull()
+      }
 
-      if (bytes != null && bytes.size > 200) {
+      val diskFile = File(context.cacheDir, "osm_tiles_v3/${key.z}_${key.x}_${key.y}.png")
+      if (diskFile.exists() && diskFile.length() > 200L) {
         val decoded = runCatching {
-          BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+          BitmapFactory.decodeFile(diskFile.absolutePath)?.asImageBitmap()
         }.getOrNull()
         if (decoded != null) {
-          runCatching {
-            diskFile.parentFile?.mkdirs()
-            diskFile.writeBytes(bytes)
-          }
           markLoaded(key, decoded)
+          settled = true
           return@withContext true
         }
       }
-    }
 
-    markFailed(key)
-    false
+      val urls = listOf(
+        "https://tile.openstreetmap.org/${key.z}/${key.x}/${key.y}.png",
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${key.z}/${key.y}/${key.x}",
+      )
+
+      val userAgent = "HomelyByHomieFieldOps/1.0 (${context.packageName})"
+      for (url in urls) {
+        val bytes = runCatching {
+          val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", userAgent)
+            .build()
+          httpClient.newCall(request).execute().use { response ->
+            val contentType = response.header("Content-Type").orEmpty()
+            if (response.isSuccessful && (contentType.isBlank() || contentType.startsWith("image/", ignoreCase = true))) {
+              response.body?.bytes()
+            } else {
+              null
+            }
+          }
+        }.getOrNull()
+
+        if (bytes != null && bytes.size > 200) {
+          val decoded = runCatching {
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+          }.getOrNull()
+          if (decoded != null) {
+            runCatching {
+              diskFile.parentFile?.mkdirs()
+              diskFile.writeBytes(bytes)
+            }
+            markLoaded(key, decoded)
+            settled = true
+            return@withContext true
+          }
+        }
+      }
+
+      markFailed(key)
+      settled = true
+      false
+    } finally {
+      if (!settled) {
+        clearInFlightIfUnloaded(key)
+      }
+    }
   }
 }
 
@@ -460,6 +569,7 @@ fun RealOsmMapView(
   followUserLocation: Boolean = false,
   showBuiltInZoomControls: Boolean = true,
   fitBoundsIncludesUser: Boolean = false,
+  focusShopTrigger: Int = 0,
   onPinSelected: (String) -> Unit = {},
   onMapSurfaceTapped: () -> Unit = {},
   modifier: Modifier = Modifier,
@@ -536,10 +646,14 @@ fun RealOsmMapView(
   val visibleTiles = remember(camera, canvasSize, worldScale) {
     computeVisibleTiles(camera = camera, canvasSize = canvasSize, worldScale = worldScale)
   }
+  val visibleTileKeys = remember(visibleTiles) {
+    visibleTiles.map { it.key }
+  }
 
-  // Trigger async tile loads cleanly via LaunchedEffect whenever visible tiles change
-  LaunchedEffect(visibleTiles) {
-    val toFetch = visibleTiles.map { it.key }.filter { OsmTileRepository.shouldFetch(it) }
+  // Key async tile loads strictly on visibleTileKeys so pixel panning within the same grid
+  // does not cancel and re-launch coroutines at 120 Hz
+  LaunchedEffect(visibleTileKeys) {
+    val toFetch = visibleTileKeys.filter { OsmTileRepository.shouldFetch(it) }
     if (toFetch.isEmpty()) return@LaunchedEffect
     coroutineScope {
       val results = toFetch.map { key ->
@@ -677,6 +791,22 @@ fun RealOsmMapView(
     }
   }
 
+  LaunchedEffect(focusShopTrigger, selectedShopId) {
+    if (focusShopTrigger > 0 && selectedShopId != null) {
+      val navShop = validNavPins?.firstOrNull { it.shop.id == selectedShopId }?.shop
+      val regularShop = preparedPins.firstOrNull { it.shop.id == selectedShopId }?.shop
+      val targetShop = navShop ?: regularShop
+      if (targetShop != null && (targetShop.latitude != 0.0 || targetShop.longitude != 0.0)) {
+        userHasPanned = true
+        camera = MapCameraState(
+          centerLat = targetShop.latitude,
+          centerLng = targetShop.longitude,
+          zoom = max(camera.zoom, 14.5f),
+        )
+      }
+    }
+  }
+
   val pinLabelStyle = MaterialTheme.typography.labelSmall.copy(
     fontSize = 10.5.sp,
     fontWeight = FontWeight.SemiBold,
@@ -693,6 +823,121 @@ fun RealOsmMapView(
     fontSize = 10.sp,
     fontWeight = FontWeight.Bold,
   )
+
+  val scratch = remember(density.density) { MapCanvasScratch(density.density) }
+  val measuredCities = remember(textMeasurer, cityLabelStyle) {
+    regionHubCities.map { (cityName, cLat, cLng) ->
+      MeasuredCityMarker(
+        lat = cLat,
+        lng = cLng,
+        layout = textMeasurer.measure(cityName, style = cityLabelStyle),
+      )
+    }
+  }
+  val measuredUserPill = remember(textMeasurer, userPillStyle, compactPreviewMode) {
+    if (compactPreviewMode) null else textMeasurer.measure("My Location", style = userPillStyle)
+  }
+  val measuredTracks = remember(preparedTracks, compactPreviewMode, textMeasurer, pinLabelStyle, density.density) {
+    val maxLabelW = with(density) { 148.dp.toPx().roundToInt() }
+    val trackTitleStyle = pinLabelStyle.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    preparedTracks.map { track ->
+      val label = if (!compactPreviewMode) {
+        val shortTitle = track.route.name.substringAfter(":").trim().ifBlank { track.route.name }
+        textMeasurer.measure(
+          text = shortTitle,
+          style = trackTitleStyle,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          constraints = Constraints(maxWidth = maxLabelW),
+        )
+      } else {
+        null
+      }
+      MeasuredTrackRender(track = track, labelLayout = label)
+    }
+  }
+  val orderedMeasuredNavPins = remember(validNavPins, selectedShopId, textMeasurer, pinGlyphStyle, pinLabelStyle, density.density) {
+    if (validNavPins == null) {
+      null
+    } else {
+      val sorted = validNavPins.sortedBy { pin ->
+        when {
+          pin.shop.id == selectedShopId -> 3
+          pin.state == StopPinState.ACTIVE_TARGET -> 2
+          pin.state == StopPinState.UPCOMING -> 1
+          else -> 0
+        }
+      }
+      val activeGlyphStyle = pinGlyphStyle.copy(fontSize = 11.sp)
+      val defaultGlyphStyle = pinGlyphStyle.copy(fontSize = 9.5.sp)
+      val activeLabelStyle = pinLabelStyle.copy(fontSize = 10.sp)
+      val defaultLabelStyle = pinLabelStyle.copy(fontSize = 9.sp)
+      val maxLabelW = with(density) { 148.dp.toPx().roundToInt() }
+
+      sorted.map { pin ->
+        val isActive = pin.state == StopPinState.ACTIVE_TARGET
+        val isCompleted = pin.state == StopPinState.COMPLETED
+        val isSelected = pin.shop.id == selectedShopId
+        val glyph = pin.stopNumber.toString()
+        val glyphLayout = textMeasurer.measure(
+          text = glyph,
+          style = if (isActive || isSelected) activeGlyphStyle else defaultGlyphStyle,
+        )
+        val shortShop = pin.shop.name
+          .substringBefore(" Bakery")
+          .substringBefore(" Supermarket")
+          .substringBefore(" Super Mart")
+          .substringBefore(" Provision")
+          .trim()
+          .ifBlank { pin.shop.name }
+        val label = when {
+          isActive && pin.distanceLabel.isNotBlank() -> "${pin.stopNumber}. $shortShop (${pin.distanceLabel})"
+          isSelected && pin.distanceLabel.isNotBlank() -> "${pin.stopNumber}. $shortShop (${pin.distanceLabel})"
+          isCompleted -> "${pin.stopNumber}. ${shortShop.take(12)} ✓"
+          else -> "${pin.stopNumber}. ${shortShop.take(14)}"
+        }
+        val labelLayout = textMeasurer.measure(
+          text = label,
+          style = if (isActive || isSelected) activeLabelStyle else defaultLabelStyle,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          constraints = Constraints(maxWidth = maxLabelW),
+        )
+        MeasuredNavPinRender(pin = pin, glyphLayout = glyphLayout, labelLayout = labelLayout)
+      }
+    }
+  }
+  val orderedMeasuredPins = remember(preparedPins, selectedShopId, compactPreviewMode, textMeasurer, pinGlyphStyle, pinLabelStyle, density.density) {
+    val maxTextWidth = with(density) { 128.dp.toPx().roundToInt() }
+    preparedPins
+      .sortedBy { if (it.shop.id == selectedShopId) 1 else 0 }
+      .map { pin ->
+        val glyph = when {
+          pin.isUnallocated -> "?"
+          pin.stopNumber > 0 -> pin.stopNumber.toString()
+          else -> "•"
+        }
+        val glyphLayout = textMeasurer.measure(text = glyph, style = pinGlyphStyle)
+        val labelLayout = if (!compactPreviewMode && pin.shortName.isNotEmpty()) {
+          val label = buildString {
+            if (pin.stopNumber > 0 && !pin.isUnallocated) {
+              append("#${pin.stopNumber} ")
+            }
+            append(pin.shortName)
+          }
+          textMeasurer.measure(
+            text = label,
+            style = pinLabelStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            constraints = Constraints(maxWidth = maxTextWidth),
+          )
+        } else {
+          null
+        }
+        MeasuredPinRender(pin = pin, glyphLayout = glyphLayout, labelLayout = labelLayout)
+      }
+  }
 
   val touchSlopPx = viewConfiguration.touchSlop
 
@@ -782,8 +1027,8 @@ fun RealOsmMapView(
         h = h,
         camera = camera,
         worldScale = worldScale,
-        textMeasurer = textMeasurer,
-        cityLabelStyle = cityLabelStyle,
+        measuredCities = measuredCities,
+        scratch = scratch,
       )
 
       // 2. Real OpenStreetMap / Street Tiles overlaid cleanly at logical DPI scale
@@ -816,7 +1061,7 @@ fun RealOsmMapView(
 
       // 3. Route Polylines (Navigation Mode vs Route Planning Mode)
       if (showPolylines) {
-        if (validNavPins != null) {
+        if (orderedMeasuredNavPins != null) {
           drawNavigationPolylines(
             activeLegPolyline = activeLegPolyline,
             upcomingRoutePolyline = upcomingRoutePolyline,
@@ -824,14 +1069,17 @@ fun RealOsmMapView(
             widthPx = w,
             heightPx = h,
             worldScale = worldScale,
+            scratch = scratch,
           )
         } else {
           drawRouteTracks(
-            tracks = preparedTracks,
+            tracks = measuredTracks,
             camera = camera,
             widthPx = w,
             heightPx = h,
             worldScale = worldScale,
+            compactPreviewMode = compactPreviewMode,
+            scratch = scratch,
           )
         }
       }
@@ -841,9 +1089,7 @@ fun RealOsmMapView(
         val userPos = projectLatLngToScreen(userLatitude, userLongitude, camera, w, h, worldScale)
         drawUserGpsMarker(
           pos = userPos,
-          compactPreviewMode = compactPreviewMode,
-          textMeasurer = textMeasurer,
-          pillStyle = userPillStyle,
+          measuredUserPill = measuredUserPill,
         )
       }
 
@@ -851,26 +1097,17 @@ fun RealOsmMapView(
       hitboxes.clear()
       val tapHitRadiusPx = 28.dp.toPx()
 
-      if (validNavPins != null) {
-        val orderedNav = validNavPins.sortedBy { pin ->
-          when {
-            pin.shop.id == selectedShopId -> 3
-            pin.state == StopPinState.ACTIVE_TARGET -> 2
-            pin.state == StopPinState.UPCOMING -> 1
-            else -> 0
-          }
-        }
-        for (pin in orderedNav) {
+      if (orderedMeasuredNavPins != null) {
+        for (item in orderedMeasuredNavPins) {
+          val pin = item.pin
           val pt = projectLatLngToScreen(pin.shop.latitude, pin.shop.longitude, camera, w, h, worldScale)
           if (pt.x < -80f || pt.x > w + 80f || pt.y < -80f || pt.y > h + 80f) continue
           val isSelected = pin.shop.id == selectedShopId
           drawNavigationTargetPin(
             center = pt,
-            pin = pin,
+            item = item,
             isSelected = isSelected,
-            textMeasurer = textMeasurer,
-            glyphStyle = pinGlyphStyle,
-            labelStyle = pinLabelStyle,
+            scratch = scratch,
           )
           hitboxes += RenderedPinHitbox(
             shopId = pin.shop.id,
@@ -879,19 +1116,16 @@ fun RealOsmMapView(
           )
         }
       } else {
-        val orderedPins = preparedPins.sortedBy { if (it.shop.id == selectedShopId) 1 else 0 }
-        for (pin in orderedPins) {
+        for (item in orderedMeasuredPins) {
+          val pin = item.pin
           val pt = projectLatLngToScreen(pin.shop.latitude, pin.shop.longitude, camera, w, h, worldScale)
           if (pt.x < -80f || pt.x > w + 80f || pt.y < -80f || pt.y > h + 80f) continue
           val isSelected = pin.shop.id == selectedShopId
           drawShopPinBadge(
             center = pt,
-            pin = pin,
+            item = item,
             isSelected = isSelected,
-            compactPreviewMode = compactPreviewMode,
-            textMeasurer = textMeasurer,
-            glyphStyle = pinGlyphStyle,
-            labelStyle = pinLabelStyle,
+            scratch = scratch,
           )
           hitboxes += RenderedPinHitbox(
             shopId = pin.shop.id,
@@ -904,7 +1138,7 @@ fun RealOsmMapView(
       // 6. Focus Teardrop Pin (Add/Edit Shop preview card)
       if (focusLatitude != null && focusLongitude != null && (focusLatitude != 0.0 || focusLongitude != 0.0)) {
         val focusPos = projectLatLngToScreen(focusLatitude, focusLongitude, camera, w, h, worldScale)
-        drawFocusTeardropMarker(focusPos)
+        drawFocusTeardropMarker(focusPos, scratch)
       }
     }
 
@@ -913,7 +1147,7 @@ fun RealOsmMapView(
       Column(
         modifier = Modifier
           .align(Alignment.TopEnd)
-          .padding(top = 108.dp, end = 12.dp),
+          .padding(top = 136.dp, end = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
       ) {
         MapZoomControlButton(
@@ -1157,55 +1391,38 @@ private fun DrawScope.drawGeographicBaseLayer(
   h: Float,
   camera: MapCameraState,
   worldScale: Float,
-  textMeasurer: TextMeasurer,
-  cityLabelStyle: TextStyle,
+  measuredCities: List<MeasuredCityMarker>,
+  scratch: MapCanvasScratch,
 ) {
   drawRect(color = CartographicLand, topLeft = Offset.Zero, size = Size(w, h))
 
-  // Arabian Sea polygon west of India's west coast
-  val westOceanCoast = listOf(
-    20.5 to 66.0,
-    20.5 to 72.7,
-    19.07 to 72.82,
-    17.00 to 73.28,
-    15.49 to 73.80,
-    12.91 to 74.82,
-    11.87 to 75.35,
-    11.25 to 75.77,
-    9.93 to 76.24,
-    8.52 to 76.92,
-    7.80 to 77.55,
-    7.80 to 66.0,
-  ).map { (lat, lng) -> projectLatLngToScreen(lat, lng, camera, w, h, worldScale) }
+  val cx = lngToWorldX(camera.centerLng, camera.zoom)
+  val cy = latToWorldY(camera.centerLat, camera.zoom)
+  val halfW = w / 2f
+  val halfH = h / 2f
 
-  val oceanPath = Path().apply {
-    moveTo(westOceanCoast.first().x, westOceanCoast.first().y)
-    for (i in 1 until westOceanCoast.size) lineTo(westOceanCoast[i].x, westOceanCoast[i].y)
-    close()
+  // Arabian Sea polygon west of India's west coast
+  val path = scratch.path
+  path.rewind()
+  for (i in westOceanCoastCoords.indices) {
+    val (oLat, oLng) = westOceanCoastCoords[i]
+    val sx = (halfW + (lngToWorldX(oLng, camera.zoom) - cx) * worldScale).toFloat()
+    val sy = (halfH + (latToWorldY(oLat, camera.zoom) - cy) * worldScale).toFloat()
+    if (i == 0) path.moveTo(sx, sy) else path.lineTo(sx, sy)
   }
-  drawPath(path = oceanPath, color = CartographicOcean)
-  drawPath(
-    path = oceanPath,
-    color = CartographicCoastStroke,
-    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-  )
+  path.close()
+  drawPath(path = path, color = CartographicOcean)
+  drawPath(path = path, color = CartographicCoastStroke, style = scratch.coastStroke)
 
   // Soft Western Ghats forest/park terrain tint
-  val ghatsBelt = listOf(
-    14.5 to 74.6,
-    12.1 to 75.7,
-    11.4 to 76.5,
-    10.1 to 77.1,
-  ).map { (lat, lng) -> projectLatLngToScreen(lat, lng, camera, w, h, worldScale) }
-  val ghatsPath = Path().apply {
-    moveTo(ghatsBelt.first().x, ghatsBelt.first().y)
-    for (i in 1 until ghatsBelt.size) lineTo(ghatsBelt[i].x, ghatsBelt[i].y)
+  path.rewind()
+  for (i in westernGhatsCoords.indices) {
+    val (gLat, gLng) = westernGhatsCoords[i]
+    val sx = (halfW + (lngToWorldX(gLng, camera.zoom) - cx) * worldScale).toFloat()
+    val sy = (halfH + (latToWorldY(gLat, camera.zoom) - cy) * worldScale).toFloat()
+    if (i == 0) path.moveTo(sx, sy) else path.lineTo(sx, sy)
   }
-  drawPath(
-    path = ghatsPath,
-    color = CartographicPark.copy(alpha = 0.72f),
-    style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-  )
+  drawPath(path = path, color = CartographicPark.copy(alpha = 0.72f), style = scratch.ghatsStroke)
 
   // Coordinate graticule
   val gridDegStep = when {
@@ -1214,24 +1431,24 @@ private fun DrawScope.drawGeographicBaseLayer(
     camera.zoom >= 7.5f -> 0.5
     else -> 1.5
   }
-  val cx = lngToWorldX(camera.centerLng, camera.zoom)
-  val cy = latToWorldY(camera.centerLat, camera.zoom)
   val halfWorldW = (w / 2.0) / worldScale
   val halfWorldH = (h / 2.0) / worldScale
   val minLng = worldXToLng(cx - halfWorldW, camera.zoom)
   val maxLng = worldXToLng(cx + halfWorldW, camera.zoom)
   val maxLat = worldYToLat(cy - halfWorldH, camera.zoom)
   val minLat = worldYToLat(cy + halfWorldH, camera.zoom)
+  val gridColor = CartographicGrid.copy(alpha = 0.5f)
+  val gridStrokePx = 1.dp.toPx()
 
   var lng = floor(minLng / gridDegStep) * gridDegStep
   var guard = 0
   while (lng <= maxLng && guard < 36) {
-    val sx = (w / 2.0 + (lngToWorldX(lng, camera.zoom) - cx) * worldScale).toFloat()
+    val sx = (halfW + (lngToWorldX(lng, camera.zoom) - cx) * worldScale).toFloat()
     drawLine(
-      color = CartographicGrid.copy(alpha = 0.5f),
+      color = gridColor,
       start = Offset(sx, 0f),
       end = Offset(sx, h),
-      strokeWidth = 1.dp.toPx(),
+      strokeWidth = gridStrokePx,
     )
     lng += gridDegStep
     guard++
@@ -1240,135 +1457,150 @@ private fun DrawScope.drawGeographicBaseLayer(
   var lat = floor(minLat / gridDegStep) * gridDegStep
   guard = 0
   while (lat <= maxLat && guard < 36) {
-    val sy = (h / 2.0 + (latToWorldY(lat, camera.zoom) - cy) * worldScale).toFloat()
+    val sy = (halfH + (latToWorldY(lat, camera.zoom) - cy) * worldScale).toFloat()
     drawLine(
-      color = CartographicGrid.copy(alpha = 0.5f),
+      color = gridColor,
       start = Offset(0f, sy),
       end = Offset(w, sy),
-      strokeWidth = 1.dp.toPx(),
+      strokeWidth = gridStrokePx,
     )
     lat += gridDegStep
     guard++
   }
 
   // Major highway corridors (visible even before tiles load)
-  val highwayList = listOf(highwayNh66, highwayNh48, highwayNh275And544, highwayKochiBlr)
-  val outerStroke = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-  val innerStroke = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-  for (corridor in highwayList) {
-    val pts = corridor.map { (hLat, hLng) -> projectLatLngToScreen(hLat, hLng, camera, w, h, worldScale) }
-    val path = Path().apply {
-      moveTo(pts.first().x, pts.first().y)
-      for (i in 1 until pts.size) lineTo(pts[i].x, pts[i].y)
+  val hwOuterColor = CartographicHighwayOuter.copy(alpha = 0.85f)
+  for (corridor in allHighways) {
+    path.rewind()
+    for (i in corridor.indices) {
+      val (hLat, hLng) = corridor[i]
+      val sx = (halfW + (lngToWorldX(hLng, camera.zoom) - cx) * worldScale).toFloat()
+      val sy = (halfH + (latToWorldY(hLat, camera.zoom) - cy) * worldScale).toFloat()
+      if (i == 0) path.moveTo(sx, sy) else path.lineTo(sx, sy)
     }
-    drawPath(path = path, color = CartographicHighwayOuter.copy(alpha = 0.85f), style = outerStroke)
-    drawPath(path = path, color = CartographicHighwayInner, style = innerStroke)
+    drawPath(path = path, color = hwOuterColor, style = scratch.hwOuterStroke)
+    drawPath(path = path, color = CartographicHighwayInner, style = scratch.hwInnerStroke)
   }
 
-  // City reference markers
-  for ((cityName, cLat, cLng) in regionHubCities) {
-    val pt = projectLatLngToScreen(cLat, cLng, camera, w, h, worldScale)
-    if (pt.x < -30f || pt.x > w + 30f || pt.y < -30f || pt.y > h + 30f) continue
-    drawCircle(color = Color.White, radius = 3.5.dp.toPx(), center = pt)
-    drawCircle(color = MutedSlateInk, radius = 2.dp.toPx(), center = pt)
-    val measured = textMeasurer.measure(cityName, style = cityLabelStyle)
+  // City reference markers (using pre-measured TextLayouts)
+  val outerR = 3.5.dp.toPx()
+  val innerR = 2.dp.toPx()
+  val labelDx = 5.dp.toPx()
+  val cityTextColor = DeepSlateInk.copy(alpha = 0.72f)
+  for (city in measuredCities) {
+    val sx = (halfW + (lngToWorldX(city.lng, camera.zoom) - cx) * worldScale).toFloat()
+    val sy = (halfH + (latToWorldY(city.lat, camera.zoom) - cy) * worldScale).toFloat()
+    if (sx < -30f || sx > w + 30f || sy < -30f || sy > h + 30f) continue
+    val pt = Offset(sx, sy)
+    drawCircle(color = Color.White, radius = outerR, center = pt)
+    drawCircle(color = MutedSlateInk, radius = innerR, center = pt)
     drawText(
-      textLayoutResult = measured,
-      color = DeepSlateInk.copy(alpha = 0.72f),
-      topLeft = Offset(pt.x + 5.dp.toPx(), pt.y - measured.size.height / 2f),
+      textLayoutResult = city.layout,
+      color = cityTextColor,
+      topLeft = Offset(sx + labelDx, sy - city.layout.size.height / 2f),
     )
   }
 }
 
 private fun DrawScope.drawRouteTracks(
-  tracks: List<PreparedRouteTrack>,
+  tracks: List<MeasuredTrackRender>,
   camera: MapCameraState,
   widthPx: Float,
   heightPx: Float,
   worldScale: Float,
+  compactPreviewMode: Boolean,
+  scratch: MapCanvasScratch,
 ) {
-  val haloWidth = 7.5.dp.toPx()
-  val primaryWidth = 4.2.dp.toPx()
-  val splitWidth = 3.2.dp.toPx()
   val offsetPx = 1.8.dp.toPx()
+  val labelCenters = ArrayList<Pair<Offset, MeasuredTrackRender>>(tracks.size)
+  val path = scratch.path
+  val screenPts = scratch.screenPointsBuffer
 
-  for (track in tracks) {
-    val screenPts = track.coordinates.map { (lat, lng) ->
-      projectLatLngToScreen(lat, lng, camera, widthPx, heightPx, worldScale)
-    }
-    if (screenPts.size < 2) continue
+  for (item in tracks) {
+    val track = item.track
+    if (track.coordinates.size < 2) continue
 
-    val mainPath = Path().apply {
-      moveTo(screenPts.first().x, screenPts.first().y)
-      for (i in 1 until screenPts.size) lineTo(screenPts[i].x, screenPts[i].y)
+    screenPts.clear()
+    path.rewind()
+    for (i in track.coordinates.indices) {
+      val (lat, lng) = track.coordinates[i]
+      val pt = projectLatLngToScreen(lat, lng, camera, widthPx, heightPx, worldScale)
+      screenPts.add(pt)
+      if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
     }
 
     val pri = track.spec.primary
     val sec = track.spec.secondary
     val pattern = track.spec.pattern
 
-    drawPath(
-      path = mainPath,
-      color = Color.White.copy(alpha = 0.88f),
-      style = Stroke(width = haloWidth, cap = StrokeCap.Round, join = StrokeJoin.Round),
-    )
+    drawPath(path = path, color = Color.White.copy(alpha = 0.88f), style = scratch.trackHaloStroke)
 
     if (sec == null || pattern == RouteComboPattern.SOLID) {
-      drawPath(
-        path = mainPath,
-        color = pri,
-        style = Stroke(width = primaryWidth, cap = StrokeCap.Round, join = StrokeJoin.Round),
-      )
+      drawPath(path = path, color = pri, style = scratch.trackPrimaryStroke)
     } else if (pattern == RouteComboPattern.SPLIT_HALF) {
-      drawParallelTrack(screenPts, pri, splitWidth, offsetPx)
-      drawParallelTrack(screenPts, sec, splitWidth, -offsetPx)
+      drawParallelTrack(screenPts, pri, scratch.trackSplitStroke, offsetPx, scratch.clipCirclePath)
+      drawParallelTrack(screenPts, sec, scratch.trackSplitStroke, -offsetPx, scratch.clipCirclePath)
     } else if (pattern == RouteComboPattern.RING_CORE) {
-      drawPath(
-        path = mainPath,
-        color = pri,
-        style = Stroke(width = 6.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-      )
-      drawPath(
-        path = mainPath,
-        color = Color.White,
-        style = Stroke(width = 3.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-      )
-      drawPath(
-        path = mainPath,
-        color = sec,
-        style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-      )
+      drawPath(path = path, color = pri, style = scratch.trackRingOuterStroke)
+      drawPath(path = path, color = Color.White, style = scratch.trackRingMidStroke)
+      drawPath(path = path, color = sec, style = scratch.trackRingCoreStroke)
     } else if (pattern == RouteComboPattern.DIAGONAL_STRIPE) {
-      drawPath(
-        path = mainPath,
-        color = pri,
-        style = Stroke(width = 4.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-      )
-      drawPath(
-        path = mainPath,
-        color = sec,
-        style = Stroke(
-          width = 3.4.dp.toPx(),
-          cap = StrokeCap.Round,
-          join = StrokeJoin.Round,
-          pathEffect = PathEffect.dashPathEffect(floatArrayOf(12.dp.toPx(), 12.dp.toPx()), 0f),
-        ),
-      )
+      drawPath(path = path, color = pri, style = scratch.trackBgStroke)
+      drawPath(path = path, color = sec, style = scratch.trackDiagStripeStroke)
     } else {
-      drawPath(
-        path = mainPath,
-        color = pri,
-        style = Stroke(width = 4.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+      drawPath(path = path, color = pri, style = scratch.trackBgStroke)
+      drawPath(path = path, color = sec, style = scratch.trackDashStroke)
+    }
+
+    if (!compactPreviewMode) {
+      val midIdx = (screenPts.size - 1) / 2
+      val a = screenPts[midIdx]
+      val b = if (midIdx + 1 < screenPts.size) screenPts[midIdx + 1] else a
+      val midPt = Offset((a.x + b.x) / 2f, (a.y + b.y) / 2f)
+      labelCenters.add(midPt to item)
+    }
+  }
+
+  if (!compactPreviewMode && labelCenters.isNotEmpty()) {
+    val topSafe = 96.dp.toPx()
+    val bottomSafe = heightPx - 56.dp.toPx()
+    val padH = 7.dp.toPx()
+    val padV = 3.dp.toPx()
+    val dotGap = 5.dp.toPx()
+    val dotRadius = 3.5.dp.toPx()
+    val corner = CornerRadius(999f, 999f)
+
+    for ((midPt, item) in labelCenters) {
+      val measured = item.labelLayout ?: continue
+      val track = item.track
+      if (midPt.x < -40f || midPt.x > widthPx + 40f || midPt.y < topSafe || midPt.y > bottomSafe) continue
+      val pillW = padH * 2f + dotRadius * 2f + dotGap + measured.size.width
+      val pillH = measured.size.height + padV * 2f
+      val pillLeft = (midPt.x - pillW / 2f).coerceIn(8f, max(8f, widthPx - pillW - 8f))
+      val pillTop = (midPt.y - pillH / 2f).coerceIn(topSafe, max(topSafe, bottomSafe - pillH))
+
+      drawRoundRect(
+        color = Color.White.copy(alpha = 0.94f),
+        topLeft = Offset(pillLeft, pillTop),
+        size = Size(pillW, pillH),
+        cornerRadius = corner,
       )
-      drawPath(
-        path = mainPath,
-        color = sec,
-        style = Stroke(
-          width = 2.8.dp.toPx(),
-          cap = StrokeCap.Round,
-          join = StrokeJoin.Round,
-          pathEffect = PathEffect.dashPathEffect(floatArrayOf(18.dp.toPx(), 8.dp.toPx()), 0f),
-        ),
+      drawRoundRect(
+        color = track.spec.primary,
+        topLeft = Offset(pillLeft, pillTop),
+        size = Size(pillW, pillH),
+        cornerRadius = corner,
+        style = scratch.pillTrackStroke,
+      )
+      val dotCenter = Offset(pillLeft + padH + dotRadius, pillTop + pillH / 2f)
+      drawCircle(color = track.spec.primary, radius = dotRadius, center = dotCenter)
+      if (track.spec.secondary != null) {
+        drawCircle(color = track.spec.secondary, radius = dotRadius * 0.45f, center = dotCenter)
+      }
+      drawText(
+        textLayoutResult = measured,
+        color = DeepSlateInk,
+        topLeft = Offset(dotCenter.x + dotRadius + dotGap, pillTop + padV),
       )
     }
   }
@@ -1377,10 +1609,11 @@ private fun DrawScope.drawRouteTracks(
 private fun DrawScope.drawParallelTrack(
   pts: List<Offset>,
   color: Color,
-  strokeWidth: Float,
+  stroke: Stroke,
   normalOffset: Float,
+  reusablePath: Path,
 ) {
-  val path = Path()
+  reusablePath.rewind()
   for (i in 0 until pts.size - 1) {
     val a = pts[i]
     val b = pts[i + 1]
@@ -1389,25 +1622,19 @@ private fun DrawScope.drawParallelTrack(
     val len = max(1f, hypot(dx, dy))
     val nx = (-dy / len) * normalOffset
     val ny = (dx / len) * normalOffset
-    path.moveTo(a.x + nx, a.y + ny)
-    path.lineTo(b.x + nx, b.y + ny)
+    reusablePath.moveTo(a.x + nx, a.y + ny)
+    reusablePath.lineTo(b.x + nx, b.y + ny)
   }
-  drawPath(
-    path = path,
-    color = color,
-    style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round),
-  )
+  drawPath(path = reusablePath, color = color, style = stroke)
 }
 
 private fun DrawScope.drawShopPinBadge(
   center: Offset,
-  pin: PreparedPinRender,
+  item: MeasuredPinRender,
   isSelected: Boolean,
-  compactPreviewMode: Boolean,
-  textMeasurer: TextMeasurer,
-  glyphStyle: TextStyle,
-  labelStyle: TextStyle,
+  scratch: MapCanvasScratch,
 ) {
+  val pin = item.pin
   val r = if (isSelected) 15.dp.toPx() else 12.5.dp.toPx()
   val d = r * 2f
 
@@ -1417,37 +1644,39 @@ private fun DrawScope.drawShopPinBadge(
     center = center + Offset(0f, 2.dp.toPx()),
   )
 
-  val circlePath = Path().apply {
-    addOval(Rect(center.x - r, center.y - r, center.x + r, center.y + r))
-  }
-
   val spec = pin.colorSpec
   val pri = if (pin.isUnallocated) Color.White else (spec?.primary ?: Color(0xFF1F4E43))
   val sec = spec?.secondary
   val pat = spec?.pattern ?: RouteComboPattern.SOLID
 
-  clipPath(circlePath) {
-    if (pin.isUnallocated || sec == null || pat == RouteComboPattern.SOLID) {
-      drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(d, d))
-    } else if (pat == RouteComboPattern.SPLIT_HALF) {
-      drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(r, d))
-      drawRect(color = sec, topLeft = Offset(center.x, center.y - r), size = Size(r, d))
-    } else if (pat == RouteComboPattern.TOP_BOTTOM_DUO) {
-      drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(d, r))
-      drawRect(color = sec, topLeft = Offset(center.x - r, center.y), size = Size(d, r))
-    } else if (pat == RouteComboPattern.DIAGONAL_STRIPE) {
-      drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(d, d))
-      val tri = Path().apply {
-        moveTo(center.x + r, center.y - r)
-        lineTo(center.x + r, center.y + r)
-        lineTo(center.x - r, center.y + r)
-        close()
+  if (pin.isUnallocated || sec == null || pat == RouteComboPattern.SOLID) {
+    // Fast path: solid circle avoids allocating and pushing clipPath on GPU
+    drawCircle(color = pri, radius = r, center = center)
+  } else if (pat == RouteComboPattern.RING_CORE) {
+    drawCircle(color = pri, radius = r, center = center)
+    drawCircle(color = Color.White, radius = r * 0.62f, center = center)
+    drawCircle(color = sec, radius = r * 0.44f, center = center)
+  } else {
+    val circlePath = scratch.clipCirclePath
+    circlePath.rewind()
+    circlePath.addOval(Rect(center.x - r, center.y - r, center.x + r, center.y + r))
+    clipPath(circlePath) {
+      if (pat == RouteComboPattern.SPLIT_HALF) {
+        drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(r, d))
+        drawRect(color = sec, topLeft = Offset(center.x, center.y - r), size = Size(r, d))
+      } else if (pat == RouteComboPattern.TOP_BOTTOM_DUO) {
+        drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(d, r))
+        drawRect(color = sec, topLeft = Offset(center.x - r, center.y), size = Size(d, r))
+      } else {
+        drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(d, d))
+        val tri = scratch.triPath
+        tri.rewind()
+        tri.moveTo(center.x + r, center.y - r)
+        tri.lineTo(center.x + r, center.y + r)
+        tri.lineTo(center.x - r, center.y + r)
+        tri.close()
+        drawPath(path = tri, color = sec)
       }
-      drawPath(path = tri, color = sec)
-    } else {
-      drawRect(color = pri, topLeft = Offset(center.x - r, center.y - r), size = Size(d, d))
-      drawCircle(color = Color.White, radius = r * 0.62f, center = center)
-      drawCircle(color = sec, radius = r * 0.44f, center = center)
     }
   }
 
@@ -1459,15 +1688,10 @@ private fun DrawScope.drawShopPinBadge(
     },
     radius = r,
     center = center,
-    style = Stroke(width = if (isSelected) 3.dp.toPx() else 2.dp.toPx()),
+    style = if (isSelected) scratch.pinSelectedStroke else scratch.pinDefaultStroke,
   )
 
-  val glyph = when {
-    pin.isUnallocated -> "?"
-    pin.stopNumber > 0 -> pin.stopNumber.toString()
-    else -> "•"
-  }
-  val glyphLayout = textMeasurer.measure(text = glyph, style = glyphStyle)
+  val glyphLayout = item.glyphLayout
   val glyphTopLeft = Offset(
     x = center.x - glyphLayout.size.width / 2f,
     y = center.y - glyphLayout.size.height / 2f,
@@ -1485,21 +1709,8 @@ private fun DrawScope.drawShopPinBadge(
     topLeft = glyphTopLeft,
   )
 
-  if (!compactPreviewMode && pin.shortName.isNotEmpty()) {
-    val label = buildString {
-      if (pin.stopNumber > 0 && !pin.isUnallocated) {
-        append("#${pin.stopNumber} ")
-      }
-      append(pin.shortName)
-    }
-    val maxTextWidth = 128.dp.toPx().roundToInt()
-    val measuredLabel = textMeasurer.measure(
-      text = label,
-      style = labelStyle,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      constraints = Constraints(maxWidth = maxTextWidth),
-    )
+  val measuredLabel = item.labelLayout
+  if (measuredLabel != null) {
     val padH = 6.dp.toPx()
     val padV = 3.dp.toPx()
     val pillW = measuredLabel.size.width + padH * 2f
@@ -1520,7 +1731,7 @@ private fun DrawScope.drawShopPinBadge(
         topLeft = Offset(pillLeft, pillTop),
         size = Size(pillW, pillH),
         cornerRadius = corner,
-        style = Stroke(width = 1.dp.toPx()),
+        style = scratch.pillPinStroke,
       )
       drawText(
         textLayoutResult = measuredLabel,
@@ -1533,38 +1744,39 @@ private fun DrawScope.drawShopPinBadge(
 
 private fun DrawScope.drawUserGpsMarker(
   pos: Offset,
-  compactPreviewMode: Boolean,
-  textMeasurer: TextMeasurer,
-  pillStyle: TextStyle,
+  measuredUserPill: TextLayoutResult?,
 ) {
   if (pos.x < -60f || pos.x > size.width + 60f || pos.y < -60f || pos.y > size.height + 60f) return
   drawCircle(color = CobaltInfo.copy(alpha = 0.16f), radius = 20.dp.toPx(), center = pos)
   drawCircle(color = Color.White, radius = 9.dp.toPx(), center = pos)
   drawCircle(color = CobaltInfo, radius = 6.5.dp.toPx(), center = pos)
 
-  if (!compactPreviewMode) {
-    val measured = textMeasurer.measure("My Location", style = pillStyle)
+  if (measuredUserPill != null) {
     val padH = 6.dp.toPx()
     val padV = 2.5.dp.toPx()
-    val pillW = measured.size.width + padH * 2f
-    val pillH = measured.size.height + padV * 2f
+    val pillW = measuredUserPill.size.width + padH * 2f
+    val pillH = measuredUserPill.size.height + padV * 2f
     val rx = pos.x - pillW / 2f
     val ry = pos.y + 12.dp.toPx()
+    val corner = CornerRadius(8.dp.toPx(), 8.dp.toPx())
     drawRoundRect(
       color = CobaltInfo,
       topLeft = Offset(rx, ry),
       size = Size(pillW, pillH),
-      cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx()),
+      cornerRadius = corner,
     )
     drawText(
-      textLayoutResult = measured,
+      textLayoutResult = measuredUserPill,
       color = Color.White,
       topLeft = Offset(rx + padH, ry + padV),
     )
   }
 }
 
-private fun DrawScope.drawFocusTeardropMarker(pos: Offset) {
+private fun DrawScope.drawFocusTeardropMarker(
+  pos: Offset,
+  scratch: MapCanvasScratch,
+) {
   if (pos.x < -60f || pos.x > size.width + 60f || pos.y < -60f || pos.y > size.height + 60f) return
   val haloR = 18.dp.toPx()
   val headR = 10.dp.toPx()
@@ -1572,12 +1784,12 @@ private fun DrawScope.drawFocusTeardropMarker(pos: Offset) {
 
   drawCircle(color = SaffronPrimary.copy(alpha = 0.22f), radius = haloR, center = pos)
 
-  val tipPath = Path().apply {
-    moveTo(pos.x - 7.dp.toPx(), pos.y - 7.dp.toPx())
-    lineTo(pos.x + 7.dp.toPx(), pos.y - 7.dp.toPx())
-    lineTo(pos.x, pos.y)
-    close()
-  }
+  val tipPath = scratch.path
+  tipPath.rewind()
+  tipPath.moveTo(pos.x - 7.dp.toPx(), pos.y - 7.dp.toPx())
+  tipPath.lineTo(pos.x + 7.dp.toPx(), pos.y - 7.dp.toPx())
+  tipPath.lineTo(pos.x, pos.y)
+  tipPath.close()
   drawPath(path = tipPath, color = SaffronPrimary)
   drawCircle(color = SaffronPrimary, radius = headR, center = Offset(pos.x, pos.y - headOffset))
   drawCircle(color = Color.White, radius = 4.dp.toPx(), center = Offset(pos.x, pos.y - headOffset))
@@ -1590,67 +1802,44 @@ private fun DrawScope.drawNavigationPolylines(
   widthPx: Float,
   heightPx: Float,
   worldScale: Float,
+  scratch: MapCanvasScratch,
 ) {
+  val path = scratch.path
   if (upcomingRoutePolyline.size >= 2) {
-    val upcomingPts = upcomingRoutePolyline.map { (lat, lng) ->
-      projectLatLngToScreen(lat, lng, camera, widthPx, heightPx, worldScale)
+    path.rewind()
+    for (i in upcomingRoutePolyline.indices) {
+      val (lat, lng) = upcomingRoutePolyline[i]
+      val pt = projectLatLngToScreen(lat, lng, camera, widthPx, heightPx, worldScale)
+      if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
     }
-    val upcomingPath = Path().apply {
-      moveTo(upcomingPts.first().x, upcomingPts.first().y)
-      for (i in 1 until upcomingPts.size) lineTo(upcomingPts[i].x, upcomingPts[i].y)
-    }
-    drawPath(
-      path = upcomingPath,
-      color = Color.White.copy(alpha = 0.85f),
-      style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-    )
-    drawPath(
-      path = upcomingPath,
-      color = CobaltInfo.copy(alpha = 0.72f),
-      style = Stroke(
-        width = 3.5.dp.toPx(),
-        cap = StrokeCap.Round,
-        join = StrokeJoin.Round,
-        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12.dp.toPx(), 7.dp.toPx()), 0f),
-      ),
-    )
+    drawPath(path = path, color = Color.White.copy(alpha = 0.85f), style = scratch.navUpcomingHaloStroke)
+    drawPath(path = path, color = CobaltInfo.copy(alpha = 0.72f), style = scratch.navUpcomingDashStroke)
   }
 
   if (activeLegPolyline.size >= 2) {
-    val activePts = activeLegPolyline.map { (lat, lng) ->
-      projectLatLngToScreen(lat, lng, camera, widthPx, heightPx, worldScale)
+    path.rewind()
+    for (i in activeLegPolyline.indices) {
+      val (lat, lng) = activeLegPolyline[i]
+      val pt = projectLatLngToScreen(lat, lng, camera, widthPx, heightPx, worldScale)
+      if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
     }
-    val activePath = Path().apply {
-      moveTo(activePts.first().x, activePts.first().y)
-      for (i in 1 until activePts.size) lineTo(activePts[i].x, activePts[i].y)
-    }
-    drawPath(
-      path = activePath,
-      color = Color.White.copy(alpha = 0.94f),
-      style = Stroke(width = 8.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-    )
-    drawPath(
-      path = activePath,
-      color = SaffronPrimary,
-      style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-    )
+    drawPath(path = path, color = Color.White.copy(alpha = 0.94f), style = scratch.navActiveHaloStroke)
+    drawPath(path = path, color = SaffronPrimary, style = scratch.navActiveStroke)
   }
 }
 
 private fun DrawScope.drawNavigationTargetPin(
   center: Offset,
-  pin: NavigationMapPin,
+  item: MeasuredNavPinRender,
   isSelected: Boolean,
-  textMeasurer: TextMeasurer,
-  glyphStyle: TextStyle,
-  labelStyle: TextStyle,
+  scratch: MapCanvasScratch,
 ) {
+  val pin = item.pin
   val isActive = pin.state == StopPinState.ACTIVE_TARGET
   val isCompleted = pin.state == StopPinState.COMPLETED
   val r = when {
     isActive -> 16.dp.toPx()
     isSelected -> 14.5.dp.toPx()
-    isCompleted -> 12.dp.toPx()
     else -> 12.dp.toPx()
   }
 
@@ -1690,14 +1879,10 @@ private fun DrawScope.drawNavigationTargetPin(
     color = borderColor,
     radius = r,
     center = center,
-    style = Stroke(width = if (isActive || isSelected) 2.6.dp.toPx() else 1.8.dp.toPx()),
+    style = if (isActive || isSelected) scratch.navPinSelectedStroke else scratch.navPinDefaultStroke,
   )
 
-  val glyph = if (isCompleted) "✓" else String.format(java.util.Locale.US, "%02d", pin.stopNumber)
-  val glyphLayout = textMeasurer.measure(
-    text = glyph,
-    style = glyphStyle.copy(fontSize = if (isActive) 11.sp else 9.5.sp),
-  )
+  val glyphLayout = item.glyphLayout
   drawText(
     textLayoutResult = glyphLayout,
     color = textColor,
@@ -1707,37 +1892,28 @@ private fun DrawScope.drawNavigationTargetPin(
     ),
   )
 
-  // Always show clear label pill for Active Target, Selected Pin, and Completed pins
-  if (isActive || isSelected || isCompleted) {
-    val shortShop = pin.shop.name.substringBefore(" Bakery").substringBefore(" Supermarket").trim()
-    val stopPrefix = String.format(java.util.Locale.US, "%02d", pin.stopNumber)
-    val label = when {
-      isActive && pin.distanceLabel.isNotBlank() -> "$shortShop (${pin.distanceLabel})"
-      isCompleted -> "$stopPrefix ${shortShop.take(12)}"
-      else -> "$stopPrefix $shortShop"
-    }
-    val maxW = 148.dp.toPx().roundToInt()
-    val measured = textMeasurer.measure(
-      text = label,
-      style = labelStyle.copy(fontSize = if (isActive) 10.sp else 9.sp),
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      constraints = Constraints(maxWidth = maxW),
-    )
+  val measured = item.labelLayout
+  if (measured != null) {
     val padH = 6.dp.toPx()
     val padV = 2.5.dp.toPx()
     val pillW = measured.size.width + padH * 2f
     val pillH = measured.size.height + padV * 2f
     val pillLeft = (center.x - pillW / 2f).coerceIn(6f, max(6f, size.width - pillW - 6f))
-    val pillTop = center.y + r + 3.dp.toPx()
+    val belowTop = center.y + r + 3.dp.toPx()
+    val pillTop = if (belowTop + pillH <= size.height - 4f) {
+      belowTop
+    } else {
+      (center.y - r - pillH - 3.dp.toPx()).coerceAtLeast(4f)
+    }
 
-    if (pillTop + pillH <= size.height - 4f) {
+    if (pillTop >= 2f && pillTop + pillH <= size.height - 2f) {
       val corner = CornerRadius(6.dp.toPx(), 6.dp.toPx())
       drawRoundRect(
         color = when {
           isActive -> SaffronPrimary
           isSelected -> ForestSecondary
-          else -> Color.Black.copy(alpha = 0.72f)
+          isCompleted -> EmeraldSuccess.copy(alpha = 0.92f)
+          else -> Color.Black.copy(alpha = 0.78f)
         },
         topLeft = Offset(pillLeft, pillTop),
         size = Size(pillW, pillH),

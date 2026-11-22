@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.ServerConfigStore
-import com.example.data.local.SnackRouteDatabase
+import com.example.data.local.HomelyDatabase
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
@@ -28,12 +28,13 @@ import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.computeFitBoundsCamera
 import com.example.ui.components.projectLatLngToScreen
 import com.example.ui.screens.EditRouteBottomSheet
+import com.example.ui.screens.RoutePlanScreen
 import com.example.ui.screens.TransportScreen
 import com.example.ui.screens.formatVehicleSummary
 import com.example.ui.screens.parseVehicleSummary
 import com.example.ui.theme.RouteColorPalette
 import com.example.ui.theme.RouteComboPattern
-import com.example.ui.theme.SnackRouteTheme
+import com.example.ui.theme.HomelyTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -48,26 +49,26 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [36], qualifiers = "w412dp-h915dp")
 class RoutePlanningTest {
 
   @get:Rule
   val composeTestRule = createComposeRule()
 
   private lateinit var context: Context
-  private lateinit var roomDb: SnackRouteDatabase
+  private lateinit var roomDb: HomelyDatabase
   private lateinit var coordinator: SyncCoordinatorRepository
 
   @Before
   fun setUp() {
     context = ApplicationProvider.getApplicationContext()
-    roomDb = Room.inMemoryDatabaseBuilder(context, SnackRouteDatabase::class.java)
+    roomDb = Room.inMemoryDatabaseBuilder(context, HomelyDatabase::class.java)
       .allowMainThreadQueries()
       .build()
     coordinator = SyncCoordinatorRepository(
       appContext = context,
       primary = LocalTestRepository(),
-      dao = roomDb.snackRouteDao(),
+      dao = roomDb.homelyDao(),
       configStore = ServerConfigStore(context),
       laptopClient = LaptopServerClient(),
       currentUserId = LocalTestRepository.LOCAL_UID,
@@ -246,7 +247,7 @@ class RoutePlanningTest {
     )
 
     composeTestRule.setContent {
-      SnackRouteTheme {
+      HomelyTheme {
         Box(modifier = Modifier.size(width = 360.dp, height = 420.dp)) {
           RealOsmMapView(
             shops = sampleShops,
@@ -328,7 +329,7 @@ class RoutePlanningTest {
     var savedRoute: DeliveryRoute? = null
 
     composeTestRule.setContent {
-      SnackRouteTheme {
+      HomelyTheme {
         EditRouteBottomSheet(
           initialRoute = initialRoute,
           usedColorIndices = emptySet(),
@@ -377,7 +378,7 @@ class RoutePlanningTest {
     var updatedVehicle: String? = null
 
     composeTestRule.setContent {
-      SnackRouteTheme {
+      HomelyTheme {
         TransportScreen(
           shops = emptyList(),
           orders = emptyList(),
@@ -405,5 +406,96 @@ class RoutePlanningTest {
     composeTestRule.waitForIdle()
 
     assertEquals("Eicher Pro 2049 (KL-11-CC-5566) • Insulated Reefer", updatedVehicle)
+  }
+
+  @Test
+  fun routePlanScreen_showsRoutePillsOnMapAndAllowsDirectUnallocatedAssign() {
+    val routes = listOf(
+      DeliveryRoute(
+        id = RoutesCatalog.R01_KANNUR_BANGALORE,
+        name = "Route 1: Kannur - Bangalore",
+        vehicle = "KL-13-AB-1122",
+        maxCrates = 40,
+        colorIndex = 0,
+      ),
+      DeliveryRoute(
+        id = RoutesCatalog.R02_KANNUR_KOZHIKODE,
+        name = "Route 2: Kannur - Kozhikode",
+        vehicle = "KL-07-CB-9081",
+        maxCrates = 40,
+        colorIndex = 3,
+      ),
+    )
+    val shops = listOf(
+      Shop(
+        id = "s_unalloc_1",
+        shopCode = "SHP-101",
+        name = "New Corner Bakery",
+        ownerName = "Rajan",
+        phone = "9845011223",
+        address = "MG Road, Kochi",
+        pinCode = "682016",
+        routeId = RoutesCatalog.UNALLOCATED,
+        latitude = 9.9675,
+        longitude = 76.2901,
+      ),
+      Shop(
+        id = "s_unalloc_2",
+        shopCode = "SHP-102",
+        name = "Metro Fresh Mart",
+        ownerName = "Anil",
+        phone = "9845099887",
+        address = "Edappally",
+        pinCode = "682024",
+        routeId = RoutesCatalog.UNALLOCATED,
+        latitude = 10.0261,
+        longitude = 76.3125,
+      ),
+    )
+    val assignedEvents = mutableListOf<Pair<String, String>>()
+    val batchEvents = mutableListOf<Pair<List<String>, String>>()
+
+    composeTestRule.setContent {
+      HomelyTheme {
+        RoutePlanScreen(
+          shops = shops,
+          routes = routes,
+          onSaveRoute = { _, _ -> },
+          onUpdateShopRoute = { shopId, routeId, _ -> assignedEvents += (shopId to routeId) },
+          onBulkAssignShopsToRoute = { ids, routeId, _ -> batchEvents += (ids to routeId) },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    // Route names are rendered directly inside the map viewport pill strip
+    composeTestRule.onNodeWithTag("map_route_name_pills_row").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("map_route_pill_${RoutesCatalog.R01_KANNUR_BANGALORE}").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("map_route_pill_${RoutesCatalog.R02_KANNUR_KOZHIKODE}").assertIsDisplayed()
+
+    // Open Unallocated tab and assign directly inside the unallocated shop card
+    composeTestRule.onNodeWithTag("dispatch_tab_unallocated").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("unallocated_shop_card_SHP-101").performScrollTo()
+    composeTestRule.onNodeWithTag("unalloc_assign_SHP-101_${RoutesCatalog.R01_KANNUR_BANGALORE}")
+      .performScrollTo()
+      .performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(listOf("s_unalloc_1" to RoutesCatalog.R01_KANNUR_BANGALORE), assignedEvents)
+
+    // Batch select SHP-102 and assign via batch bar
+    composeTestRule.onNodeWithTag("unallocated_shop_card_SHP-102").performScrollTo()
+    composeTestRule.onNodeWithTag("unalloc_check_SHP-102").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("unallocated_batch_assign_bar").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("batch_assign_route_${RoutesCatalog.R02_KANNUR_KOZHIKODE}")
+      .performScrollTo()
+      .performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(
+      listOf(listOf("s_unalloc_2") to RoutesCatalog.R02_KANNUR_KOZHIKODE),
+      batchEvents,
+    )
   }
 }

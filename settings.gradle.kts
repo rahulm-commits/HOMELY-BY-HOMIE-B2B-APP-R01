@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "SnackRoute"
+rootProject.name = "Homely by Homie"
 
 include(":app")

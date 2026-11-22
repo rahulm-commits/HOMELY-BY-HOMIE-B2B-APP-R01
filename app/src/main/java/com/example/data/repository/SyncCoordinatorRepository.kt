@@ -19,7 +19,7 @@ import com.example.data.local.PendingSupplierBillEntity
 import com.example.data.local.PendingSupplierEntity
 import com.example.data.local.ServerConfigStore
 import com.example.data.local.ServerSettings
-import com.example.data.local.SnackRouteDao
+import com.example.data.local.HomelyDao
 import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.InquiryStatus
@@ -125,7 +125,7 @@ interface RemoteCloudAdapter {
 }
 
 private class FirestoreCloudAdapter(
-  private val repo: SnackRouteRepository,
+  private val repo: HomelyRepository,
 ) : RemoteCloudAdapter {
   override suspend fun upsertShop(shop: Shop, isUpdate: Boolean): Result<String> =
     repo.saveShopWithId(shop, isUpdate = isUpdate, awaitServerAck = true)
@@ -244,16 +244,16 @@ private class FirestoreCloudAdapter(
 
 class SyncCoordinatorRepository(
   private val appContext: Context,
-  private val primary: SnackRouteDataSource,
-  private val dao: SnackRouteDao,
+  private val primary: HomelyDataSource,
+  private val dao: HomelyDao,
   private val configStore: ServerConfigStore,
   private val laptopClient: LaptopServerClient,
   private val currentUserId: String,
   private val isLocalTestMode: Boolean,
   private val cloudAdapter: RemoteCloudAdapter? =
-    (primary as? SnackRouteRepository)?.let(::FirestoreCloudAdapter),
+    (primary as? HomelyRepository)?.let(::FirestoreCloudAdapter),
   private val isOnlineProvider: () -> Boolean = { isNetworkAvailable(appContext) },
-) : SnackRouteDataSource {
+) : HomelyDataSource {
 
   private val syncMutex = Mutex()
 
@@ -368,7 +368,7 @@ class SyncCoordinatorRepository(
 
       // 1. Cached shops from Room (global snapshots, laptop-pulled, and offline-saved)
       cachedEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { entity ->
           val shop = entity.toDomainShop()
           val key = shop.id.ifBlank { shop.shopCode }
@@ -386,7 +386,7 @@ class SyncCoordinatorRepository(
 
       // 3. Highest priority: local Room phone queue (unsynced or pending cleanup edits)
       pendingEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { pending ->
           val stillPending = !pending.isFullySynced(requireGlobal, requireLaptop)
           val domainShop = pending.toDomainShop(pendingSync = stillPending)
@@ -438,13 +438,13 @@ class SyncCoordinatorRepository(
       val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
       val pendingDeleteKeys = pendingOrders
-        .filter { (it.userId == userId || it.userId.isBlank()) && it.pendingDelete }
+        .filter { belongsToActiveUser(it.userId, userId) && it.pendingDelete }
         .flatMap { listOfNotNull(it.localId.takeIf { id -> id.isNotBlank() }, it.orderCode.takeIf { c -> c.isNotBlank() }) }
         .toSet()
 
       val byId = LinkedHashMap<String, OrderRecord>()
       cachedOrders
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .filter { it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
         .forEach { entity ->
           val ord = entity.toDomainOrder()
@@ -460,7 +460,7 @@ class SyncCoordinatorRepository(
           }
         }
       pendingOrders
-        .filter { (it.userId == userId || it.userId.isBlank()) && !it.pendingDelete }
+        .filter { belongsToActiveUser(it.userId, userId) && !it.pendingDelete }
         .forEach { pending ->
           val stillPending = !pending.isFullySynced(requireGlobal, requireLaptop)
           val ord = pending.toDomainOrder(pendingSync = stillPending)
@@ -496,7 +496,7 @@ class SyncCoordinatorRepository(
       dao.observePendingStockUpdates(),
     ) { remoteStocks, cachedEntities, pendingUpdates ->
       val pendingById = pendingUpdates
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .associateBy { it.stockId }
 
       val byId = LinkedHashMap<String, StockItem>()
@@ -555,7 +555,7 @@ class SyncCoordinatorRepository(
       val byId = LinkedHashMap<String, Product>()
 
       cachedEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { entity ->
           val prod = entity.toDomainProduct()
           byId[prod.id.ifBlank { prod.productCode }] = prod
@@ -570,7 +570,7 @@ class SyncCoordinatorRepository(
       }
 
       pendingEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { pending ->
           val stillPending = !pending.isFullySynced(requireGlobal)
           val domainProduct = pending.toDomainProduct(pendingSync = stillPending)
@@ -613,7 +613,7 @@ class SyncCoordinatorRepository(
       val byId = LinkedHashMap<String, PaymentTransaction>()
 
       cachedEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { entity ->
           val payment = entity.toDomainPayment()
           byId[payment.id.ifBlank { payment.receiptCode }] = payment
@@ -628,7 +628,7 @@ class SyncCoordinatorRepository(
       }
 
       pendingEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { pending ->
           val stillPending = !pending.isFullySynced(requireGlobal)
           val domainPayment = pending.toDomainPayment(pendingSync = stillPending)
@@ -674,7 +674,7 @@ class SyncCoordinatorRepository(
       val byId = LinkedHashMap<String, SupplierBill>()
 
       cachedEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { entity ->
           val bill = entity.toDomainBill()
           byId[bill.id.ifBlank { bill.billNumber }] = bill
@@ -689,7 +689,7 @@ class SyncCoordinatorRepository(
       }
 
       pendingEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { pending ->
           val stillPending = !pending.isFullySynced(requireGlobal)
           val domainBill = pending.toDomainBill(pendingSync = stillPending)
@@ -732,7 +732,7 @@ class SyncCoordinatorRepository(
       val byId = LinkedHashMap<String, Supplier>()
 
       cachedEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { entity ->
           val sup = entity.toDomainSupplier()
           byId[sup.id.ifBlank { sup.supplierCode }] = sup
@@ -747,7 +747,7 @@ class SyncCoordinatorRepository(
       }
 
       pendingEntities
-        .filter { it.userId == userId || it.userId.isBlank() }
+        .filter { belongsToActiveUser(it.userId, userId) }
         .forEach { pending ->
           val stillPending = !pending.isFullySynced(requireGlobal)
           val domainSup = pending.toDomainSupplier(pendingSync = stillPending)
@@ -1201,11 +1201,42 @@ class SyncCoordinatorRepository(
     }
 
     var globalOk = false
+    val errors = mutableListOf<String>()
     val cloud = cloudAdapter
-    if (requireGlobal && cloud != null && isOnlineProvider()) {
-      val res = cloud.updateOrderStatus(resolvedOrderId, newStatus, note)
-      if (res.isSuccess) {
-        globalOk = true
+    if (requireGlobal && cloud != null) {
+      if (isOnlineProvider()) {
+        val res = cloud.updateOrderStatus(resolvedOrderId, newStatus, note)
+        if (res.isSuccess) {
+          globalOk = true
+        } else {
+          val err = res.exceptionOrNull()
+          val isNotFound = err is FirebaseFirestoreException && err.code == FirebaseFirestoreException.Code.NOT_FOUND
+          if (isNotFound && updatedOrder != null) {
+            val createRes = cloud.placeRawOrder(
+              orderDocId = updatedOrder.id.ifBlank { resolvedOrderId },
+              orderCode = updatedOrder.orderCode.ifBlank { "ORD-${now % 9000 + 1000}" },
+              shopId = updatedOrder.shopId.ifBlank { "shop_unknown" },
+              shopCode = updatedOrder.shopCode.ifBlank { "SHP-000" },
+              shopName = updatedOrder.shopName.ifBlank { "Retail Shop" },
+              routeId = updatedOrder.routeId.ifBlank { RoutesCatalog.UNALLOCATED },
+              status = newStatus,
+              totalAmount = updatedOrder.totalAmount.coerceAtLeast(0.0),
+              itemCount = updatedOrder.itemCount.coerceAtLeast(1),
+              itemsSummary = updatedOrder.itemsSummary.ifBlank { "Order items" },
+              orderDate = updatedOrder.orderDate.ifBlank { todayString() },
+              note = updatedOrder.note,
+            )
+            if (createRes.isSuccess) {
+              globalOk = true
+            } else {
+              errors += "Cloud: ${createRes.exceptionOrNull()?.localizedMessage ?: "failed"}"
+            }
+          } else {
+            errors += "Cloud: ${err?.localizedMessage ?: "failed"}"
+          }
+        }
+      } else {
+        errors += "Cloud: No internet"
       }
     }
 
@@ -1214,19 +1245,24 @@ class SyncCoordinatorRepository(
       val push = laptopClient.pushOrder(
         settings.laptopServerUrl,
         settings.laptopApiToken,
-        updatedOrder.copy(isPendingSync = false),
+        updatedOrder.copy(userId = currentUserId, isPendingSync = false),
       )
       if (push.isSuccess) {
         localOk = true
+      } else {
+        errors += "Laptop: ${push.exceptionOrNull()?.localizedMessage ?: "unreachable"}"
       }
     }
 
+    val errorMsg = errors.joinToString(" | ")
     if (pending != null) {
       val updatedPending = pending.copy(
+        userId = currentUserId,
         status = newStatus,
         note = normalizedNote ?: pending.note,
         globalSynced = if (requireGlobal) globalOk else pending.globalSynced,
         localServerSynced = if (requireLaptop) localOk else pending.localServerSynced,
+        lastError = if (globalOk && (!requireLaptop || localOk)) "" else errorMsg,
       )
       if (updatedPending.isFullySynced(requireGlobal, requireLaptop) && settings.autoDeleteSyncedFromPhone) {
         dao.deletePendingOrder(updatedPending.localId)
@@ -1252,6 +1288,7 @@ class SyncCoordinatorRepository(
           isUpdate = true,
           globalSynced = globalOk,
           localServerSynced = localOk,
+          lastError = errorMsg,
           createdAtMillis = now,
         )
       )
@@ -1808,10 +1845,10 @@ class SyncCoordinatorRepository(
       }
     }
 
-    // 3b. Sync pending catalog products to Cloud Firestore
+    // 3b. Sync pending catalog products to Cloud Firestore & Laptop Server
     val pendingProducts = dao.getPendingProductsOnce()
     for (prodEntity in pendingProducts) {
-      val needsSync = requireGlobal && !prodEntity.globalSynced
+      val needsSync = (requireGlobal && !prodEntity.globalSynced) || requireLaptop
       if (!needsSync && prodEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingProduct(prodEntity.localId)
@@ -1820,7 +1857,8 @@ class SyncCoordinatorRepository(
         continue
       }
       val updated = pushPendingProductToServer(prodEntity, settings)
-      val done = updated.isFullySynced(requireGlobal)
+      val laptopOk = !requireLaptop || !updated.lastError.contains("Laptop:")
+      val done = updated.isFullySynced(requireGlobal) && laptopOk
       if (done) {
         syncedItems++
         dao.upsertCachedProducts(
@@ -1837,10 +1875,10 @@ class SyncCoordinatorRepository(
       }
     }
 
-    // 3c. Sync pending supplier bills to Cloud Firestore
+    // 3c. Sync pending supplier bills to Cloud Firestore & Laptop Server
     val pendingSupplierBills = dao.getPendingSupplierBillsOnce()
     for (billEntity in pendingSupplierBills) {
-      val needsSync = requireGlobal && !billEntity.globalSynced
+      val needsSync = (requireGlobal && !billEntity.globalSynced) || requireLaptop
       if (!needsSync && billEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingSupplierBill(billEntity.localId)
@@ -1849,7 +1887,8 @@ class SyncCoordinatorRepository(
         continue
       }
       val updated = pushPendingSupplierBillToServer(billEntity, settings)
-      val done = updated.isFullySynced(requireGlobal)
+      val laptopOk = !requireLaptop || !updated.lastError.contains("Laptop:")
+      val done = updated.isFullySynced(requireGlobal) && laptopOk
       if (done) {
         syncedItems++
         dao.upsertCachedSupplierBills(
@@ -1866,10 +1905,10 @@ class SyncCoordinatorRepository(
       }
     }
 
-    // 3d. Sync pending payment records to Cloud Firestore
+    // 3d. Sync pending payment records to Cloud Firestore & Laptop Server
     val pendingPayments = dao.getPendingPaymentsOnce()
     for (payEntity in pendingPayments) {
-      val needsSync = requireGlobal && !payEntity.globalSynced
+      val needsSync = (requireGlobal && !payEntity.globalSynced) || requireLaptop
       if (!needsSync && payEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingPayment(payEntity.localId)
@@ -1878,7 +1917,8 @@ class SyncCoordinatorRepository(
         continue
       }
       val updated = pushPendingPaymentToServer(payEntity, settings)
-      val done = updated.isFullySynced(requireGlobal)
+      val laptopOk = !requireLaptop || !updated.lastError.contains("Laptop:")
+      val done = updated.isFullySynced(requireGlobal) && laptopOk
       if (done) {
         syncedItems++
         dao.upsertCachedPayments(
@@ -1895,10 +1935,10 @@ class SyncCoordinatorRepository(
       }
     }
 
-    // 3e. Sync pending suppliers directory to Cloud Firestore
+    // 3e. Sync pending suppliers directory to Cloud Firestore & Laptop Server
     val pendingSuppliers = dao.getPendingSuppliersOnce()
     for (supEntity in pendingSuppliers) {
-      val needsSync = requireGlobal && !supEntity.globalSynced
+      val needsSync = (requireGlobal && !supEntity.globalSynced) || requireLaptop
       if (!needsSync && supEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingSupplier(supEntity.localId)
@@ -1907,7 +1947,8 @@ class SyncCoordinatorRepository(
         continue
       }
       val updated = pushPendingSupplierToServer(supEntity, settings)
-      val done = updated.isFullySynced(requireGlobal)
+      val laptopOk = !requireLaptop || !updated.lastError.contains("Laptop:")
+      val done = updated.isFullySynced(requireGlobal) && laptopOk
       if (done) {
         syncedItems++
         dao.upsertCachedSuppliers(
@@ -1929,10 +1970,12 @@ class SyncCoordinatorRepository(
     var laptopMirrorError: String? = null
     if (requireLaptop) {
       val allShops = LinkedHashMap<String, Shop>()
-      dao.observeCachedShops().first().forEach { entity ->
-        val s = entity.toDomainShop()
-        allShops[s.id.ifBlank { s.shopCode }] = s
-      }
+      dao.observeCachedShops().first()
+        .filter { belongsToActiveUser(it.userId, currentUserId) }
+        .forEach { entity ->
+          val s = entity.toDomainShop().copy(userId = currentUserId)
+          allShops[s.id.ifBlank { s.shopCode }] = s
+        }
       runCatching {
         withTimeoutOrNull(1200L) { primary.observeShops(currentUserId).first() }
       }.getOrNull().orEmpty().forEach { s ->
@@ -1957,9 +2000,9 @@ class SyncCoordinatorRepository(
         .toSet()
       val allOrders = LinkedHashMap<String, OrderRecord>()
       dao.observeCachedOrders().first()
-        .filter { it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
+        .filter { belongsToActiveUser(it.userId, currentUserId) && it.id !in pendingDeleteKeys && it.orderCode !in pendingDeleteKeys }
         .forEach { entity ->
-          val o = entity.toDomainOrder()
+          val o = entity.toDomainOrder().copy(userId = currentUserId)
           allOrders[o.id.ifBlank { o.orderCode }] = o
         }
       runCatching {
@@ -1986,11 +2029,97 @@ class SyncCoordinatorRepository(
         RoutesCatalog.starterRoutes.map { DeliveryRouteEntity.fromDomainRoute(it) }
       }
       for (routeEntity in routesToPush) {
-        laptopClient.pushRoute(
+        val routeRes = laptopClient.pushRoute(
           settings.laptopServerUrl,
           settings.laptopApiToken,
           routeEntity.toDomainRoute(),
         )
+        if (routeRes.isSuccess) {
+          laptopMirrorCount++
+        } else if (laptopMirrorError == null) {
+          laptopMirrorError = routeRes.exceptionOrNull()?.localizedMessage ?: "Laptop route push failed"
+        }
+      }
+
+      // Mirror Products, Payments, SupplierBills & Suppliers to Laptop Server
+      val allProducts = LinkedHashMap<String, Product>()
+      dao.observeCachedProducts().first()
+        .filter { belongsToActiveUser(it.userId, currentUserId) }
+        .forEach { e ->
+          val p = e.toDomainProduct().copy(userId = currentUserId)
+          allProducts[p.id.ifBlank { p.productCode }] = p
+        }
+      runCatching { withTimeoutOrNull(1200L) { primary.observeProducts(currentUserId).first() } }
+        .getOrNull().orEmpty().forEach { p ->
+          val key = p.id.ifBlank { p.productCode }
+          val existing = allProducts[key]
+          if (existing == null || p.updatedAtMillis() >= existing.updatedAtMillis()) allProducts[key] = p
+        }
+      for (p in allProducts.values) {
+        val pushRes = laptopClient.pushProduct(settings.laptopServerUrl, settings.laptopApiToken, p)
+        if (pushRes.isSuccess) laptopMirrorCount++ else if (laptopMirrorError == null) {
+          laptopMirrorError = pushRes.exceptionOrNull()?.localizedMessage
+        }
+      }
+
+      val allPayments = LinkedHashMap<String, PaymentTransaction>()
+      dao.observeCachedPayments().first()
+        .filter { belongsToActiveUser(it.userId, currentUserId) }
+        .forEach { e ->
+          val pay = e.toDomainPayment().copy(userId = currentUserId)
+          allPayments[pay.id.ifBlank { pay.receiptCode }] = pay
+        }
+      runCatching { withTimeoutOrNull(1200L) { primary.observePayments(currentUserId).first() } }
+        .getOrNull().orEmpty().forEach { pay ->
+          val key = pay.id.ifBlank { pay.receiptCode }
+          val existing = allPayments[key]
+          if (existing == null || pay.updatedAtMillis() >= existing.updatedAtMillis()) allPayments[key] = pay
+        }
+      for (pay in allPayments.values) {
+        val pushRes = laptopClient.pushPayment(settings.laptopServerUrl, settings.laptopApiToken, pay)
+        if (pushRes.isSuccess) laptopMirrorCount++ else if (laptopMirrorError == null) {
+          laptopMirrorError = pushRes.exceptionOrNull()?.localizedMessage
+        }
+      }
+
+      val allBills = LinkedHashMap<String, SupplierBill>()
+      dao.observeCachedSupplierBills().first()
+        .filter { belongsToActiveUser(it.userId, currentUserId) }
+        .forEach { e ->
+          val b = e.toDomainBill().copy(userId = currentUserId)
+          allBills[b.id.ifBlank { b.billNumber }] = b
+        }
+      runCatching { withTimeoutOrNull(1200L) { primary.observeSupplierBills(currentUserId).first() } }
+        .getOrNull().orEmpty().forEach { b ->
+          val key = b.id.ifBlank { b.billNumber }
+          val existing = allBills[key]
+          if (existing == null || b.updatedAtMillis() >= existing.updatedAtMillis()) allBills[key] = b
+        }
+      for (b in allBills.values) {
+        val pushRes = laptopClient.pushSupplierBill(settings.laptopServerUrl, settings.laptopApiToken, b)
+        if (pushRes.isSuccess) laptopMirrorCount++ else if (laptopMirrorError == null) {
+          laptopMirrorError = pushRes.exceptionOrNull()?.localizedMessage
+        }
+      }
+
+      val allSuppliers = LinkedHashMap<String, Supplier>()
+      dao.observeCachedSuppliers().first()
+        .filter { belongsToActiveUser(it.userId, currentUserId) }
+        .forEach { e ->
+          val s = e.toDomainSupplier().copy(userId = currentUserId)
+          allSuppliers[s.id.ifBlank { s.supplierCode }] = s
+        }
+      runCatching { withTimeoutOrNull(1200L) { primary.observeSuppliers(currentUserId).first() } }
+        .getOrNull().orEmpty().forEach { s ->
+          val key = s.id.ifBlank { s.supplierCode }
+          val existing = allSuppliers[key]
+          if (existing == null || s.updatedAtMillis() >= existing.updatedAtMillis()) allSuppliers[key] = s
+        }
+      for (s in allSuppliers.values) {
+        val pushRes = laptopClient.pushSupplier(settings.laptopServerUrl, settings.laptopApiToken, s)
+        if (pushRes.isSuccess) laptopMirrorCount++ else if (laptopMirrorError == null) {
+          laptopMirrorError = pushRes.exceptionOrNull()?.localizedMessage
+        }
       }
     }
 
@@ -2001,7 +2130,7 @@ class SyncCoordinatorRepository(
         val existingGlobalShops = cloud.fetchShopsOnce(currentUserId).getOrNull().orEmpty()
           .associateBy { it.id }
         val cachedShops = dao.observeCachedShops().first()
-          .filter { it.userId == currentUserId || it.userId.isBlank() }
+          .filter { belongsToActiveUser(it.userId, currentUserId) }
         for (entity in cachedShops) {
           val shop = normalizeForFirestore(entity.toDomainShop().copy(userId = currentUserId))
           val targetId = shop.id.ifBlank { shop.shopCode }
@@ -2022,7 +2151,7 @@ class SyncCoordinatorRepository(
         val existingGlobalOrderIds = cloud.fetchOrdersOnce(currentUserId).getOrNull().orEmpty()
           .map { it.id }.toSet()
         val cachedOrders = dao.observeCachedOrders().first()
-          .filter { it.userId == currentUserId || it.userId.isBlank() }
+          .filter { belongsToActiveUser(it.userId, currentUserId) }
         for (entity in cachedOrders) {
           val orderId = entity.id.ifBlank { entity.orderCode }
           if (!existingGlobalOrderIds.contains(orderId)) {
@@ -2047,6 +2176,69 @@ class SyncCoordinatorRepository(
             }
           }
         }
+
+        val existingGlobalProducts = cloud.fetchProductsOnce(currentUserId).getOrNull().orEmpty()
+          .associateBy { it.id }
+        val cachedProducts = dao.observeCachedProducts().first()
+          .filter { belongsToActiveUser(it.userId, currentUserId) }
+        for (entity in cachedProducts) {
+          val prod = normalizeProductForFirestore(entity.toDomainProduct().copy(userId = currentUserId))
+          val targetId = prod.id.ifBlank { prod.productCode }
+          val remote = existingGlobalProducts[targetId]
+          if (remote == null || entity.updatedAtMillis > remote.updatedAtMillis()) {
+            val res = cloud.upsertProduct(prod.copy(id = targetId), isUpdate = remote != null)
+            if (res.isSuccess) globalMirrorCount++ else if (globalMirrorError == null) {
+              globalMirrorError = res.exceptionOrNull()?.localizedMessage
+            }
+          }
+        }
+
+        val existingGlobalPaymentIds = cloud.fetchPaymentsOnce(currentUserId).getOrNull().orEmpty()
+          .map { it.id }.toSet()
+        val cachedPayments = dao.observeCachedPayments().first()
+          .filter { belongsToActiveUser(it.userId, currentUserId) }
+        for (entity in cachedPayments) {
+          val pay = normalizePaymentForFirestore(entity.toDomainPayment().copy(userId = currentUserId))
+          val targetId = pay.id.ifBlank { pay.receiptCode }
+          if (!existingGlobalPaymentIds.contains(targetId)) {
+            val res = cloud.upsertPayment(pay.copy(id = targetId), isUpdate = false)
+            if (res.isSuccess) globalMirrorCount++ else if (globalMirrorError == null) {
+              globalMirrorError = res.exceptionOrNull()?.localizedMessage
+            }
+          }
+        }
+
+        val existingGlobalBills = cloud.fetchSupplierBillsOnce(currentUserId).getOrNull().orEmpty()
+          .associateBy { it.id }
+        val cachedBills = dao.observeCachedSupplierBills().first()
+          .filter { belongsToActiveUser(it.userId, currentUserId) }
+        for (entity in cachedBills) {
+          val bill = normalizeSupplierBillForFirestore(entity.toDomainBill().copy(userId = currentUserId))
+          val targetId = bill.id.ifBlank { bill.billNumber }
+          val remote = existingGlobalBills[targetId]
+          if (remote == null || entity.updatedAtMillis > remote.updatedAtMillis()) {
+            val res = cloud.upsertSupplierBill(bill.copy(id = targetId), isUpdate = remote != null)
+            if (res.isSuccess) globalMirrorCount++ else if (globalMirrorError == null) {
+              globalMirrorError = res.exceptionOrNull()?.localizedMessage
+            }
+          }
+        }
+
+        val existingGlobalSuppliers = cloud.fetchSuppliersOnce(currentUserId).getOrNull().orEmpty()
+          .associateBy { it.id }
+        val cachedSuppliers = dao.observeCachedSuppliers().first()
+          .filter { belongsToActiveUser(it.userId, currentUserId) }
+        for (entity in cachedSuppliers) {
+          val sup = normalizeSupplierForFirestore(entity.toDomainSupplier().copy(userId = currentUserId))
+          val targetId = sup.id.ifBlank { sup.supplierCode }
+          val remote = existingGlobalSuppliers[targetId]
+          if (remote == null || entity.updatedAtMillis > remote.updatedAtMillis()) {
+            val res = cloud.upsertSupplier(sup.copy(id = targetId), isUpdate = remote != null)
+            if (res.isSuccess) globalMirrorCount++ else if (globalMirrorError == null) {
+              globalMirrorError = res.exceptionOrNull()?.localizedMessage
+            }
+          }
+        }
       } else {
         globalMirrorError = "No internet"
       }
@@ -2059,13 +2251,13 @@ class SyncCoordinatorRepository(
     } + dao.getPendingStockUpdatesOnce().count {
       requireGlobal && !it.globalSynced
     } + dao.getPendingProductsOnce().count {
-      !it.isFullySynced(requireGlobal)
+      !it.isFullySynced(requireGlobal) || (requireLaptop && it.lastError.contains("Laptop:"))
     } + dao.getPendingPaymentsOnce().count {
-      !it.isFullySynced(requireGlobal)
+      !it.isFullySynced(requireGlobal) || (requireLaptop && it.lastError.contains("Laptop:"))
     } + dao.getPendingSupplierBillsOnce().count {
-      !it.isFullySynced(requireGlobal)
+      !it.isFullySynced(requireGlobal) || (requireLaptop && it.lastError.contains("Laptop:"))
     } + dao.getPendingSuppliersOnce().count {
-      !it.isFullySynced(requireGlobal)
+      !it.isFullySynced(requireGlobal) || (requireLaptop && it.lastError.contains("Laptop:"))
     }
 
     val totalSynced = syncedItems + laptopMirrorCount + globalMirrorCount
@@ -2145,7 +2337,39 @@ class SyncCoordinatorRepository(
       }
     }
 
-    // Mirror pulled laptop shops & orders up to Global Server if authenticated & online
+    val laptopProducts = laptopClient.fetchProducts(settings.laptopServerUrl, settings.laptopApiToken)
+      .getOrNull().orEmpty()
+    if (laptopProducts.isNotEmpty()) {
+      dao.upsertCachedProducts(
+        laptopProducts.map { CachedProductEntity.fromDomainProduct(it, fallbackUserId = currentUserId) }
+      )
+    }
+
+    val laptopPayments = laptopClient.fetchPayments(settings.laptopServerUrl, settings.laptopApiToken)
+      .getOrNull().orEmpty()
+    if (laptopPayments.isNotEmpty()) {
+      dao.upsertCachedPayments(
+        laptopPayments.map { CachedPaymentEntity.fromDomainPayment(it, fallbackUserId = currentUserId) }
+      )
+    }
+
+    val laptopSupplierBills = laptopClient.fetchSupplierBills(settings.laptopServerUrl, settings.laptopApiToken)
+      .getOrNull().orEmpty()
+    if (laptopSupplierBills.isNotEmpty()) {
+      dao.upsertCachedSupplierBills(
+        laptopSupplierBills.map { CachedSupplierBillEntity.fromDomainBill(it, fallbackUserId = currentUserId) }
+      )
+    }
+
+    val laptopSuppliers = laptopClient.fetchSuppliers(settings.laptopServerUrl, settings.laptopApiToken)
+      .getOrNull().orEmpty()
+    if (laptopSuppliers.isNotEmpty()) {
+      dao.upsertCachedSuppliers(
+        laptopSuppliers.map { CachedSupplierEntity.fromDomainSupplier(it, fallbackUserId = currentUserId) }
+      )
+    }
+
+    // Mirror pulled laptop data up to Global Server if authenticated & online
     var pushedToGlobal = 0
     val cloud = cloudAdapter
     if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && isOnlineProvider()) {
@@ -2180,6 +2404,40 @@ class SyncCoordinatorRepository(
           )
           if (res.isSuccess) pushedToGlobal++
         }
+      }
+
+      val existingProdIds = cloud.fetchProductsOnce(currentUserId).getOrNull()?.map { it.id }?.toSet().orEmpty()
+      for (prod in laptopProducts) {
+        val targetId = prod.id.ifBlank { prod.productCode }
+        val normalized = normalizeProductForFirestore(prod.copy(id = targetId, userId = currentUserId))
+        val res = cloud.upsertProduct(normalized, isUpdate = existingProdIds.contains(targetId))
+        if (res.isSuccess) pushedToGlobal++
+      }
+
+      val existingPayIds = cloud.fetchPaymentsOnce(currentUserId).getOrNull()?.map { it.id }?.toSet().orEmpty()
+      for (pay in laptopPayments) {
+        val targetId = pay.id.ifBlank { pay.receiptCode }
+        if (!existingPayIds.contains(targetId)) {
+          val normalized = normalizePaymentForFirestore(pay.copy(id = targetId, userId = currentUserId))
+          val res = cloud.upsertPayment(normalized, isUpdate = false)
+          if (res.isSuccess) pushedToGlobal++
+        }
+      }
+
+      val existingBillIds = cloud.fetchSupplierBillsOnce(currentUserId).getOrNull()?.map { it.id }?.toSet().orEmpty()
+      for (bill in laptopSupplierBills) {
+        val targetId = bill.id.ifBlank { bill.billNumber }
+        val normalized = normalizeSupplierBillForFirestore(bill.copy(id = targetId, userId = currentUserId))
+        val res = cloud.upsertSupplierBill(normalized, isUpdate = existingBillIds.contains(targetId))
+        if (res.isSuccess) pushedToGlobal++
+      }
+
+      val existingSupIds = cloud.fetchSuppliersOnce(currentUserId).getOrNull()?.map { it.id }?.toSet().orEmpty()
+      for (sup in laptopSuppliers) {
+        val targetId = sup.id.ifBlank { sup.supplierCode }
+        val normalized = normalizeSupplierForFirestore(sup.copy(id = targetId, userId = currentUserId))
+        val res = cloud.upsertSupplier(normalized, isUpdate = existingSupIds.contains(targetId))
+        if (res.isSuccess) pushedToGlobal++
       }
     }
 
@@ -2258,6 +2516,18 @@ class SyncCoordinatorRepository(
 
   suspend fun deletePendingProductById(localId: String) {
     dao.deletePendingProduct(localId)
+  }
+
+  suspend fun deletePendingPaymentById(localId: String) {
+    dao.deletePendingPayment(localId)
+  }
+
+  suspend fun deletePendingSupplierBillById(localId: String) {
+    dao.deletePendingSupplierBill(localId)
+  }
+
+  suspend fun deletePendingSupplierById(localId: String) {
+    dao.deletePendingSupplier(localId)
   }
 
   override suspend fun recordPayment(payment: PaymentTransaction): Result<String> {
@@ -2409,8 +2679,8 @@ class SyncCoordinatorRepository(
     settings: ServerSettings,
   ): PendingPaymentEntity {
     var globalOk = entity.globalSynced
-    var errorMsg = ""
-    val domainPayment = entity.toDomainPayment(pendingSync = false)
+    val errors = mutableListOf<String>()
+    val domainPayment = entity.toDomainPayment(pendingSync = false).copy(userId = currentUserId)
     val cloud = cloudAdapter
     if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
       if (isOnlineProvider()) {
@@ -2421,15 +2691,22 @@ class SyncCoordinatorRepository(
         if (res.isSuccess) {
           globalOk = true
         } else {
-          errorMsg = "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
+          errors += "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
         }
       } else {
-        errorMsg = "Cloud: No internet"
+        errors += "Cloud: No internet"
+      }
+    }
+    if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
+      val laptopRes = laptopClient.pushPayment(settings.laptopServerUrl, settings.laptopApiToken, domainPayment)
+      if (laptopRes.isFailure) {
+        errors += "Laptop: ${laptopRes.exceptionOrNull()?.localizedMessage ?: "unreachable"}"
       }
     }
     return entity.copy(
+      userId = currentUserId,
       globalSynced = globalOk,
-      lastError = errorMsg,
+      lastError = errors.joinToString(" | "),
       updatedAtMillis = System.currentTimeMillis(),
     )
   }
@@ -2439,8 +2716,8 @@ class SyncCoordinatorRepository(
     settings: ServerSettings,
   ): PendingSupplierBillEntity {
     var globalOk = entity.globalSynced
-    var errorMsg = ""
-    val domainBill = entity.toDomainBill(pendingSync = false)
+    val errors = mutableListOf<String>()
+    val domainBill = entity.toDomainBill(pendingSync = false).copy(userId = currentUserId)
     val cloud = cloudAdapter
     if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
       if (isOnlineProvider()) {
@@ -2451,15 +2728,22 @@ class SyncCoordinatorRepository(
         if (res.isSuccess) {
           globalOk = true
         } else {
-          errorMsg = "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
+          errors += "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
         }
       } else {
-        errorMsg = "Cloud: No internet"
+        errors += "Cloud: No internet"
+      }
+    }
+    if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
+      val laptopRes = laptopClient.pushSupplierBill(settings.laptopServerUrl, settings.laptopApiToken, domainBill)
+      if (laptopRes.isFailure) {
+        errors += "Laptop: ${laptopRes.exceptionOrNull()?.localizedMessage ?: "unreachable"}"
       }
     }
     return entity.copy(
+      userId = currentUserId,
       globalSynced = globalOk,
-      lastError = errorMsg,
+      lastError = errors.joinToString(" | "),
       updatedAtMillis = System.currentTimeMillis(),
     )
   }
@@ -2469,8 +2753,8 @@ class SyncCoordinatorRepository(
     settings: ServerSettings,
   ): PendingProductEntity {
     var globalOk = entity.globalSynced
-    var errorMsg = ""
-    val domainProduct = entity.toDomainProduct(pendingSync = false)
+    val errors = mutableListOf<String>()
+    val domainProduct = entity.toDomainProduct(pendingSync = false).copy(userId = currentUserId)
     val cloud = cloudAdapter
     if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
       if (isOnlineProvider()) {
@@ -2481,15 +2765,22 @@ class SyncCoordinatorRepository(
         if (res.isSuccess) {
           globalOk = true
         } else {
-          errorMsg = "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
+          errors += "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
         }
       } else {
-        errorMsg = "Cloud: No internet"
+        errors += "Cloud: No internet"
+      }
+    }
+    if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
+      val laptopRes = laptopClient.pushProduct(settings.laptopServerUrl, settings.laptopApiToken, domainProduct)
+      if (laptopRes.isFailure) {
+        errors += "Laptop: ${laptopRes.exceptionOrNull()?.localizedMessage ?: "unreachable"}"
       }
     }
     return entity.copy(
+      userId = currentUserId,
       globalSynced = globalOk,
-      lastError = errorMsg,
+      lastError = errors.joinToString(" | "),
       updatedAtMillis = System.currentTimeMillis(),
     )
   }
@@ -2501,7 +2792,7 @@ class SyncCoordinatorRepository(
     var globalOk = entity.globalSynced
     var localOk = entity.localServerSynced
     val errors = mutableListOf<String>()
-    val domainShop = entity.toDomainShop(pendingSync = false)
+    val domainShop = entity.toDomainShop(pendingSync = false).copy(userId = currentUserId)
 
     val cloud = cloudAdapter
     if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
@@ -2530,6 +2821,7 @@ class SyncCoordinatorRepository(
     }
 
     return entity.copy(
+      userId = currentUserId,
       globalSynced = globalOk,
       localServerSynced = localOk,
       lastError = errors.joinToString(" | "),
@@ -2579,7 +2871,41 @@ class SyncCoordinatorRepository(
         if (res.isSuccess) {
           globalOk = true
         } else {
-          errors += "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
+          val err = res.exceptionOrNull()
+          val code = (err as? FirebaseFirestoreException)?.code
+          var recovered = false
+          if (entity.isUpdate && !entity.pendingDelete && code == FirebaseFirestoreException.Code.NOT_FOUND) {
+            val createRes = cloud.placeRawOrder(
+              orderDocId = entity.localId,
+              orderCode = entity.orderCode,
+              shopId = entity.shopId.ifBlank { entity.shopCode.ifBlank { "shop_unknown" } },
+              shopCode = entity.shopCode.ifBlank { "SHP-000" },
+              shopName = entity.shopName.ifBlank { "Retail Shop" },
+              routeId = entity.routeId.ifBlank { RoutesCatalog.UNALLOCATED },
+              status = entity.status.ifBlank { OrderStatus.CONFIRMED },
+              totalAmount = entity.totalAmount.coerceAtLeast(0.0),
+              itemCount = entity.itemCount.coerceAtLeast(1),
+              itemsSummary = entity.itemsSummary.ifBlank { "Order items" },
+              orderDate = entity.orderDate.ifBlank { todayString() },
+              note = entity.note,
+            )
+            if (createRes.isSuccess) {
+              globalOk = true
+              recovered = true
+            }
+          } else if (!entity.pendingDelete && code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+            val existing = cloud.fetchOrdersOnce(currentUserId).getOrNull()
+              ?.firstOrNull { it.id == entity.localId || it.orderCode == entity.orderCode }
+            if (existing != null) {
+              if (existing.status == OrderStatus.DELIVERED || existing.status == OrderStatus.REJECTED || !entity.isUpdate) {
+                globalOk = true
+                recovered = true
+              }
+            }
+          }
+          if (!recovered) {
+            errors += "Cloud: ${err?.localizedMessage ?: "failed"}"
+          }
         }
       } else {
         errors += "Cloud: No internet"
@@ -2597,7 +2923,7 @@ class SyncCoordinatorRepository(
         laptopClient.pushOrder(
           settings.laptopServerUrl,
           settings.laptopApiToken,
-          entity.toDomainOrder(pendingSync = false),
+          entity.toDomainOrder(pendingSync = false).copy(userId = currentUserId),
         )
       }
       if (res.isSuccess) {
@@ -2608,6 +2934,7 @@ class SyncCoordinatorRepository(
     }
 
     return entity.copy(
+      userId = currentUserId,
       globalSynced = globalOk,
       localServerSynced = localOk,
       lastError = errors.joinToString(" | "),
@@ -2860,8 +3187,8 @@ class SyncCoordinatorRepository(
     settings: ServerSettings,
   ): PendingSupplierEntity {
     var globalOk = entity.globalSynced
-    var errorMsg = ""
-    val domainSupplier = entity.toDomainSupplier(pendingSync = false)
+    val errors = mutableListOf<String>()
+    val domainSupplier = entity.toDomainSupplier(pendingSync = false).copy(userId = currentUserId)
     val cloud = cloudAdapter
     if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
       if (isOnlineProvider()) {
@@ -2872,15 +3199,22 @@ class SyncCoordinatorRepository(
         if (res.isSuccess) {
           globalOk = true
         } else {
-          errorMsg = "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
+          errors += "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
         }
       } else {
-        errorMsg = "Cloud: No internet"
+        errors += "Cloud: No internet"
+      }
+    }
+    if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
+      val laptopRes = laptopClient.pushSupplier(settings.laptopServerUrl, settings.laptopApiToken, domainSupplier)
+      if (laptopRes.isFailure) {
+        errors += "Laptop: ${laptopRes.exceptionOrNull()?.localizedMessage ?: "unreachable"}"
       }
     }
     return entity.copy(
+      userId = currentUserId,
       globalSynced = globalOk,
-      lastError = errorMsg,
+      lastError = errors.joinToString(" | "),
       updatedAtMillis = System.currentTimeMillis(),
     )
   }
@@ -2912,6 +3246,12 @@ class SyncCoordinatorRepository(
       addedDate = supplier.addedDate.trim().ifBlank { todayString() }.take(32),
       addedBy = supplier.addedBy.trim().take(120),
     )
+  }
+
+  private fun belongsToActiveUser(recordUserId: String, targetUserId: String): Boolean {
+    return recordUserId == targetUserId ||
+      recordUserId.isBlank() ||
+      recordUserId == LocalTestRepository.LOCAL_UID
   }
 
   private fun isPureCancellation(error: Throwable): Boolean {

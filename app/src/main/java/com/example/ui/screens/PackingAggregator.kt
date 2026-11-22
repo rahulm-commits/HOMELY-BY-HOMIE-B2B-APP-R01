@@ -96,10 +96,15 @@ data class PackingDashboardSnapshot(
 
 private val LINE_ITEM_REGEX = Regex("""([A-Za-z0-9_-]+)\s*[xX×]\s*(\d+)""")
 private val PACK_GRAMS_REGEX = Regex("""(\d+)""")
+private val CATALOG_BY_CODE: Map<String, CatalogProduct> by lazy {
+  SnackCatalog.products.associateBy { it.code.uppercase() }
+}
+private val CATALOG_ORDER: Map<String, Int> by lazy {
+  SnackCatalog.products.mapIndexed { idx, p -> p.code.uppercase() to idx }.toMap()
+}
 
 fun parseOrderLineItems(itemsSummary: String): List<ParsedOrderLineItem> {
   if (itemsSummary.isBlank()) return emptyList()
-  val catalogByCode = SnackCatalog.products.associateBy { it.code.uppercase() }
   return itemsSummary.split(",").mapNotNull { rawToken ->
     val token = rawToken.trim()
     if (token.isEmpty()) return@mapNotNull null
@@ -108,7 +113,7 @@ fun parseOrderLineItems(itemsSummary: String): List<ParsedOrderLineItem> {
       val code = match.groupValues[1].trim().uppercase()
       val qty = match.groupValues[2].toIntOrNull() ?: 0
       if (qty <= 0) return@mapNotNull null
-      val product = catalogByCode[code]
+      val product = CATALOG_BY_CODE[code]
       if (product != null) {
         ParsedOrderLineItem(
           productCode = product.code,
@@ -291,7 +296,7 @@ fun buildPackingSnapshot(
 
   val accMap = linkedMapOf<String, Accumulator>()
   // Pre-seed catalog order cleanly
-  val catalogOrder = SnackCatalog.products.mapIndexed { idx, p -> p.code.uppercase() to idx }.toMap()
+  val catalogOrder = CATALOG_ORDER
 
   routeFilteredOrders.forEach { order ->
     val lineItems = parseOrderLineItems(order.itemsSummary)
@@ -431,7 +436,7 @@ fun buildPackingSnapshot(
 }
 
 fun buildSingleSlipShareText(slip: ShopPackingSlip): String = buildString {
-  appendLine("SNACKROUTE SHOP PACKING SLIP")
+  appendLine("HOMELY BY HOMIE SHOP PACKING SLIP")
   val stopText = if (slip.deliveryStopNumber > 0) {
     "Delivery Stop #${slip.deliveryStopNumber} of ${slip.totalRouteStops}"
   } else {
@@ -463,7 +468,7 @@ fun buildA4ManifestShareText(
   snapshot: PackingDashboardSnapshot,
   selectedRouteId: String,
 ): String = buildString {
-  appendLine("SNACKROUTE DISPATCH & PACKING MANIFEST")
+  appendLine("HOMELY BY HOMIE DISPATCH & PACKING MANIFEST")
   appendLine("Route: ${snapshot.selectedRoute?.name ?: if (selectedRouteId == RoutesCatalog.UNALLOCATED) "Unassigned Queue" else "All Active Routes"}")
   snapshot.selectedRoute?.let { r ->
     appendLine("Vehicle: ${r.vehicle} | Bay: ${r.stagingBay}")

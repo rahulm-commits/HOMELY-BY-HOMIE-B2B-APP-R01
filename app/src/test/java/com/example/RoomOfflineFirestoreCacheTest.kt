@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.ServerConfigStore
-import com.example.data.local.SnackRouteDatabase
+import com.example.data.local.HomelyDatabase
 import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OperationsMeta
@@ -21,9 +21,9 @@ import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import com.example.data.remote.LaptopServerClient
 import com.example.data.repository.RemoteCloudAdapter
-import com.example.data.repository.SnackRouteDataSource
+import com.example.data.repository.HomelyDataSource
 import com.example.data.repository.SyncCoordinatorRepository
-import com.example.ui.viewmodel.SnackRouteViewModel
+import com.example.ui.viewmodel.HomelyViewModel
 import com.google.firebase.firestore.FirebaseFirestoreException
 import java.io.File
 import java.util.UUID
@@ -51,13 +51,13 @@ import android.os.Looper
 class RoomOfflineFirestoreCacheTest {
 
   private lateinit var context: Context
-  private lateinit var roomDb: SnackRouteDatabase
+  private lateinit var roomDb: HomelyDatabase
   private lateinit var configStore: ServerConfigStore
 
   private var networkOnline = true
   private val testUserId = "uid_cloud_test_01"
 
-  private class FakeCloudBackend : SnackRouteDataSource, RemoteCloudAdapter {
+  private class FakeCloudBackend : HomelyDataSource, RemoteCloudAdapter {
     var failUpstreamStream = false
     val shopsStore = ConcurrentHashMap<String, Shop>()
     val ordersStore = ConcurrentHashMap<String, OrderRecord>()
@@ -386,7 +386,7 @@ class RoomOfflineFirestoreCacheTest {
   @Before
   fun setUp() {
     context = ApplicationProvider.getApplicationContext()
-    roomDb = Room.inMemoryDatabaseBuilder(context, SnackRouteDatabase::class.java)
+    roomDb = Room.inMemoryDatabaseBuilder(context, HomelyDatabase::class.java)
       .allowMainThreadQueries()
       .build()
     configStore = ServerConfigStore(context)
@@ -394,7 +394,7 @@ class RoomOfflineFirestoreCacheTest {
     coordinator = SyncCoordinatorRepository(
       appContext = context,
       primary = fakeCloud,
-      dao = roomDb.snackRouteDao(),
+      dao = roomDb.homelyDao(),
       configStore = configStore,
       laptopClient = LaptopServerClient(),
       currentUserId = testUserId,
@@ -569,7 +569,7 @@ class RoomOfflineFirestoreCacheTest {
     }
     assertEquals(0, syncOutcome.remainingPendingCount)
 
-    val vm = SnackRouteViewModel(coordinator, testUserId)
+    val vm = HomelyViewModel(coordinator, testUserId)
     vm.onNetworkAvailable()
     Shadows.shadowOf(Looper.getMainLooper()).idle()
 
@@ -616,7 +616,7 @@ class RoomOfflineFirestoreCacheTest {
           .build()
       )
       val sqlite = openHelper.writableDatabase
-      SnackRouteDatabase.MIGRATION_3_4.migrate(sqlite)
+      HomelyDatabase.MIGRATION_3_4.migrate(sqlite)
 
       val cursor = sqlite.query(
         "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('cached_stocks','pending_stock_updates','cached_meta')"
@@ -674,7 +674,7 @@ class RoomOfflineFirestoreCacheTest {
           .build()
       )
       val sqlite = openHelper.writableDatabase
-      SnackRouteDatabase.MIGRATION_7_8.migrate(sqlite)
+      HomelyDatabase.MIGRATION_7_8.migrate(sqlite)
 
       val cursor = sqlite.query("PRAGMA table_info(`pending_orders`)")
       val columns = mutableSetOf<String>()

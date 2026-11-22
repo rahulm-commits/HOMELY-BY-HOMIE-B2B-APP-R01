@@ -29,12 +29,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
   version = 8,
   exportSchema = false,
 )
-abstract class SnackRouteDatabase : RoomDatabase() {
-  abstract fun snackRouteDao(): SnackRouteDao
+abstract class HomelyDatabase : RoomDatabase() {
+  abstract fun homelyDao(): HomelyDao
 
   companion object {
     @Volatile
-    private var INSTANCE: SnackRouteDatabase? = null
+    private var INSTANCE: HomelyDatabase? = null
 
     val MIGRATION_1_2 = object : Migration(1, 2) {
       override fun migrate(db: SupportSQLiteDatabase) {
@@ -393,12 +393,12 @@ abstract class SnackRouteDatabase : RoomDatabase() {
       }
     }
 
-    fun getInstance(context: Context): SnackRouteDatabase {
+    fun getInstance(context: Context): HomelyDatabase {
       return INSTANCE ?: synchronized(this) {
         INSTANCE ?: Room.databaseBuilder(
           context.applicationContext,
-          SnackRouteDatabase::class.java,
-          "snackroute_local.db",
+          HomelyDatabase::class.java,
+          "homely_local.db",
         )
           .addMigrations(
             MIGRATION_1_2,

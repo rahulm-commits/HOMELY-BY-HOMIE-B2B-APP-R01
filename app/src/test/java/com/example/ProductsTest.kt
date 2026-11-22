@@ -17,8 +17,8 @@ import com.example.data.model.ProductVariant
 import com.example.data.repository.LocalTestRepository
 import com.example.ui.screens.AddEditProductScreen
 import com.example.ui.screens.ProductsScreen
-import com.example.ui.theme.SnackRouteTheme
-import com.example.ui.viewmodel.SnackRouteViewModel
+import com.example.ui.theme.HomelyTheme
+import com.example.ui.viewmodel.HomelyViewModel
 import com.example.ui.viewmodel.UiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -92,7 +92,7 @@ class ProductsTest {
     Dispatchers.setMain(testDispatcher)
     try {
       val repo = LocalTestRepository()
-      val vm = SnackRouteViewModel(repo, LocalTestRepository.LOCAL_UID)
+      val vm = HomelyViewModel(repo, LocalTestRepository.LOCAL_UID)
       val collectJob = backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
         vm.productsState.collect {}
       }
@@ -141,7 +141,7 @@ class ProductsTest {
   fun productsScreen_displaysCatalogAndFiltersByTabAndSearch() {
     val starter = ProductCatalogHelper.starterProducts("u1", "2026-11-18") { "2026-11-10" }
     composeTestRule.setContent {
-      SnackRouteTheme {
+      HomelyTheme {
         ProductsScreen(
           products = starter,
           pendingQueueCount = 0,
@@ -171,7 +171,7 @@ class ProductsTest {
   fun addEditProductScreen_validatesAndSubmitsMultiVariantProduct() {
     var savedProduct: Product? = null
     composeTestRule.setContent {
-      SnackRouteTheme {
+      HomelyTheme {
         AddEditProductScreen(
           existingProduct = null,
           suggestedProductCode = "PRD-00108",

@@ -56,9 +56,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -140,23 +147,33 @@ fun HomeScreen(
   val periods = ReportPeriod.entries
   val pagerState = rememberPagerState(initialPage = 0, pageCount = { periods.size })
 
-  var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
   var isOnline by remember { mutableStateOf(isNetworkAvailable(context)) }
   var editingStock by remember { mutableStateOf<StockItem?>(null) }
 
-  LaunchedEffect(Unit) {
-    while (true) {
-      nowMillis = System.currentTimeMillis()
-      isOnline = isNetworkAvailable(context)
-      delay(1000L)
-    }
-  }
+  DisposableEffect(context) {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    val callback = object : ConnectivityManager.NetworkCallback() {
+      override fun onAvailable(network: Network) {
+        isOnline = true
+      }
 
-  val dateText = remember(nowMillis / 60000L) {
-    SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(Date(nowMillis))
-  }
-  val timeText = remember(nowMillis / 1000L) {
-    SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date(nowMillis))
+      override fun onLost(network: Network) {
+        isOnline = isNetworkAvailable(context)
+      }
+    }
+    if (cm != null) {
+      runCatching {
+        val request = NetworkRequest.Builder()
+          .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+          .build()
+        cm.registerNetworkCallback(request, callback)
+      }
+    }
+    onDispose {
+      if (cm != null) {
+        runCatching { cm.unregisterNetworkCallback(callback) }
+      }
+    }
   }
 
   val activeShops = remember(shops) { shops.filter { it.status == ShopStatus.ACTIVE } }
@@ -167,14 +184,14 @@ fun HomeScreen(
     maxOf(pendingQueueCount, shops.count { it.isPendingSync } + orders.count { it.isPendingSync })
   }
 
-  val todayStr = remember(nowMillis / 60000L) {
-    SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(nowMillis))
+  val todayEpochDay = remember { System.currentTimeMillis() / 86_400_000L }
+  val todayStr = remember(todayEpochDay) {
+    homeIsoDateFormatLocal.get()!!.format(Date())
   }
-  val yesterdayStr = remember(nowMillis / 60000L) {
+  val yesterdayStr = remember(todayEpochDay) {
     Calendar.getInstance().apply {
-      timeInMillis = nowMillis
       add(Calendar.DAY_OF_YEAR, -1)
-    }.let { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(it.time) }
+    }.let { homeIsoDateFormatLocal.get()!!.format(it.time) }
   }
 
   val opsMeta = meta ?: OperationsMeta()
@@ -204,7 +221,7 @@ fun HomeScreen(
     verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
     // 1. Top Header with Live Date/Time + Connectivity + Sign Out
-    item {
+    item(key = "home_header", contentType = "home_header") {
       Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -234,7 +251,7 @@ fun HomeScreen(
             ) {
               Column(modifier = Modifier.weight(1f)) {
                 Text(
-                  text = "SnackRoute Ops",
+                  text = "Homely by Homie Ops",
                   style = MaterialTheme.typography.headlineSmall,
                   color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -297,48 +314,14 @@ fun HomeScreen(
               }
             }
 
-            Surface(
-              color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-              shape = RoundedCornerShape(12.dp),
-              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-              modifier = Modifier.fillMaxWidth(),
-            ) {
-              Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                Row(
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                  Icon(
-                    imageVector = Icons.Rounded.Schedule,
-                    contentDescription = "Current date and time",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp),
-                  )
-                  Text(
-                    text = dateText,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                  )
-                }
-                Text(
-                  text = timeText,
-                  style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.primary,
-                  fontWeight = FontWeight.Bold,
-                )
-              }
-            }
+            HomeLiveClockStrip()
           }
         }
       }
     }
 
     // 2. Period Toggle + Swipeable HorizontalPager for 4-Card Dashboard
-    item {
+    item(key = "home_dashboard_pager", contentType = "home_dashboard_pager") {
       Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -414,7 +397,7 @@ fun HomeScreen(
     }
 
     // 3. Today's Work Section
-    item {
+    item(key = "home_todays_work", contentType = "home_todays_work") {
       Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -592,7 +575,7 @@ fun HomeScreen(
     }
 
     // 4. Stock Alert Section
-    item {
+    item(key = "home_stock_alerts_header", contentType = "home_stock_header") {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -614,7 +597,7 @@ fun HomeScreen(
             color = MaterialTheme.colorScheme.onBackground,
           )
         }
-        val lowCount = stocks.count { it.quantity <= it.minThreshold }
+        val lowCount = remember(stocks) { stocks.count { it.quantity <= it.minThreshold } }
         if (lowCount > 0) {
           Surface(
             color = MaterialTheme.semanticColors.dangerContainer,
@@ -631,7 +614,7 @@ fun HomeScreen(
       }
     }
 
-    items(stocks, key = { it.id }) { stock ->
+    items(stocks, key = { it.id }, contentType = { "home_stock_item" }) { stock ->
       val isLow = stock.quantity <= stock.minThreshold
       Card(
         shape = RoundedCornerShape(16.dp),
@@ -732,6 +715,69 @@ fun HomeScreen(
         editingStock = null
       },
     )
+  }
+}
+
+private val homeIsoDateFormatLocal = ThreadLocal.withInitial {
+  SimpleDateFormat("yyyy-MM-dd", Locale.US)
+}
+private val homeDisplayDateFormatLocal = ThreadLocal.withInitial {
+  SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault())
+}
+private val homeDisplayTimeFormatLocal = ThreadLocal.withInitial {
+  SimpleDateFormat("hh:mm:ss a", Locale.getDefault())
+}
+
+@Composable
+private fun HomeLiveClockStrip() {
+  var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+  LaunchedEffect(Unit) {
+    while (true) {
+      delay(1000L)
+      nowMillis = System.currentTimeMillis()
+    }
+  }
+  val dateText = remember(nowMillis / 60_000L) {
+    homeDisplayDateFormatLocal.get()!!.format(Date(nowMillis))
+  }
+  val timeText = remember(nowMillis / 1000L) {
+    homeDisplayTimeFormatLocal.get()!!.format(Date(nowMillis))
+  }
+
+  Surface(
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+    shape = RoundedCornerShape(12.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Rounded.Schedule,
+          contentDescription = "Current date and time",
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(16.dp),
+        )
+        Text(
+          text = dateText,
+          style = MaterialTheme.typography.labelLarge,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      Text(
+        text = timeText,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        fontWeight = FontWeight.Bold,
+      )
+    }
   }
 }
 

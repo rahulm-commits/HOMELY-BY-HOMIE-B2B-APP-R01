@@ -15,8 +15,8 @@ import com.example.data.model.SupplierStatus
 import com.example.data.repository.LocalTestRepository
 import com.example.ui.screens.AddEditSupplierScreen
 import com.example.ui.screens.SuppliersScreen
-import com.example.ui.theme.SnackRouteTheme
-import com.example.ui.viewmodel.SnackRouteViewModel
+import com.example.ui.theme.HomelyTheme
+import com.example.ui.viewmodel.HomelyViewModel
 import com.example.ui.viewmodel.UiState
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -55,7 +55,7 @@ class SuppliersScreenTest {
     Dispatchers.setMain(testDispatcher)
     try {
       val repo = LocalTestRepository()
-      val vm = SnackRouteViewModel(repo, LocalTestRepository.LOCAL_UID)
+      val vm = HomelyViewModel(repo, LocalTestRepository.LOCAL_UID)
       val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
         vm.suppliersState.collect {}
       }
@@ -113,7 +113,7 @@ class SuppliersScreenTest {
     var payBillsNavigated = false
 
     composeTestRule.setContent {
-      SnackRouteTheme(darkTheme = false) {
+      HomelyTheme(darkTheme = false) {
         SuppliersScreen(
           suppliers = starterSuppliers,
           pendingQueueCount = 0,
@@ -172,7 +172,7 @@ class SuppliersScreenTest {
     var savedSupplier: Supplier? = null
 
     composeTestRule.setContent {
-      SnackRouteTheme(darkTheme = false) {
+      HomelyTheme(darkTheme = false) {
         AddEditSupplierScreen(
           existingSupplier = null,
           suggestedSupplierCode = "SUP-000048",

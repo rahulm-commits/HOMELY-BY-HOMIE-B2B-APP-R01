@@ -208,8 +208,19 @@ fun RoutePlanScreen(
         onRequestActualLocation = requestActualLocation,
         onSelectShop = { shop -> selectedShopId = shop?.id },
         onReassignShopRoute = { shop, targetRouteId ->
-          val targetName = routes.firstOrNull { it.id == targetRouteId }?.name ?: "Unallocated"
+          val targetRoute = routes.firstOrNull { it.id == targetRouteId }
+          val targetName = targetRoute?.name ?: "Unallocated"
           onUpdateShopRoute(shop.id, targetRouteId, "${shop.name} moved to $targetName")
+          if (targetRoute != null && shop.id !in targetRoute.stopOrderIds) {
+            val existingIds = RoutesCatalog.sortShopsByRouteSequence(
+              activeShops.filter { it.routeId == targetRoute.id },
+              targetRoute,
+            ).map { it.id }
+            onSaveRoute(
+              targetRoute.copy(stopOrderIds = (existingIds + shop.id).distinct()),
+              "${shop.name} added to $targetName",
+            )
+          }
           recentStatusChipText = "Moved to ${targetName.substringAfter(":").trim().take(18)}"
         },
         onEditSelectedRouteShopsClick = routes.firstOrNull { it.id == selectedRouteId }?.let { focusedRoute ->
@@ -399,8 +410,19 @@ fun RoutePlanScreen(
           onRequestActualLocation = requestActualLocation,
           onSelectShop = { shop -> selectedShopId = shop?.id },
           onReassignShopRoute = { shop, targetRouteId ->
-            val targetName = routes.firstOrNull { it.id == targetRouteId }?.name ?: "Unallocated"
+            val targetRoute = routes.firstOrNull { it.id == targetRouteId }
+            val targetName = targetRoute?.name ?: "Unallocated"
             onUpdateShopRoute(shop.id, targetRouteId, "${shop.name} moved to $targetName")
+            if (targetRoute != null && shop.id !in targetRoute.stopOrderIds) {
+              val existingIds = RoutesCatalog.sortShopsByRouteSequence(
+                activeShops.filter { it.routeId == targetRoute.id },
+                targetRoute,
+              ).map { it.id }
+              onSaveRoute(
+                targetRoute.copy(stopOrderIds = (existingIds + shop.id).distinct()),
+                "${shop.name} added to $targetName",
+              )
+            }
             recentStatusChipText = "Moved to ${targetName.substringAfter(":").trim().take(18)}"
           },
           onEditSelectedRouteShopsClick = routes.firstOrNull { it.id == selectedRouteId }?.let { focusedRoute ->
@@ -465,6 +487,43 @@ fun RoutePlanScreen(
               recentStatusChipText = "Auto-grouped ${unallocatedList.size} stops"
               activeDrawerTab = DispatchDrawerTab.ROUTES
             }
+          },
+          onAssignShopToRoute = { shop, targetRouteId ->
+            val targetRoute = routes.firstOrNull { it.id == targetRouteId }
+            val targetName = targetRoute?.name ?: targetRouteId
+            onUpdateShopRoute(shop.id, targetRouteId, "${shop.name} allocated to $targetName")
+            if (targetRoute != null && shop.id !in targetRoute.stopOrderIds) {
+              val existingIds = RoutesCatalog.sortShopsByRouteSequence(
+                activeShops.filter { it.routeId == targetRoute.id },
+                targetRoute,
+              ).map { it.id }
+              onSaveRoute(
+                targetRoute.copy(stopOrderIds = (existingIds + shop.id).distinct()),
+                "${shop.name} allocated to $targetName",
+              )
+            }
+            recentStatusChipText = "Assigned to ${targetName.substringAfter(":").trim().take(18)}"
+          },
+          onBatchAssignUnallocatedToRoute = { batchShops, targetRouteId ->
+            val targetRoute = routes.firstOrNull { it.id == targetRouteId }
+            val targetName = targetRoute?.name ?: targetRouteId
+            val batchIds = batchShops.map { it.id }
+            onBulkAssignShopsToRoute(
+              batchIds,
+              targetRouteId,
+              "Allocated ${batchIds.size} shop(s) to $targetName",
+            )
+            if (targetRoute != null) {
+              val existingIds = RoutesCatalog.sortShopsByRouteSequence(
+                activeShops.filter { it.routeId == targetRoute.id },
+                targetRoute,
+              ).map { it.id }
+              onSaveRoute(
+                targetRoute.copy(stopOrderIds = (existingIds + batchIds).distinct()),
+                "Allocated ${batchIds.size} shop(s) to $targetName",
+              )
+            }
+            recentStatusChipText = "Assigned ${batchIds.size} to ${targetName.substringAfter(":").trim().take(14)}"
           },
           onMoveShopStopOrder = { route, newStopOrderIds ->
             onSaveRoute(route.copy(stopOrderIds = newStopOrderIds), "Updated ${route.name} stop order")

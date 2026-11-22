@@ -23,8 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.AltRoute
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.LocalShipping
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -98,7 +96,7 @@ fun TransportScreen(
   var selectedFilter by rememberSaveable { mutableStateOf(TransportStopFilter.ALL) }
   var showSearch by rememberSaveable { mutableStateOf(false) }
   var searchQuery by rememberSaveable { mutableStateOf("") }
-  var showAllUpcoming by rememberSaveable { mutableStateOf(false) }
+  var useShortestPath by rememberSaveable { mutableStateOf(true) }
   var selectedPinShopId by rememberSaveable { mutableStateOf<String?>(null) }
 
   var showRouteSelectorSheet by remember { mutableStateOf(false) }
@@ -116,6 +114,7 @@ fun TransportScreen(
   var followUserLocation by rememberSaveable { mutableStateOf(false) }
   var recenterTrigger by remember { mutableIntStateOf(0) }
   var fitBoundsTrigger by remember { mutableIntStateOf(0) }
+  var focusShopTrigger by remember { mutableIntStateOf(0) }
   var pendingNavigateFullscreenAfterPerm by remember { mutableStateOf(false) }
 
   var lastRoutedLat by remember { mutableStateOf<Double?>(null) }
@@ -176,6 +175,7 @@ fun TransportScreen(
     localPodNotesByShopId,
     userLat,
     userLng,
+    useShortestPath,
   ) {
     buildTransportRoutePlanState(
       route = activeRoute,
@@ -185,6 +185,7 @@ fun TransportScreen(
       localPodNotesByShopId = localPodNotesByShopId,
       userLatitude = userLat,
       userLongitude = userLng,
+      useShortestPath = useShortestPath,
     )
   }
 
@@ -220,6 +221,9 @@ fun TransportScreen(
   }
 
   val requestOrRecenterGps: (enterFullscreenAfter: Boolean) -> Unit = { enterFullscreenAfter ->
+    if (enterFullscreenAfter) {
+      isFullscreenNav = true
+    }
     if (hasLocationPermission(context)) {
       hasPermission = true
       followUserLocation = true
@@ -236,9 +240,6 @@ fun TransportScreen(
           onError = { msg -> onShowFeedback(msg) },
         )
       }
-      if (enterFullscreenAfter) {
-        isFullscreenNav = true
-      }
     } else {
       pendingNavigateFullscreenAfterPerm = enterFullscreenAfter
       permissionLauncher.launch(
@@ -251,19 +252,32 @@ fun TransportScreen(
   }
 
   val completeStopAction: (TransportStopItem, String) -> Unit = { stop, podNote ->
-    if (stop.isCompleted || locallyCompletedShopIds.contains(stop.shop.id)) {
-      stopPendingPodDialog = null
-    } else {
-      stopPendingPodDialog = null
-      selectedPinShopId = null
-      localPodNotesByShopId = localPodNotesByShopId + (stop.shop.id to podNote)
-      locallyCompletedShopIds = locallyCompletedShopIds + stop.shop.id
-      val distinctOrders = stop.activeOrders.distinctBy { it.id.ifBlank { it.orderCode } }
-      distinctOrders.forEach { order ->
-        onMarkOrderDelivered(order.id, stop.shop.name, podNote)
+    val activeTarget = planState.activeTargetStop
+    when {
+      stop.isCompleted || locallyCompletedShopIds.contains(stop.shop.id) -> {
+        stopPendingPodDialog = null
       }
-      if (distinctOrders.isEmpty()) {
-        onShowFeedback("Stop ${stop.formattedStopNum} (${stop.shortShopName}) completed")
+      !stop.isActiveTarget || (activeTarget != null && activeTarget.shop.id != stop.shop.id) -> {
+        stopPendingPodDialog = null
+        val seqPrompt = if (activeTarget != null) {
+          "Deliver in sequence: complete Stop ${activeTarget.formattedStopNum} (${activeTarget.shortShopName}) first."
+        } else {
+          "Deliveries must follow route stop sequence."
+        }
+        onShowFeedback(seqPrompt)
+      }
+      else -> {
+        stopPendingPodDialog = null
+        selectedPinShopId = null
+        localPodNotesByShopId = localPodNotesByShopId + (stop.shop.id to podNote)
+        locallyCompletedShopIds = locallyCompletedShopIds + stop.shop.id
+        val distinctOrders = stop.activeOrders.distinctBy { it.id.ifBlank { it.orderCode } }
+        distinctOrders.forEach { order ->
+          onMarkOrderDelivered(order.id, stop.shop.name, podNote)
+        }
+        if (distinctOrders.isEmpty()) {
+          onShowFeedback("Stop ${stop.formattedStopNum} (${stop.shortShopName}) completed")
+        }
       }
     }
   }
@@ -310,6 +324,7 @@ fun TransportScreen(
       recenterTrigger = recenterTrigger,
       fitBoundsTrigger = fitBoundsTrigger,
       hasLocationPermission = hasPermission,
+      focusShopTrigger = focusShopTrigger,
       onRecenterClick = { requestOrRecenterGps(false) },
       onFitRouteClick = {
         followUserLocation = false
@@ -320,6 +335,11 @@ fun TransportScreen(
         selectedPinShopId = shopId
         followUserLocation = false
       },
+      onFocusPin = { shopId ->
+        selectedPinShopId = shopId
+        followUserLocation = false
+        focusShopTrigger++
+      },
       onCallShopClick = { shop -> openDialer(context, shop.phone) },
       onOpenExternalMapsClick = {
         launchExternalGoogleMapsNavigation(
@@ -328,6 +348,16 @@ fun TransportScreen(
           upcomingStops = planState.upcomingStops,
           userLatitude = userLat,
           userLongitude = userLng,
+        )
+      },
+      onOpenStopExternalMapsClick = { focusedStop ->
+        launchExternalGoogleMapsNavigation(
+          context = context,
+          activeStop = planState.activeTargetStop,
+          upcomingStops = planState.upcomingStops,
+          userLatitude = userLat,
+          userLongitude = userLng,
+          focusedStop = focusedStop,
         )
       },
       onMarkActiveDeliveredClick = {
@@ -422,11 +452,13 @@ fun TransportScreen(
               recenterTrigger = recenterTrigger,
               fitBoundsTrigger = fitBoundsTrigger,
               hasLocationPermission = hasPermission,
+              focusShopTrigger = focusShopTrigger,
               onRecenterUserClick = { requestOrRecenterGps(false) },
               onToggleFullscreenOrFitClick = { isFullscreenNav = true },
               onPinSelected = { shopId ->
                 selectedPinShopId = shopId
                 followUserLocation = false
+                focusShopTrigger++
               },
               onDirectionsBannerClick = { showDirectionsSheet = true },
               onLaunchExternalMapsClick = {
@@ -493,102 +525,92 @@ fun TransportScreen(
                 verticalAlignment = Alignment.CenterVertically,
               ) {
                 Text(
-                  text = "Upcoming Stops (${filteredUpcoming.size} Remaining)",
+                  text = "Shops to Deliver (${filteredUpcoming.size})",
                   style = MaterialTheme.typography.titleSmall,
                   fontWeight = FontWeight.Bold,
                   color = MaterialTheme.colorScheme.onSurface,
                 )
-                Text(
-                  text = "Auto-sequenced",
-                  style = MaterialTheme.typography.labelSmall,
-                  fontWeight = FontWeight.SemiBold,
-                  color = MaterialTheme.colorScheme.primary,
-                )
-              }
-            }
-
-            val visibleUpcoming = if (!showAllUpcoming && query.isBlank() && filteredUpcoming.size > 3) {
-              filteredUpcoming.take(3)
-            } else {
-              filteredUpcoming
-            }
-
-            items(visibleUpcoming, key = { "up_${it.shop.id}" }) { stop ->
-              UpcomingStopCard(
-                stop = stop,
-                isSelected = selectedPinShopId == stop.shop.id,
-                onCardClick = {
-                  selectedPinShopId = stop.shop.id
-                  followUserLocation = false
-                },
-                onCallShop = { openDialer(context, stop.shop.phone) },
-                onMarkDelivered = {
-                  if (!stop.isCompleted && !locallyCompletedShopIds.contains(stop.shop.id)) {
-                    stopPendingPodDialog = stop
-                  }
-                },
-              )
-            }
-
-            if (query.isBlank() && filteredUpcoming.size > 3) {
-              item(key = "expand_upcoming_toggle") {
-                val hiddenCount = filteredUpcoming.size - 3
-                val finalDest = filteredUpcoming.lastOrNull()?.shortShopName ?: "Destination"
                 Surface(
-                  color = MaterialTheme.colorScheme.surface,
-                  shape = RoundedCornerShape(12.dp),
-                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
-                  shadowElevation = 2.dp,
+                  color = if (useShortestPath) {
+                    MaterialTheme.colorScheme.primaryContainer
+                  } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                  },
+                  shape = RoundedCornerShape(999.dp),
                   modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { showAllUpcoming = !showAllUpcoming }
-                    .testTag("transport_expand_upcoming_btn"),
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable {
+                      useShortestPath = !useShortestPath
+                      selectedPinShopId = null
+                      fitBoundsTrigger++
+                    }
+                    .testTag("transport_route_order_toggle"),
                 ) {
                   Row(
-                    modifier = Modifier
-                      .fillMaxWidth()
-                      .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                   ) {
-                    Row(
-                      verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                      Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.AltRoute,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                      )
-                      Text(
-                        text = if (showAllUpcoming) {
-                          "Show fewer upcoming stops"
-                        } else {
-                          "+ $hiddenCount more stops scheduled towards $finalDest"
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                      )
-                    }
                     Icon(
-                      imageVector = if (showAllUpcoming) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                      contentDescription = "Toggle upcoming stops",
-                      tint = MaterialTheme.colorScheme.primary,
-                      modifier = Modifier.size(20.dp),
+                      imageVector = Icons.AutoMirrored.Rounded.AltRoute,
+                      contentDescription = "Toggle shortest path ordering",
+                      tint = if (useShortestPath) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                      modifier = Modifier.size(13.dp),
+                    )
+                    Text(
+                      text = if (useShortestPath) "Shortest Path" else "Manual Order",
+                      style = MaterialTheme.typography.labelSmall,
+                      fontWeight = FontWeight.Bold,
+                      color = if (useShortestPath) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                   }
                 }
               }
             }
+
+            items(
+              items = filteredUpcoming,
+              key = { "up_${it.shop.id}" },
+              contentType = { "upcoming_stop" },
+            ) { stop ->
+              UpcomingStopCard(
+                stop = stop,
+                isSelected = selectedPinShopId == stop.shop.id,
+                activeTargetStopNumber = planState.activeTargetStop?.stopNumber,
+                onCardClick = {
+                  selectedPinShopId = stop.shop.id
+                  followUserLocation = false
+                  focusShopTrigger++
+                },
+                onCallShop = { openDialer(context, stop.shop.phone) },
+                onMarkDelivered = {
+                  val activeTarget = planState.activeTargetStop
+                  if (
+                    stop.isActiveTarget &&
+                    activeTarget?.shop?.id == stop.shop.id &&
+                    !stop.isCompleted &&
+                    !locallyCompletedShopIds.contains(stop.shop.id)
+                  ) {
+                    stopPendingPodDialog = stop
+                  } else if (activeTarget != null) {
+                    selectedPinShopId = activeTarget.shop.id
+                    onShowFeedback("Deliver in sequence: complete Stop ${activeTarget.formattedStopNum} (${activeTarget.shortShopName}) first.")
+                  }
+                },
+                onFocusActiveStop = {
+                  val activeTarget = planState.activeTargetStop
+                  if (activeTarget != null) {
+                    selectedPinShopId = activeTarget.shop.id
+                    focusShopTrigger++
+                    onShowFeedback("Deliver in sequence: Stop ${activeTarget.formattedStopNum} (${activeTarget.shortShopName}) is next.")
+                  }
+                },
+              )
+            }
           }
 
           if (selectedFilter != TransportStopFilter.PENDING && filteredDelivered.isNotEmpty()) {
-            item(key = "delivered_header") {
+            item(key = "delivered_header", contentType = "section_header") {
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
@@ -617,12 +639,17 @@ fun TransportScreen(
               }
             }
 
-            items(filteredDelivered, key = { "done_${it.shop.id}" }) { stop ->
+            items(
+              items = filteredDelivered,
+              key = { "done_${it.shop.id}" },
+              contentType = { "delivered_stop" },
+            ) { stop ->
               DeliveredStopCard(
                 stop = stop,
                 onClick = {
                   selectedPinShopId = stop.shop.id
                   followUserLocation = false
+                  focusShopTrigger++
                 },
               )
             }
@@ -685,7 +712,10 @@ fun TransportScreen(
             ?: planState.activeTargetStop?.shop?.phone.orEmpty()
           openDialer(context, phone)
         },
-        onNavigatePrimaryClick = { requestOrRecenterGps(true) },
+        onNavigatePrimaryClick = {
+          selectedPinShopId = planState.activeTargetStop?.shop?.id
+          requestOrRecenterGps(true)
+        },
         onCompleteStopClick = {
           val active = planState.activeTargetStop
           if (active != null && !active.isCompleted && !locallyCompletedShopIds.contains(active.shop.id)) {
@@ -705,7 +735,6 @@ fun TransportScreen(
       onSelectRoute = { route ->
         selectedRouteId = route.id
         selectedPinShopId = null
-        showAllUpcoming = false
         showRouteSelectorSheet = false
         followUserLocation = false
         fitBoundsTrigger++

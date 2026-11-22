@@ -223,7 +223,7 @@ fun PackingScreen(
               contentDescription = "Print dispatch sheet",
               onClick = {
                 val manifest = buildA4ManifestShareText(snapshot, selectedRouteId)
-                sharePlainText(context, "SnackRoute Packing List", manifest)
+                sharePlainText(context, "Homely by Homie Packing List", manifest)
                 onShowFeedback("Prepared packing list (${snapshot.totalShopsCount} stops)")
               },
               modifier = Modifier.testTag("packing_header_print_button"),
@@ -233,7 +233,7 @@ fun PackingScreen(
               contentDescription = "Share packing manifest",
               onClick = {
                 val manifest = buildA4ManifestShareText(snapshot, selectedRouteId)
-                sharePlainText(context, "SnackRoute Dispatch Manifest", manifest)
+                sharePlainText(context, "Homely by Homie Dispatch Manifest", manifest)
               },
               modifier = Modifier.testTag("packing_header_share_button"),
             )
@@ -436,7 +436,7 @@ fun PackingScreen(
 
           // Section-by-Section Production & Packing Cards (Banana Chips, Jaggery Banana, etc.)
           if (displayedCategoryGroups.isEmpty()) {
-            item {
+            item(key = "empty_packing_card", contentType = "empty_state") {
               EmptyPackingStateCard(
                 hasOrders = snapshot.routeFilteredOrders.isNotEmpty(),
                 onNavigateToOrders = onNavigateToOrders,
@@ -446,6 +446,7 @@ fun PackingScreen(
             items(
               count = displayedCategoryGroups.size,
               key = { displayedCategoryGroups[it].categoryName },
+              contentType = { "packing_category_group" },
             ) { idx ->
               val group = displayedCategoryGroups[idx]
               SectionProductionPackingCard(
@@ -533,7 +534,7 @@ fun PackingScreen(
               when (activeTab) {
                 PackingTab.CONSOLIDATED, PackingTab.A4_MANIFEST -> {
                   val text = buildA4ManifestShareText(snapshot, selectedRouteId)
-                  sharePlainText(context, "SnackRoute Packing List", text)
+                  sharePlainText(context, "Homely by Homie Packing List", text)
                   onShowFeedback("Sent manifest (${snapshot.totalLoadedPacks}/${snapshot.totalOrderedPacks} pk)")
                 }
                 PackingTab.SHOP_SLIPS -> {

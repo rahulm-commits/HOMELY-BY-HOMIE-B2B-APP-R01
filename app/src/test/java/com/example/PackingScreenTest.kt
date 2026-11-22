@@ -17,7 +17,7 @@ import com.example.data.model.StockItem
 import com.example.ui.screens.PackingScreen
 import com.example.ui.screens.buildPackingSnapshot
 import com.example.ui.screens.parseOrderLineItems
-import com.example.ui.theme.SnackRouteTheme
+import com.example.ui.theme.HomelyTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -185,7 +185,7 @@ class PackingScreenTest {
   @Test
   fun packingScreen_rendersRouteFilterSectionsAndSwitchesTabs() {
     composeTestRule.setContent {
-      SnackRouteTheme {
+      HomelyTheme {
         PackingScreen(
           shops = sampleShops,
           orders = sampleOrders,

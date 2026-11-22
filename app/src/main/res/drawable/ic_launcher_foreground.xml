@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/img_snackroute_icon_src"
+        android:drawable="@drawable/img_homely_icon_src"
         android:gravity="center" />
 </layer-list>

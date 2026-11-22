@@ -12,7 +12,7 @@ import com.example.data.model.Supplier
 import com.example.data.model.SupplierBill
 import kotlinx.coroutines.flow.Flow
 
-interface SnackRouteDataSource {
+interface HomelyDataSource {
   fun observeShops(userId: String): Flow<List<Shop>>
   fun observeOrders(userId: String): Flow<List<OrderRecord>>
   fun observeStocks(userId: String): Flow<List<StockItem>>

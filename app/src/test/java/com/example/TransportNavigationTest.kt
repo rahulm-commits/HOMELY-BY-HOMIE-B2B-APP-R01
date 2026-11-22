@@ -2,14 +2,16 @@ package com.example
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.ServerConfigStore
-import com.example.data.local.SnackRouteDatabase
+import com.example.data.local.HomelyDatabase
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
@@ -23,7 +25,7 @@ import com.example.data.repository.SyncCoordinatorRepository
 import com.example.ui.screens.TransportScreen
 import com.example.ui.screens.TransportStopFilter
 import com.example.ui.screens.buildTransportRoutePlanState
-import com.example.ui.theme.SnackRouteTheme
+import com.example.ui.theme.HomelyTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -46,7 +48,7 @@ class TransportNavigationTest {
   val composeTestRule = createComposeRule()
 
   private lateinit var context: Context
-  private lateinit var roomDb: SnackRouteDatabase
+  private lateinit var roomDb: HomelyDatabase
   private lateinit var coordinator: SyncCoordinatorRepository
 
   private val sampleRoute = DeliveryRoute(
@@ -171,13 +173,13 @@ class TransportNavigationTest {
   @Before
   fun setUp() {
     context = ApplicationProvider.getApplicationContext()
-    roomDb = Room.inMemoryDatabaseBuilder(context, SnackRouteDatabase::class.java)
+    roomDb = Room.inMemoryDatabaseBuilder(context, HomelyDatabase::class.java)
       .allowMainThreadQueries()
       .build()
     coordinator = SyncCoordinatorRepository(
       appContext = context,
       primary = LocalTestRepository(),
-      dao = roomDb.snackRouteDao(),
+      dao = roomDb.homelyDao(),
       configStore = ServerConfigStore(context),
       laptopClient = LaptopServerClient(),
       currentUserId = LocalTestRepository.LOCAL_UID,
@@ -348,7 +350,7 @@ class TransportNavigationTest {
   @Test
   fun transportScreen_rendersFullDashboardAndAllowsFilterAndRouteSelection() {
     composeTestRule.setContent {
-      SnackRouteTheme {
+      HomelyTheme {
         TransportScreen(
           shops = sampleShops,
           orders = sampleOrders,
@@ -373,5 +375,162 @@ class TransportNavigationTest {
     composeTestRule.onNodeWithTag("transport_filter_${TransportStopFilter.PENDING.name.lowercase()}")
       .performClick()
     composeTestRule.waitForIdle()
+  }
+
+  @Test
+  fun transportScreen_enforcesSequentialDeliveryCompletion() {
+    val deliveredOrderIds = mutableListOf<String>()
+    val feedbackMessages = mutableListOf<String>()
+
+    composeTestRule.setContent {
+      HomelyTheme {
+        TransportScreen(
+          shops = sampleShops,
+          orders = sampleOrders,
+          routes = listOf(sampleRoute),
+          userDisplayName = "Arun Kumar",
+          onMarkOrderDelivered = { orderId, _, _ -> deliveredOrderIds += orderId },
+          onNavigateToRoutes = {},
+          onOpenSyncServers = {},
+          onShowFeedback = { msg -> feedbackMessages += msg },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    val stopList = composeTestRule.onNodeWithTag("transport_stop_list")
+
+    // Stop 01 is active and has enabled Mark Delivered button
+    stopList.performScrollToNode(hasTestTag("transport_upcoming_stop_1"))
+    composeTestRule.onNodeWithTag("transport_upcoming_stop_1").assertIsDisplayed()
+    stopList.performScrollToNode(hasTestTag("transport_mark_delivered_1"))
+    composeTestRule.onNodeWithTag("transport_mark_delivered_1").assertIsDisplayed()
+
+    // Select Stop 02: must NOT allow Mark Delivered out of order; shows locked sequential indicator instead
+    stopList.performScrollToNode(hasTestTag("transport_upcoming_stop_2"))
+    composeTestRule.onNodeWithTag("transport_upcoming_stop_2").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("transport_mark_delivered_2").assertDoesNotExist()
+    stopList.performScrollToNode(hasTestTag("transport_locked_stop_2"))
+    composeTestRule.onNodeWithTag("transport_locked_stop_2").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("transport_locked_stop_2").performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(deliveredOrderIds.isEmpty())
+    assertTrue(feedbackMessages.any { it.contains("01") })
+
+    // Complete Stop 01 in sequence -> unlocks Stop 02 automatically
+    stopList.performScrollToNode(hasTestTag("transport_mark_delivered_1"))
+    composeTestRule.onNodeWithTag("transport_mark_delivered_1").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("confirm_pod_delivered_button").performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals(listOf("ord_1"), deliveredOrderIds)
+    stopList.performScrollToNode(hasTestTag("transport_mark_delivered_2"))
+    composeTestRule.onNodeWithTag("transport_mark_delivered_2").assertIsDisplayed()
+  }
+
+  @Test
+  fun deliveryPodDialog_opensAndConfirms() {
+    val stop = buildTransportRoutePlanState(
+      route = sampleRoute,
+      allShops = sampleShops,
+      allOrders = sampleOrders,
+    ).stops.first()
+    var confirmedNote: String? = null
+    composeTestRule.setContent {
+      HomelyTheme {
+        com.example.ui.screens.DeliveryPodDialog(
+          stop = stop,
+          onConfirmDelivered = { confirmedNote = it },
+          onDismiss = {},
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("confirm_pod_delivered_button").performClick()
+    composeTestRule.waitForIdle()
+    assertNotNull(confirmedNote)
+  }
+
+  @Test
+  fun shortestPathDefaultOrdering_picksClosestChainRegardlessOfManualStopOrderIds() {
+    // User is next to Priya Supermarket (10.0561, 76.3225), while manual stopOrderIds starts at Edappally (south end).
+    // Shortest path from north end must run southwards: Priya -> Pathadipalam -> Toll -> Edappally.
+    val northPlan = buildTransportRoutePlanState(
+      route = sampleRoute,
+      allShops = sampleShops,
+      allOrders = sampleOrders,
+      userLatitude = 10.0580,
+      userLongitude = 76.3230,
+    )
+    assertTrue(northPlan.isShortestPathMode)
+    assertEquals(
+      listOf("s_priya", "s_pathadipalam", "s_toll", "s_edappally"),
+      northPlan.stops.map { it.shop.id },
+    )
+    assertEquals(listOf(1, 2, 3, 4), northPlan.stops.map { it.stopNumber })
+
+    // Disabling shortest path restores manual stopOrderIds order
+    val manualPlan = buildTransportRoutePlanState(
+      route = sampleRoute,
+      allShops = sampleShops,
+      allOrders = sampleOrders,
+      userLatitude = 10.0580,
+      userLongitude = 76.3230,
+      useShortestPath = false,
+    )
+    assertFalse(manualPlan.isShortestPathMode)
+    assertEquals(
+      listOf("s_edappally", "s_toll", "s_pathadipalam", "s_priya"),
+      manualPlan.stops.map { it.shop.id },
+    )
+  }
+
+  @Test
+  fun transportScreen_showsAllShopsToDeliverAndStartNavigationOpensNumberedMap() {
+    composeTestRule.setContent {
+      HomelyTheme {
+        TransportScreen(
+          shops = sampleShops,
+          orders = sampleOrders,
+          routes = listOf(sampleRoute),
+          userDisplayName = "Arun Kumar",
+          onMarkOrderDelivered = { _, _, _ -> },
+          onNavigateToRoutes = {},
+          onOpenSyncServers = {},
+          onShowFeedback = {},
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    val stopList = composeTestRule.onNodeWithTag("transport_stop_list")
+
+    // All 4 shops must be in the list immediately without truncation or expand button
+    composeTestRule.onNodeWithTag("transport_expand_upcoming_btn").assertDoesNotExist()
+    stopList.performScrollToNode(hasTestTag("transport_upcoming_stop_4"))
+    composeTestRule.onNodeWithTag("transport_upcoming_stop_4").assertIsDisplayed()
+
+    // Start Navigation button opens fullscreen map immediately with numbered chips 1, 2, 3, 4
+    composeTestRule.onNodeWithText("Start Navigation").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("transport_navigate_primary_btn").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("transport_exit_fullscreen_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("nav_stop_chip_1").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("nav_stop_chip_2").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("nav_stop_chip_3").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("nav_stop_chip_4").assertIsDisplayed()
+
+    // Navigate forward to Shop 2 using Next button
+    composeTestRule.onNodeWithTag("nav_next_stop_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_jump_active_stop_button").assertIsDisplayed()
+
+    // Jump back to active Stop 1 via chip
+    composeTestRule.onNodeWithTag("nav_stop_chip_1").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("fullscreen_mark_delivered_button").assertIsDisplayed()
   }
 }

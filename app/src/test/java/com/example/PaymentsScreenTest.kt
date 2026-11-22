@@ -20,8 +20,8 @@ import com.example.data.model.SupplierBill
 import com.example.data.model.SupplierBillStatus
 import com.example.data.repository.LocalTestRepository
 import com.example.ui.screens.PaymentsScreen
-import com.example.ui.theme.SnackRouteTheme
-import com.example.ui.viewmodel.SnackRouteViewModel
+import com.example.ui.theme.HomelyTheme
+import com.example.ui.viewmodel.HomelyViewModel
 import com.example.ui.viewmodel.UiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -60,7 +60,7 @@ class PaymentsScreenTest {
     Dispatchers.setMain(testDispatcher)
     try {
       val repo = LocalTestRepository()
-      val vm = SnackRouteViewModel(repo, LocalTestRepository.LOCAL_UID)
+      val vm = HomelyViewModel(repo, LocalTestRepository.LOCAL_UID)
       val job1 = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.paymentsState.collect {} }
       val job2 = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.supplierBillsState.collect {} }
       advanceUntilIdle()
@@ -140,7 +140,7 @@ class PaymentsScreenTest {
     var recordedTx: PaymentTransaction? = null
 
     composeTestRule.setContent {
-      SnackRouteTheme(darkTheme = false) {
+      HomelyTheme(darkTheme = false) {
         PaymentsScreen(
           shops = shops,
           orders = orders,

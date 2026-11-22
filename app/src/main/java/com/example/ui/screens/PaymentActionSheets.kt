@@ -991,7 +991,7 @@ fun ShopLedgerDetailSheet(
       ) {
         OutlinedButton(
           onClick = {
-            val reminderMsg = "Namaste ${shop.ownerName}, reminder from SnackRoute regarding ${shop.name} (${shop.shopCode}): outstanding balance is ${formatInr(ledger.outstandingBalance)}. Please let us know when we can collect."
+            val reminderMsg = "Namaste ${shop.ownerName}, reminder from Homely by Homie regarding ${shop.name} (${shop.shopCode}): outstanding balance is ${formatInr(ledger.outstandingBalance)}. Please let us know when we can collect."
             openWhatsApp(context, shop.phone, reminderMsg)
           },
           shape = RoundedCornerShape(12.dp),

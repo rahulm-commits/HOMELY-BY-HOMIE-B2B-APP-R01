@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.width
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.ServerConfigStore
-import com.example.data.local.SnackRouteDatabase
+import com.example.data.local.HomelyDatabase
 import com.example.data.model.CatalogProduct
 import com.example.data.model.InquiryStatus
 import com.example.data.model.OrderRecord
@@ -28,7 +28,7 @@ import com.example.data.repository.LocalTestRepository
 import com.example.data.repository.SyncCoordinatorRepository
 import com.example.ui.screens.OrderScreen
 import com.example.ui.screens.PlaceOrderScreen
-import com.example.ui.theme.SnackRouteTheme
+import com.example.ui.theme.HomelyTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -64,7 +64,7 @@ class OrderPickCallEditDeleteAndDeliveryTest {
 
     var lastFeedback = ""
     composeTestRule.setContent {
-      SnackRouteTheme(darkTheme = false) {
+      HomelyTheme(darkTheme = false) {
         OrderScreen(
           shops = listOf(shop),
           orders = emptyList(),
@@ -117,7 +117,7 @@ class OrderPickCallEditDeleteAndDeliveryTest {
     var deletedOrder: OrderRecord? = null
 
     composeTestRule.setContent {
-      SnackRouteTheme(darkTheme = false) {
+      HomelyTheme(darkTheme = false) {
         OrderScreen(
           shops = listOf(shop),
           orders = listOf(confirmedOrder),
@@ -187,7 +187,7 @@ class OrderPickCallEditDeleteAndDeliveryTest {
     var updatedNote = ""
 
     composeTestRule.setContent {
-      SnackRouteTheme(darkTheme = false) {
+      HomelyTheme(darkTheme = false) {
         PlaceOrderScreen(
           shop = shop,
           existingOrder = existingOrder,
@@ -220,7 +220,7 @@ class OrderPickCallEditDeleteAndDeliveryTest {
   @Test
   fun localTestMode_placeUpdateDeleteOrderAndRepeatedDeliveryStayExactCount() = runBlocking {
     val context: Context = ApplicationProvider.getApplicationContext()
-    val roomDb = Room.inMemoryDatabaseBuilder(context, SnackRouteDatabase::class.java)
+    val roomDb = Room.inMemoryDatabaseBuilder(context, HomelyDatabase::class.java)
       .allowMainThreadQueries()
       .build()
     val configStore = ServerConfigStore(context)
@@ -235,7 +235,7 @@ class OrderPickCallEditDeleteAndDeliveryTest {
     val coordinator = SyncCoordinatorRepository(
       appContext = context,
       primary = localRepo,
-      dao = roomDb.snackRouteDao(),
+      dao = roomDb.homelyDao(),
       configStore = configStore,
       laptopClient = LaptopServerClient(),
       currentUserId = LocalTestRepository.LOCAL_UID,

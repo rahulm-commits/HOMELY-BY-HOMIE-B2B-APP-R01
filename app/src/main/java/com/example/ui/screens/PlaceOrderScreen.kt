@@ -327,7 +327,11 @@ fun PlaceOrderScreen(
         }
       }
 
-      items(filteredProducts, key = { "${it.code}_${it.packSize}" }) { product ->
+      items(
+        items = filteredProducts,
+        key = { "${it.code}_${it.packSize}" },
+        contentType = { "order_product_card" },
+      ) { product ->
         val qty = quantities[product.code] ?: 0
         Card(
           shape = RoundedCornerShape(14.dp),

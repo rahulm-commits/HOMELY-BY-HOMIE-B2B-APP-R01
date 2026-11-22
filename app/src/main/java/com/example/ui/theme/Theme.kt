@@ -125,7 +125,7 @@ val AppShapes = Shapes(
 )
 
 @Composable
-fun SnackRouteTheme(
+fun HomelyTheme(
   darkTheme: Boolean = true,
   content: @Composable () -> Unit,
 ) {

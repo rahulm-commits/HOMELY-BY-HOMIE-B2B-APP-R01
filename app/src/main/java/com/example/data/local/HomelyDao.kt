@@ -7,7 +7,7 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface SnackRouteDao {
+interface HomelyDao {
 
   @Query("SELECT * FROM pending_shops ORDER BY updatedAtMillis DESC")
   fun observePendingShops(): Flow<List<PendingShopEntity>>
