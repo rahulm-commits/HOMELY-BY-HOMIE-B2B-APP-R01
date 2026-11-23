@@ -224,6 +224,10 @@ class TransportNavigationTest {
     assertEquals(userLat to userLng, plan.orderedWaypointsForMap[0])
     assertEquals(10.0261 to 76.3125, plan.orderedWaypointsForMap[1])
 
+    // Far away -> hasArrivedByGps must be false until within 150m or manually bypassed
+    assertFalse(plan.activeTargetStop!!.hasArrivedByGps)
+    assertFalse(plan.activeTargetStop!!.isReadyToCompleteDelivery)
+
     // Completing Stop 01 shifts priority target cleanly to Stop 02 while preserving numbers 1..4
     val afterStop1 = buildTransportRoutePlanState(
       route = sampleRoute,
@@ -239,6 +243,18 @@ class TransportNavigationTest {
     assertEquals(1, afterStop1.completedCount)
     assertEquals(3, afterStop1.pendingCount)
     assertEquals(4, afterStop1.orderedWaypointsForMap.size)
+
+    // Moving within 150m of Stop 02 automatically marks hasArrivedByGps = true
+    val arrivedNearStop2 = buildTransportRoutePlanState(
+      route = sampleRoute,
+      allShops = sampleShops,
+      allOrders = sampleOrders,
+      locallyCompletedShopIds = setOf("s_edappally"),
+      userLatitude = 10.0326,
+      userLongitude = 76.3151,
+    )
+    assertTrue(arrivedNearStop2.activeTargetStop!!.hasArrivedByGps)
+    assertTrue(arrivedNearStop2.activeTargetStop!!.isReadyToCompleteDelivery)
   }
 
   @Test
@@ -400,17 +416,19 @@ class TransportNavigationTest {
     composeTestRule.waitForIdle()
     val stopList = composeTestRule.onNodeWithTag("transport_stop_list")
 
-    // Stop 01 is active and has enabled Mark Delivered button
+    // Stop 01 is active: shows "I have reached the location" bypass first, hiding Complete Delivery until arrived
     stopList.performScrollToNode(hasTestTag("transport_upcoming_stop_1"))
     composeTestRule.onNodeWithTag("transport_upcoming_stop_1").assertIsDisplayed()
-    stopList.performScrollToNode(hasTestTag("transport_mark_delivered_1"))
-    composeTestRule.onNodeWithTag("transport_mark_delivered_1").assertIsDisplayed()
+    stopList.performScrollToNode(hasTestTag("transport_arrived_bypass_1"))
+    composeTestRule.onNodeWithTag("transport_arrived_bypass_1").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("transport_mark_delivered_1").assertDoesNotExist()
 
-    // Select Stop 02: must NOT allow Mark Delivered out of order; shows locked sequential indicator instead
+    // Select Stop 02: must NOT allow Mark Delivered or Arrival Bypass out of order; shows locked sequential indicator instead
     stopList.performScrollToNode(hasTestTag("transport_upcoming_stop_2"))
     composeTestRule.onNodeWithTag("transport_upcoming_stop_2").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("transport_mark_delivered_2").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("transport_arrived_bypass_2").assertDoesNotExist()
     stopList.performScrollToNode(hasTestTag("transport_locked_stop_2"))
     composeTestRule.onNodeWithTag("transport_locked_stop_2").assertIsDisplayed()
     composeTestRule.onNodeWithTag("transport_locked_stop_2").performClick()
@@ -418,7 +436,10 @@ class TransportNavigationTest {
     assertTrue(deliveredOrderIds.isEmpty())
     assertTrue(feedbackMessages.any { it.contains("01") })
 
-    // Complete Stop 01 in sequence -> unlocks Stop 02 automatically
+    // Confirm arrival via bypass on Stop 01 -> unlocks Complete Delivery button
+    stopList.performScrollToNode(hasTestTag("transport_arrived_bypass_1"))
+    composeTestRule.onNodeWithTag("transport_arrived_bypass_1").performClick()
+    composeTestRule.waitForIdle()
     stopList.performScrollToNode(hasTestTag("transport_mark_delivered_1"))
     composeTestRule.onNodeWithTag("transport_mark_delivered_1").performClick()
     composeTestRule.waitForIdle()
@@ -426,8 +447,9 @@ class TransportNavigationTest {
     composeTestRule.waitForIdle()
 
     assertEquals(listOf("ord_1"), deliveredOrderIds)
-    stopList.performScrollToNode(hasTestTag("transport_mark_delivered_2"))
-    composeTestRule.onNodeWithTag("transport_mark_delivered_2").assertIsDisplayed()
+    // Automatically advances to Stop 02 with its own "I have reached the location" prompt
+    stopList.performScrollToNode(hasTestTag("transport_arrived_bypass_2"))
+    composeTestRule.onNodeWithTag("transport_arrived_bypass_2").assertIsDisplayed()
   }
 
   @Test
@@ -489,6 +511,9 @@ class TransportNavigationTest {
 
   @Test
   fun transportScreen_showsAllShopsToDeliverAndStartNavigationOpensNumberedMap() {
+    val deliveredOrderIds = mutableListOf<String>()
+    val feedbackMessages = mutableListOf<String>()
+
     composeTestRule.setContent {
       HomelyTheme {
         TransportScreen(
@@ -496,10 +521,10 @@ class TransportNavigationTest {
           orders = sampleOrders,
           routes = listOf(sampleRoute),
           userDisplayName = "Arun Kumar",
-          onMarkOrderDelivered = { _, _, _ -> },
+          onMarkOrderDelivered = { orderId, _, _ -> deliveredOrderIds += orderId },
           onNavigateToRoutes = {},
           onOpenSyncServers = {},
-          onShowFeedback = {},
+          onShowFeedback = { msg -> feedbackMessages += msg },
         )
       }
     }
@@ -512,25 +537,55 @@ class TransportNavigationTest {
     stopList.performScrollToNode(hasTestTag("transport_upcoming_stop_4"))
     composeTestRule.onNodeWithTag("transport_upcoming_stop_4").assertIsDisplayed()
 
-    // Start Navigation button opens fullscreen map immediately with numbered chips 1, 2, 3, 4
+    // Start Navigation button opens fullscreen map immediately with numbered chips 1, 2, 3, 4 and directions to Stop 1
     composeTestRule.onNodeWithText("Start Navigation").assertIsDisplayed()
     composeTestRule.onNodeWithTag("transport_navigate_primary_btn").performClick()
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("transport_exit_fullscreen_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("nav_direction_header").assertIsDisplayed()
     composeTestRule.onNodeWithTag("nav_stop_chip_1").assertIsDisplayed()
     composeTestRule.onNodeWithTag("nav_stop_chip_2").assertIsDisplayed()
     composeTestRule.onNodeWithTag("nav_stop_chip_3").assertIsDisplayed()
     composeTestRule.onNodeWithTag("nav_stop_chip_4").assertIsDisplayed()
 
-    // Navigate forward to Shop 2 using Next button
+    // Complete Delivery is gated until arriving or tapping "I have reached the location"
+    composeTestRule.onNodeWithTag("nav_bypass_arrived_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("fullscreen_mark_delivered_button").assertDoesNotExist()
+
+    // Navigate forward to Shop 2 using Next button -> shows Jump to #1
     composeTestRule.onNodeWithTag("nav_next_stop_button").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("nav_jump_active_stop_button").assertIsDisplayed()
 
-    // Jump back to active Stop 1 via chip
+    // Jump back to active Stop 1 via chip, tap "I have reached the location", then Complete Delivery
     composeTestRule.onNodeWithTag("nav_stop_chip_1").performClick()
     composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_bypass_arrived_button").performClick()
+    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("fullscreen_mark_delivered_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("fullscreen_mark_delivered_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("confirm_pod_delivered_button").performClick()
+    composeTestRule.waitForIdle()
+
+    // Completing Stop 1 automatically redirects to Stop 2 and requires arrival at Stop 2
+    assertEquals(listOf("ord_1"), deliveredOrderIds)
+    assertTrue(feedbackMessages.any { it.contains("Redirecting to Stop 02") })
+    composeTestRule.onNodeWithText("REDIRECTING TO STOP #2 • TOLL FRESH MART").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("nav_bypass_arrived_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("fullscreen_mark_delivered_button").assertDoesNotExist()
+
+    // Bypass arrival at Stop 2 and complete Stop 2 -> automatically redirects to Stop 3
+    composeTestRule.onNodeWithTag("nav_bypass_arrived_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("fullscreen_mark_delivered_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("confirm_pod_delivered_button").performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals(listOf("ord_1", "ord_2"), deliveredOrderIds)
+    assertTrue(feedbackMessages.any { it.contains("Redirecting to Stop 03") })
+    composeTestRule.onNodeWithText("REDIRECTING TO STOP #3 • PATHADIPALAM DAILY NEEDS").assertIsDisplayed()
   }
 }

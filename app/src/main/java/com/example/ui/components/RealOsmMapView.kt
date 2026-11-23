@@ -150,18 +150,21 @@ private data class RenderedPinHitbox(
   val radiusPx: Float,
 )
 
-private data class PreparedPinRender(
+internal data class PreparedPinRender(
   val shop: Shop,
   val shortName: String,
   val stopNumber: Int,
   val isUnallocated: Boolean,
   val colorSpec: RouteColorSpec?,
+  val isEditTargetSelected: Boolean = false,
+  val isDimmedForEdit: Boolean = false,
 )
 
-private data class PreparedRouteTrack(
+internal data class PreparedRouteTrack(
   val route: DeliveryRoute,
   val spec: RouteColorSpec,
   val coordinates: List<Pair<Double, Double>>,
+  val isDimmed: Boolean = false,
 )
 
 private class MeasuredCityMarker(
@@ -570,6 +573,7 @@ fun RealOsmMapView(
   showBuiltInZoomControls: Boolean = true,
   fitBoundsIncludesUser: Boolean = false,
   focusShopTrigger: Int = 0,
+  editingTargetRouteId: String? = null,
   onPinSelected: (String) -> Unit = {},
   onMapSurfaceTapped: () -> Unit = {},
   modifier: Modifier = Modifier,
@@ -595,11 +599,16 @@ fun RealOsmMapView(
   val latestOnPinSelected by rememberUpdatedState(onPinSelected)
   val latestOnMapTapped by rememberUpdatedState(onMapSurfaceTapped)
 
-  val preparedData = remember(shops, routes, selectedRouteId, navigationPins) {
+  val preparedData = remember(shops, routes, selectedRouteId, editingTargetRouteId, navigationPins) {
     if (navigationPins != null) {
       emptyList<PreparedPinRender>() to emptyList()
     } else {
-      prepareMapRenderData(shops, routes, selectedRouteId)
+      prepareMapRenderData(
+        shops = shops,
+        routes = routes,
+        selectedRouteId = selectedRouteId,
+        editingTargetRouteId = editingTargetRouteId,
+      )
     }
   }
   val preparedPins = preparedData.first
@@ -910,17 +919,23 @@ fun RealOsmMapView(
   val orderedMeasuredPins = remember(preparedPins, selectedShopId, compactPreviewMode, textMeasurer, pinGlyphStyle, pinLabelStyle, density.density) {
     val maxTextWidth = with(density) { 128.dp.toPx().roundToInt() }
     preparedPins
-      .sortedBy { if (it.shop.id == selectedShopId) 1 else 0 }
+      .sortedBy { pin ->
+        when {
+          pin.shop.id == selectedShopId -> 2
+          pin.isEditTargetSelected -> 1
+          else -> 0
+        }
+      }
       .map { pin ->
         val glyph = when {
-          pin.isUnallocated -> "?"
           pin.stopNumber > 0 -> pin.stopNumber.toString()
+          pin.isUnallocated -> "?"
           else -> "•"
         }
         val glyphLayout = textMeasurer.measure(text = glyph, style = pinGlyphStyle)
         val labelLayout = if (!compactPreviewMode && pin.shortName.isNotEmpty()) {
           val label = buildString {
-            if (pin.stopNumber > 0 && !pin.isUnallocated) {
+            if (pin.stopNumber > 0) {
               append("#${pin.stopNumber} ")
             }
             append(pin.shortName)
@@ -939,12 +954,14 @@ fun RealOsmMapView(
       }
   }
 
+  val latestOrderedNavPins by rememberUpdatedState(orderedMeasuredNavPins)
+  val latestOrderedPins by rememberUpdatedState(orderedMeasuredPins)
   val touchSlopPx = viewConfiguration.touchSlop
 
   val interactionModifier = if (compactPreviewMode) {
     Modifier
   } else {
-    Modifier.pointerInput(worldScale) {
+    Modifier.pointerInput(worldScale, density) {
       awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         val startPos = down.position
@@ -957,11 +974,25 @@ fun RealOsmMapView(
           val activeChanges = moveEvent.changes.filter { it.pressed }
           if (activeChanges.isEmpty()) {
             if (!multiTouchUsed && maxMoved <= touchSlopPx) {
-              val tappedPin = hitboxes.lastOrNull { hb ->
-                hypot(lastPos.x - hb.center.x, lastPos.y - hb.center.y) <= hb.radiusPx
+              val tappedPinId = if (hitboxes.isNotEmpty()) {
+                hitboxes.lastOrNull { hb ->
+                  hypot(lastPos.x - hb.center.x, lastPos.y - hb.center.y) <= hb.radiusPx
+                }?.shopId
+              } else if (canvasSize.width > 0 && canvasSize.height > 0) {
+                val w = canvasSize.width.toFloat()
+                val h = canvasSize.height.toFloat()
+                val hitRadiusPx = with(density) { 28.dp.toPx() }
+                val candidateShops = latestOrderedNavPins?.map { it.pin.shop }
+                  ?: latestOrderedPins.map { it.pin.shop }
+                candidateShops.lastOrNull { shop ->
+                  val pt = projectLatLngToScreen(shop.latitude, shop.longitude, camera, w, h, worldScale)
+                  hypot(lastPos.x - pt.x, lastPos.y - pt.y) <= hitRadiusPx
+                }?.id
+              } else {
+                null
               }
-              if (tappedPin != null) {
-                latestOnPinSelected(tappedPin.shopId)
+              if (tappedPinId != null) {
+                latestOnPinSelected(tappedPinId)
               } else {
                 latestOnMapTapped()
               }
@@ -1261,10 +1292,11 @@ private fun MapZoomControlButton(
   }
 }
 
-private fun prepareMapRenderData(
+internal fun prepareMapRenderData(
   shops: List<Shop>,
   routes: List<DeliveryRoute>,
   selectedRouteId: String,
+  editingTargetRouteId: String? = null,
 ): Pair<List<PreparedPinRender>, List<PreparedRouteTrack>> {
   val routeMap = routes.associateBy { it.id }
 
@@ -1280,13 +1312,37 @@ private fun prepareMapRenderData(
     route.id to sorted
   }
 
-  val visibleShops = if (selectedRouteId == RoutesCatalog.ALL) {
+  val isEditMode = !editingTargetRouteId.isNullOrBlank()
+  val isAllShopsMode = !isEditMode && selectedRouteId == RoutesCatalog.ALL
+
+  // In "All Shops" mode, continuously number EVERY visible shop location (1, 2, 3, 4, 5, 6...)
+  val allShopsGlobalNumberByShopId = if (isAllShopsMode) {
+    val map = mutableMapOf<String, Int>()
+    var seq = 1
+    routes.forEach { route ->
+      sortedShopsByRouteId[route.id].orEmpty().forEach { shop ->
+        if ((shop.latitude != 0.0 || shop.longitude != 0.0) && !map.containsKey(shop.id)) {
+          map[shop.id] = seq++
+        }
+      }
+    }
+    shops.forEach { shop ->
+      if ((shop.latitude != 0.0 || shop.longitude != 0.0) && !map.containsKey(shop.id)) {
+        map[shop.id] = seq++
+      }
+    }
+    map
+  } else {
+    emptyMap()
+  }
+
+  val visibleShops = if (isEditMode || selectedRouteId == RoutesCatalog.ALL) {
     shops
   } else {
     shops.filter { it.routeId == selectedRouteId || it.routeId == RoutesCatalog.UNALLOCATED || it.routeId.isBlank() }
   }
 
-  val routesToDraw = if (selectedRouteId == RoutesCatalog.ALL) {
+  val routesToDraw = if (isEditMode || selectedRouteId == RoutesCatalog.ALL) {
     routes
   } else {
     routes.filter { it.id == selectedRouteId }
@@ -1303,6 +1359,7 @@ private fun prepareMapRenderData(
         route = route,
         spec = RouteColorPalette.specForIndex(route.colorIndex),
         coordinates = coords,
+        isDimmed = isEditMode && route.id != editingTargetRouteId,
       )
     }
   }
@@ -1310,10 +1367,13 @@ private fun prepareMapRenderData(
   val pins = visibleShops.mapNotNull { shop ->
     if (shop.latitude == 0.0 && shop.longitude == 0.0) return@mapNotNull null
     val isUnalloc = shop.routeId == RoutesCatalog.UNALLOCATED || !routeMap.containsKey(shop.routeId)
-    val stopNum = if (!isUnalloc) {
-      stopNumberByShopId[shop.id] ?: 0
-    } else {
-      0
+    val isTargetSelected = isEditMode && shop.routeId == editingTargetRouteId
+    val isDimmed = isEditMode && shop.routeId != editingTargetRouteId
+    val stopNum = when {
+      isEditMode -> if (isTargetSelected) (stopNumberByShopId[shop.id] ?: 0) else 0
+      isAllShopsMode -> allShopsGlobalNumberByShopId[shop.id] ?: 0
+      !isUnalloc -> stopNumberByShopId[shop.id] ?: 0
+      else -> 0
     }
     val spec = routeMap[shop.routeId]?.let { RouteColorPalette.specForIndex(it.colorIndex) }
     PreparedPinRender(
@@ -1322,6 +1382,8 @@ private fun prepareMapRenderData(
       stopNumber = stopNum,
       isUnallocated = isUnalloc,
       colorSpec = spec,
+      isEditTargetSelected = isTargetSelected,
+      isDimmedForEdit = isDimmed,
     )
   }
 
@@ -1529,11 +1591,12 @@ private fun DrawScope.drawRouteTracks(
       if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
     }
 
-    val pri = track.spec.primary
-    val sec = track.spec.secondary
+    val alphaScale = if (track.isDimmed) 0.34f else 1f
+    val pri = track.spec.primary.copy(alpha = alphaScale)
+    val sec = track.spec.secondary?.copy(alpha = alphaScale)
     val pattern = track.spec.pattern
 
-    drawPath(path = path, color = Color.White.copy(alpha = 0.88f), style = scratch.trackHaloStroke)
+    drawPath(path = path, color = Color.White.copy(alpha = if (track.isDimmed) 0.45f else 0.88f), style = scratch.trackHaloStroke)
 
     if (sec == null || pattern == RouteComboPattern.SOLID) {
       drawPath(path = path, color = pri, style = scratch.trackPrimaryStroke)
@@ -1542,7 +1605,7 @@ private fun DrawScope.drawRouteTracks(
       drawParallelTrack(screenPts, sec, scratch.trackSplitStroke, -offsetPx, scratch.clipCirclePath)
     } else if (pattern == RouteComboPattern.RING_CORE) {
       drawPath(path = path, color = pri, style = scratch.trackRingOuterStroke)
-      drawPath(path = path, color = Color.White, style = scratch.trackRingMidStroke)
+      drawPath(path = path, color = Color.White.copy(alpha = alphaScale), style = scratch.trackRingMidStroke)
       drawPath(path = path, color = sec, style = scratch.trackRingCoreStroke)
     } else if (pattern == RouteComboPattern.DIAGONAL_STRIPE) {
       drawPath(path = path, color = pri, style = scratch.trackBgStroke)
@@ -1552,7 +1615,7 @@ private fun DrawScope.drawRouteTracks(
       drawPath(path = path, color = sec, style = scratch.trackDashStroke)
     }
 
-    if (!compactPreviewMode) {
+    if (!compactPreviewMode && !track.isDimmed) {
       val midIdx = (screenPts.size - 1) / 2
       val a = screenPts[midIdx]
       val b = if (midIdx + 1 < screenPts.size) screenPts[midIdx + 1] else a
@@ -1635,18 +1698,33 @@ private fun DrawScope.drawShopPinBadge(
   scratch: MapCanvasScratch,
 ) {
   val pin = item.pin
-  val r = if (isSelected) 15.dp.toPx() else 12.5.dp.toPx()
+  val r = when {
+    isSelected -> 15.dp.toPx()
+    pin.isEditTargetSelected -> 14.dp.toPx()
+    pin.isDimmedForEdit -> 10.5.dp.toPx()
+    else -> 12.5.dp.toPx()
+  }
   val d = r * 2f
 
+  if (pin.isEditTargetSelected) {
+    val haloColor = pin.colorSpec?.primary ?: SaffronPrimary
+    drawCircle(
+      color = haloColor.copy(alpha = 0.28f),
+      radius = r + 5.dp.toPx(),
+      center = center,
+    )
+  }
+
   drawCircle(
-    color = Color.Black.copy(alpha = 0.22f),
+    color = Color.Black.copy(alpha = if (pin.isDimmedForEdit) 0.14f else 0.22f),
     radius = r,
     center = center + Offset(0f, 2.dp.toPx()),
   )
 
+  val pinAlpha = if (pin.isDimmedForEdit) 0.65f else 1f
   val spec = pin.colorSpec
-  val pri = if (pin.isUnallocated) Color.White else (spec?.primary ?: Color(0xFF1F4E43))
-  val sec = spec?.secondary
+  val pri = if (pin.isUnallocated) Color.White.copy(alpha = pinAlpha) else (spec?.primary ?: Color(0xFF1F4E43)).copy(alpha = pinAlpha)
+  val sec = spec?.secondary?.copy(alpha = pinAlpha)
   val pat = spec?.pattern ?: RouteComboPattern.SOLID
 
   if (pin.isUnallocated || sec == null || pat == RouteComboPattern.SOLID) {
@@ -1683,12 +1761,13 @@ private fun DrawScope.drawShopPinBadge(
   drawCircle(
     color = when {
       isSelected -> SaffronPrimary
-      pin.isUnallocated -> CoralDanger
-      else -> Color.White
+      pin.isEditTargetSelected -> Color.White
+      pin.isUnallocated -> CoralDanger.copy(alpha = pinAlpha)
+      else -> Color.White.copy(alpha = pinAlpha)
     },
     radius = r,
     center = center,
-    style = if (isSelected) scratch.pinSelectedStroke else scratch.pinDefaultStroke,
+    style = if (isSelected || pin.isEditTargetSelected) scratch.pinSelectedStroke else scratch.pinDefaultStroke,
   )
 
   val glyphLayout = item.glyphLayout
@@ -1720,14 +1799,20 @@ private fun DrawScope.drawShopPinBadge(
 
     if (pillTop >= 2f) {
       val corner = CornerRadius(6.dp.toPx(), 6.dp.toPx())
+      val highlightLabel = isSelected || pin.isEditTargetSelected
+      val pillFill = when {
+        isSelected -> SaffronPrimary
+        pin.isEditTargetSelected -> (pin.colorSpec?.primary ?: SaffronPrimary)
+        else -> Color.White.copy(alpha = if (pin.isDimmedForEdit) 0.86f else 0.94f)
+      }
       drawRoundRect(
-        color = if (isSelected) SaffronPrimary else Color.White.copy(alpha = 0.94f),
+        color = pillFill,
         topLeft = Offset(pillLeft, pillTop),
         size = Size(pillW, pillH),
         cornerRadius = corner,
       )
       drawRoundRect(
-        color = if (isSelected) Color.White else CartographicGrid,
+        color = if (highlightLabel) Color.White else CartographicGrid,
         topLeft = Offset(pillLeft, pillTop),
         size = Size(pillW, pillH),
         cornerRadius = corner,
@@ -1735,7 +1820,7 @@ private fun DrawScope.drawShopPinBadge(
       )
       drawText(
         textLayoutResult = measuredLabel,
-        color = if (isSelected) Color.White else DeepSlateInk,
+        color = if (highlightLabel) (pin.colorSpec?.contrastInk ?: Color.White) else DeepSlateInk,
         topLeft = Offset(pillLeft + padH, pillTop + padV),
       )
     }

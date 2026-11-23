@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -40,7 +42,6 @@ import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -77,6 +78,7 @@ import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.ShopStatus
+import com.example.ui.components.CompactDropdownMenuItem
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.StandardRouteDropdown
 import com.example.ui.components.openDialer
@@ -93,7 +95,7 @@ private enum class ShopSectionTab(val label: String) {
   INACTIVE("Inactive Shops"),
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ShopListScreen(
   shops: List<Shop>,
@@ -148,18 +150,21 @@ fun ShopListScreen(
       .fillMaxSize()
       .background(MaterialTheme.colorScheme.background),
   ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-      // Top summary & filters (tight spacing matched with OrderScreen)
-      Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth(),
-      ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+    LazyColumn(
+      modifier = Modifier.fillMaxSize(),
+      contentPadding = PaddingValues(bottom = 82.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      // Scrollable Top Summary & Route Selector
+      item(key = "shop_top_header") {
+        Surface(
+          color = MaterialTheme.colorScheme.surface,
+          tonalElevation = 0.dp,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
           Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
             Row(
               modifier = Modifier.fillMaxWidth(),
@@ -180,8 +185,8 @@ fun ShopListScreen(
 
               Box(
                 modifier = Modifier
-                  .heightIn(min = 48.dp)
                   .minimumInteractiveComponentSize()
+                  .heightIn(min = 48.dp)
                   .clip(RoundedCornerShape(999.dp))
                   .clickable(onClick = onOpenSyncServers)
                   .testTag("shop_sync_servers_button"),
@@ -293,96 +298,111 @@ fun ShopListScreen(
               onRouteSelected = { selectedRoute = it },
               fieldTestTag = "shop_route_filter",
             )
+          }
+        }
+      }
 
-            // Compact Search Bar (matching OrderScreen)
-            StandardCompactSearchBar(
-              query = searchQuery,
-              onQueryChange = { searchQuery = it },
-              placeholder = "Search name, ID, contact or phone...",
-              fieldTestTag = "shop_search_input",
-            )
-
-            // Section chips: All Shops, Recently Added, Recently Deleted, Inactive
-            Row(
-              modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
+      // Sticky Search Bar + Section Toggle Chips
+      stickyHeader(key = "shop_sticky_controls") {
+        Surface(
+          color = MaterialTheme.colorScheme.surface,
+          tonalElevation = 0.dp,
+          shadowElevation = 2.dp,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+              modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+              verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-              ShopSectionTab.entries.forEach { tab ->
-                val isSelected = selectedTab == tab
-                FilterChip(
-                  selected = isSelected,
-                  onClick = { selectedTab = tab },
-                  colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                  ),
-                  border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
+              // Compact Search Bar (matching OrderScreen)
+              StandardCompactSearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholder = "Search name, ID, contact or phone...",
+                fieldTestTag = "shop_search_input",
+              )
+
+              // Section chips: All Shops, Recently Added, Recently Deleted, Inactive
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                ShopSectionTab.entries.forEach { tab ->
+                  val isSelected = selectedTab == tab
+                  FilterChip(
                     selected = isSelected,
-                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
-                  ),
-                  label = {
-                    Text(
-                      text = tab.label,
-                      style = MaterialTheme.typography.labelMedium,
-                      fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    )
-                  },
-                  modifier = Modifier
-                    .height(34.dp)
-                    .testTag("shop_tab_${tab.name.lowercase()}"),
-                )
+                    onClick = { selectedTab = tab },
+                    colors = FilterChipDefaults.filterChipColors(
+                      selectedContainerColor = MaterialTheme.colorScheme.primary,
+                      selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                      containerColor = MaterialTheme.colorScheme.surface,
+                      labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                      enabled = true,
+                      selected = isSelected,
+                      borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                    ),
+                    label = {
+                      Text(
+                        text = tab.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                      )
+                    },
+                    modifier = Modifier
+                      .height(34.dp)
+                      .testTag("shop_tab_${tab.name.lowercase()}"),
+                  )
+                }
               }
             }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
           }
-          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
         }
       }
 
       if (filteredShops.isEmpty()) {
-        Box(
-          modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-          contentAlignment = Alignment.Center,
-        ) {
-          Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        item(key = "shops_empty_state") {
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 24.dp, vertical = 48.dp),
+            contentAlignment = Alignment.Center,
           ) {
-            Icon(
-              imageVector = Icons.Rounded.Storefront,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-              modifier = Modifier.size(56.dp),
-            )
-            Text(
-              text = "No shops in ${selectedTab.label}",
-              style = MaterialTheme.typography.titleMedium,
-              color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-              text = "Tap Add Shop below to register a shop — works offline too.",
-              style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.Storefront,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                modifier = Modifier.size(56.dp),
+              )
+              Text(
+                text = "No shops in ${selectedTab.label}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+              )
+              Text(
+                text = "Tap Add Shop below to register a shop — works offline too.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
           }
         }
       } else {
-        LazyColumn(
-          modifier = Modifier.fillMaxSize(),
-          contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 92.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          items(
-            filteredShops,
-            key = { it.id.ifBlank { it.shopCode } },
-            contentType = { "shop_card" },
-          ) { shop ->
+        items(
+          filteredShops,
+          key = { it.id.ifBlank { it.shopCode } },
+          contentType = { "shop_card" },
+        ) { shop ->
+          Box(modifier = Modifier.padding(horizontal = 12.dp)) {
             ShopCardItem(
               shop = shop,
               onCall = { openDialer(context, shop.phone) },
@@ -442,8 +462,8 @@ private fun ShopCardItem(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
+      modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -590,11 +610,17 @@ private fun ShopCardItem(
               contentDescription = "More shop actions",
             )
           }
-          DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+          DropdownMenu(
+            expanded = menuOpen,
+            onDismissRequest = { menuOpen = false },
+            modifier = Modifier
+              .widthIn(min = 175.dp, max = 240.dp)
+              .heightIn(max = 220.dp),
+          ) {
             if (shop.status == ShopStatus.DELETED) {
-              DropdownMenuItem(
-                text = { Text("Restore Shop") },
-                leadingIcon = { Icon(Icons.Rounded.RestoreFromTrash, contentDescription = null) },
+              CompactDropdownMenuItem(
+                text = "Restore Shop",
+                leadingIcon = { Icon(Icons.Rounded.RestoreFromTrash, contentDescription = null, modifier = Modifier.size(16.dp)) },
                 onClick = {
                   menuOpen = false
                   onChangeStatus(shop.id, ShopStatus.ACTIVE, "${shop.name} restored")
@@ -603,16 +629,17 @@ private fun ShopCardItem(
             } else {
               val toggleTarget = if (shop.status == ShopStatus.INACTIVE) ShopStatus.ACTIVE else ShopStatus.INACTIVE
               val toggleLabel = if (shop.status == ShopStatus.INACTIVE) "Mark Active" else "Mark Inactive"
-              DropdownMenuItem(
-                text = { Text(toggleLabel) },
+              CompactDropdownMenuItem(
+                text = toggleLabel,
                 onClick = {
                   menuOpen = false
                   onChangeStatus(shop.id, toggleTarget, "${shop.name} marked $toggleTarget")
                 },
               )
-              DropdownMenuItem(
-                text = { Text("Move to Recently Deleted", color = MaterialTheme.semanticColors.danger) },
-                leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MaterialTheme.semanticColors.danger) },
+              CompactDropdownMenuItem(
+                text = "Move to Recently Deleted",
+                textColor = MaterialTheme.semanticColors.danger,
+                leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = MaterialTheme.semanticColors.danger, modifier = Modifier.size(16.dp)) },
                 onClick = {
                   menuOpen = false
                   onChangeStatus(shop.id, ShopStatus.DELETED, "${shop.name} moved to Recently Deleted")
@@ -639,7 +666,7 @@ private fun ShopCardItem(
             .clickable(onClick = onCall),
         ) {
           Row(
-            modifier = Modifier.padding(vertical = 10.dp),
+            modifier = Modifier.padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
           ) {
@@ -669,7 +696,7 @@ private fun ShopCardItem(
             .clickable(onClick = onWhatsApp),
         ) {
           Row(
-            modifier = Modifier.padding(vertical = 10.dp),
+            modifier = Modifier.padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
           ) {

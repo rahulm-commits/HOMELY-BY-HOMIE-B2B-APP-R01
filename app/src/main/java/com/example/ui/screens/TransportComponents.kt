@@ -101,6 +101,7 @@ fun TransportTopBar(
   onSearchQueryChange: (String) -> Unit,
   onNotificationsClick: () -> Unit,
   onProfileSyncClick: () -> Unit,
+  showInlineSearchBar: Boolean = true,
   modifier: Modifier = Modifier,
 ) {
   Surface(
@@ -112,7 +113,7 @@ fun TransportTopBar(
       Row(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 14.dp, vertical = 10.dp),
+          .padding(horizontal = 12.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
@@ -233,36 +234,52 @@ fun TransportTopBar(
         }
       }
 
-      AnimatedVisibility(visible = showSearch) {
-        OutlinedTextField(
-          value = searchQuery,
-          onValueChange = onSearchQueryChange,
-          placeholder = { Text("Filter stops by shop name, code, or order...") },
-          leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-          trailingIcon = {
-            if (searchQuery.isNotEmpty()) {
-              Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = "Clear search",
-                modifier = Modifier.clickable { onSearchQueryChange("") },
-              )
-            }
-          },
-          singleLine = true,
-          shape = RoundedCornerShape(12.dp),
-          colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-          ),
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp)
-            .testTag("transport_search_input"),
+      if (showInlineSearchBar) {
+        TransportSearchBar(
+          showSearch = showSearch,
+          searchQuery = searchQuery,
+          onSearchQueryChange = onSearchQueryChange,
         )
       }
 
       HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
     }
+  }
+}
+
+@Composable
+fun TransportSearchBar(
+  showSearch: Boolean,
+  searchQuery: String,
+  onSearchQueryChange: (String) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  AnimatedVisibility(visible = showSearch, modifier = modifier) {
+    OutlinedTextField(
+      value = searchQuery,
+      onValueChange = onSearchQueryChange,
+      placeholder = { Text("Filter stops by shop name, code, or order...") },
+      leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+      trailingIcon = {
+        if (searchQuery.isNotEmpty()) {
+          Icon(
+            imageVector = Icons.Rounded.Close,
+            contentDescription = "Clear search",
+            modifier = Modifier.clickable { onSearchQueryChange("") },
+          )
+        }
+      },
+      singleLine = true,
+      shape = RoundedCornerShape(12.dp),
+      colors = OutlinedTextFieldDefaults.colors(
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        focusedContainerColor = MaterialTheme.colorScheme.surface,
+      ),
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 10.dp, vertical = 4.dp)
+        .testTag("transport_search_input"),
+    )
   }
 }
 
@@ -288,7 +305,7 @@ fun ActiveRouteTriggerCard(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 12.dp, vertical = 10.dp),
+        .padding(horizontal = 12.dp, vertical = 8.dp),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -392,8 +409,8 @@ fun VehicleProgressCard(
     modifier = modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(11.dp),
-      verticalArrangement = Arrangement.spacedBy(9.dp),
+      modifier = Modifier.padding(9.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -529,8 +546,8 @@ fun VehicleProgressCard(
         modifier = Modifier.fillMaxWidth(),
       ) {
         Column(
-          modifier = Modifier.padding(9.dp),
-          verticalArrangement = Arrangement.spacedBy(7.dp),
+          modifier = Modifier.padding(7.dp),
+          verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
           Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(
@@ -586,7 +603,7 @@ fun VehicleProgressCard(
               modifier = Modifier.weight(1f),
             ) {
               Column(
-                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
+                modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
               ) {
                 Text(
@@ -612,7 +629,7 @@ fun VehicleProgressCard(
               modifier = Modifier.weight(1f),
             ) {
               Column(
-                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
+                modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
               ) {
                 Text(
@@ -979,6 +996,7 @@ fun UpcomingStopCard(
   modifier: Modifier = Modifier,
   activeTargetStopNumber: Int? = null,
   onFocusActiveStop: () -> Unit = {},
+  onConfirmArrived: () -> Unit = {},
 ) {
   Surface(
     color = MaterialTheme.colorScheme.surface,
@@ -1173,33 +1191,69 @@ fun UpcomingStopCard(
           }
 
           if (stop.isActiveTarget) {
-            Surface(
-              color = MaterialTheme.colorScheme.primary,
-              shape = RoundedCornerShape(9.dp),
-              modifier = Modifier
-                .weight(1.4f)
-                .clip(RoundedCornerShape(9.dp))
-                .clickable(onClick = onMarkDelivered)
-                .testTag("transport_mark_delivered_${stop.stopNumber}"),
-            ) {
-              Row(
-                modifier = Modifier.padding(vertical = 7.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+            if (stop.isReadyToCompleteDelivery) {
+              Surface(
+                color = MaterialTheme.semanticColors.success,
+                shape = RoundedCornerShape(9.dp),
+                modifier = Modifier
+                  .weight(1.4f)
+                  .clip(RoundedCornerShape(9.dp))
+                  .clickable(onClick = onMarkDelivered)
+                  .testTag("transport_mark_delivered_${stop.stopNumber}"),
               ) {
-                Icon(
-                  imageVector = Icons.Rounded.TaskAlt,
-                  contentDescription = "Mark Delivered",
-                  tint = MaterialTheme.colorScheme.onPrimary,
-                  modifier = Modifier.size(15.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                  text = "Mark Delivered",
-                  style = MaterialTheme.typography.labelMedium,
-                  fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.onPrimary,
-                )
+                Row(
+                  modifier = Modifier.padding(vertical = 7.dp, horizontal = 6.dp),
+                  horizontalArrangement = Arrangement.Center,
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Icon(
+                    imageVector = Icons.Rounded.TaskAlt,
+                    contentDescription = "Complete Delivery",
+                    tint = Color.White,
+                    modifier = Modifier.size(15.dp),
+                  )
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text(
+                    text = "Complete Delivery",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              }
+            } else {
+              Surface(
+                color = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(9.dp),
+                modifier = Modifier
+                  .weight(1.65f)
+                  .clip(RoundedCornerShape(9.dp))
+                  .clickable(onClick = onConfirmArrived)
+                  .testTag("transport_arrived_bypass_${stop.stopNumber}"),
+              ) {
+                Row(
+                  modifier = Modifier.padding(vertical = 7.dp, horizontal = 6.dp),
+                  horizontalArrangement = Arrangement.Center,
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Icon(
+                    imageVector = Icons.Rounded.Flag,
+                    contentDescription = "I have reached the location",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(14.dp),
+                  )
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text(
+                    text = "I have reached the location",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
               }
             }
           } else {
@@ -1352,6 +1406,7 @@ fun TransportActionDock(
   onCallDispatchClick: () -> Unit,
   onNavigatePrimaryClick: () -> Unit,
   onCompleteStopClick: () -> Unit,
+  onConfirmArrivedClick: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val primaryLabel = if (activeStop != null) {
@@ -1430,22 +1485,29 @@ fun TransportActionDock(
           }
         }
 
+        val readyToComplete = activeStop?.isReadyToCompleteDelivery == true
         Surface(
-          color = MaterialTheme.colorScheme.secondaryContainer,
+          color = if (readyToComplete) MaterialTheme.semanticColors.successContainer else MaterialTheme.colorScheme.secondaryContainer,
           shape = RoundedCornerShape(12.dp),
           shadowElevation = 1.dp,
           modifier = Modifier
             .minimumInteractiveComponentSize()
             .size(46.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = activeStop != null, onClick = onCompleteStopClick)
+            .clickable(enabled = activeStop != null) {
+              if (readyToComplete) onCompleteStopClick() else onConfirmArrivedClick()
+            }
             .testTag("transport_complete_stop_btn"),
         ) {
           Box(contentAlignment = Alignment.Center) {
             Icon(
-              imageVector = if (activeStop != null) Icons.Rounded.TaskAlt else Icons.Rounded.QrCodeScanner,
-              contentDescription = "Complete current delivery stop",
-              tint = MaterialTheme.colorScheme.secondary,
+              imageVector = when {
+                activeStop == null -> Icons.Rounded.QrCodeScanner
+                readyToComplete -> Icons.Rounded.TaskAlt
+                else -> Icons.Rounded.Flag
+              },
+              contentDescription = if (readyToComplete) "Complete current delivery stop" else "I have reached the location",
+              tint = if (readyToComplete) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(22.dp),
             )
           }

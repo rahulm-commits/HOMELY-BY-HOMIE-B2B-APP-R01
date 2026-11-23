@@ -239,8 +239,8 @@ fun SyncServerScreen(
         .fillMaxSize()
         .padding(innerPadding)
         .background(MaterialTheme.colorScheme.background),
-      contentPadding = PaddingValues(16.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      contentPadding = PaddingValues(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       // 1. Phone Storage & Sync Action Summary
       item {
@@ -252,8 +252,8 @@ fun SyncServerScreen(
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             Row(
               modifier = Modifier.fillMaxWidth(),
@@ -417,8 +417,8 @@ fun SyncServerScreen(
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
           ) {
             Row(
               modifier = Modifier.fillMaxWidth(),
@@ -484,8 +484,8 @@ fun SyncServerScreen(
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             Row(
               modifier = Modifier.fillMaxWidth(),

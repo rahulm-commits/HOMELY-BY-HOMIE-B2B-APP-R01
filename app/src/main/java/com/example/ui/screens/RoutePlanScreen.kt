@@ -92,6 +92,7 @@ fun RoutePlanScreen(
   var routeBeingEdited by remember { mutableStateOf<DeliveryRoute?>(null) }
   var showRouteModal by remember { mutableStateOf(false) }
   var routeManagingStops by remember { mutableStateOf<DeliveryRoute?>(null) }
+  var editDraft by remember { mutableStateOf<MapRouteEditorDraft?>(null) }
 
   val readActualGps: () -> Unit = {
     isFetchingLocation = true
@@ -149,8 +150,63 @@ fun RoutePlanScreen(
     }
   }
 
-  BackHandler(enabled = isFullscreenMap) {
+  BackHandler(enabled = editDraft != null) {
+    editDraft = null
+  }
+
+  BackHandler(enabled = isFullscreenMap && editDraft == null) {
     isFullscreenMap = false
+  }
+
+  val enterMapEditMode: () -> Unit = {
+    if (routes.isEmpty()) {
+      routeBeingEdited = null
+      showRouteModal = true
+    } else {
+      selectedShopId = null
+      val initialTarget = if (selectedRouteId != RoutesCatalog.ALL && routes.any { it.id == selectedRouteId }) {
+        selectedRouteId
+      } else {
+        routes.first().id
+      }
+      editDraft = createInitialMapRouteEditorDraft(
+        shops = activeShops,
+        routes = routes,
+        initialTargetRouteId = initialTarget,
+      )
+    }
+  }
+
+  val saveMapEditDraft: () -> Unit = {
+    val draft = editDraft
+    if (draft != null) {
+      val changedByTarget = draft.changedShopsByTargetRoute()
+      val totalChanged = draft.pendingChangeCount
+      changedByTarget.forEach { (targetId, shopIds) ->
+        val targetName = routes.firstOrNull { it.id == targetId }?.name ?: "Unallocated"
+        onBulkAssignShopsToRoute(
+          shopIds,
+          targetId,
+          "Updated ${shopIds.size} shop(s) -> $targetName",
+        )
+      }
+      val touchedRoutes = draft.affectedRouteIds()
+      routes.forEach { route ->
+        val draftedOrder = draft.draftRouteStopOrders[route.id]
+        if (draftedOrder != null && (draftedOrder != route.stopOrderIds || route.id in touchedRoutes)) {
+          onSaveRoute(
+            route.copy(stopOrderIds = draftedOrder),
+            "Updated ${route.name} stops",
+          )
+        }
+      }
+      recentStatusChipText = if (totalChanged > 0) {
+        "Saved $totalChanged edit(s)"
+      } else {
+        "Routes Up to Date"
+      }
+      editDraft = null
+    }
   }
 
   val displayedShops = remember(activeShops, topSearchQuery) {
@@ -226,6 +282,21 @@ fun RoutePlanScreen(
         onEditSelectedRouteShopsClick = routes.firstOrNull { it.id == selectedRouteId }?.let { focusedRoute ->
           { routeManagingStops = focusedRoute }
         },
+        editDraft = editDraft,
+        onEnterMapEditMode = enterMapEditMode,
+        onSelectEditTargetRoute = { routeId ->
+          editDraft = editDraft?.withTargetRoute(routeId)
+        },
+        onToggleShopInEditMode = { shop ->
+          editDraft = editDraft?.toggleShopSelection(shop)
+        },
+        onUndoMapEdit = {
+          editDraft = editDraft?.undoLastChange()
+        },
+        onCancelMapEdit = {
+          editDraft = null
+        },
+        onSaveMapEdit = saveMapEditDraft,
         modifier = Modifier.fillMaxSize(),
       )
     }
@@ -246,7 +317,7 @@ fun RoutePlanScreen(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 14.dp, vertical = 8.dp),
+              .padding(horizontal = 12.dp, vertical = 5.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
           ) {
@@ -428,6 +499,21 @@ fun RoutePlanScreen(
           onEditSelectedRouteShopsClick = routes.firstOrNull { it.id == selectedRouteId }?.let { focusedRoute ->
             { routeManagingStops = focusedRoute }
           },
+          editDraft = editDraft,
+          onEnterMapEditMode = enterMapEditMode,
+          onSelectEditTargetRoute = { routeId ->
+            editDraft = editDraft?.withTargetRoute(routeId)
+          },
+          onToggleShopInEditMode = { shop ->
+            editDraft = editDraft?.toggleShopSelection(shop)
+          },
+          onUndoMapEdit = {
+            editDraft = editDraft?.undoLastChange()
+          },
+          onCancelMapEdit = {
+            editDraft = null
+          },
+          onSaveMapEdit = saveMapEditDraft,
           modifier = Modifier
             .fillMaxWidth()
             .height(mapHeight),
@@ -557,6 +643,13 @@ fun RoutePlanScreen(
           "Saved ${savedRoute.name} & driver details"
         }
         onSaveRoute(savedRoute, actionMsg)
+        editDraft = editDraft?.let { current ->
+          val updatedOrders = current.draftRouteStopOrders.toMutableMap()
+          if (!updatedOrders.containsKey(savedRoute.id)) {
+            updatedOrders[savedRoute.id] = savedRoute.stopOrderIds
+          }
+          current.copy(targetRouteId = savedRoute.id, draftRouteStopOrders = updatedOrders)
+        }
         recentStatusChipText = "Route & Driver Updated"
         showRouteModal = false
       },

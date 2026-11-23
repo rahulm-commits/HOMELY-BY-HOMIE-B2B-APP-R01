@@ -409,8 +409,8 @@ fun AddEditSupplierScreen(
             modifier = Modifier
               .fillMaxWidth()
               .navigationBarsPadding()
-              .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+              .padding(horizontal = 14.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Surface(
@@ -468,8 +468,8 @@ fun AddEditSupplierScreen(
         .padding(innerPadding)
         .background(MaterialTheme.colorScheme.background)
         .testTag("add_edit_supplier_list"),
-      contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+      verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
       // Sub-header strip: Step 1 of 1 + Add Details + Notes quick button
       item {

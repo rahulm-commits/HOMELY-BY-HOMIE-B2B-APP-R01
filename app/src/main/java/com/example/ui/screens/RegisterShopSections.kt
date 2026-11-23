@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -55,7 +57,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -92,6 +93,7 @@ import com.example.R
 import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
+import com.example.ui.components.CompactDropdownMenuItem
 import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.rememberFileExistsAsync
 import com.example.ui.components.rememberThumbnailImageRequest
@@ -189,8 +191,8 @@ fun ShopInfoSectionCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
       SectionCardHeader(
         icon = Icons.Rounded.Storefront,
@@ -591,8 +593,8 @@ fun OwnerContactSectionCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
       SectionCardHeader(
         icon = Icons.Rounded.PersonPin,
@@ -772,8 +774,8 @@ fun ShopLocationSectionCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
       SectionCardHeader(
         icon = Icons.Rounded.PinDrop,
@@ -920,10 +922,14 @@ fun ShopLocationSectionCard(
           DropdownMenu(
             expanded = routeDropdownOpen,
             onDismissRequest = { routeDropdownOpen = false },
+            modifier = Modifier
+              .widthIn(min = 180.dp, max = 260.dp)
+              .heightIn(max = 260.dp),
           ) {
             routeOptions.forEach { route ->
-              DropdownMenuItem(
-                text = { Text(route) },
+              CompactDropdownMenuItem(
+                text = route,
+                selected = selectedRoute == route,
                 onClick = {
                   onRouteSelect(route)
                   routeDropdownOpen = false
@@ -1110,8 +1116,8 @@ fun ConfirmedPricingSectionCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       SectionCardHeader(
         icon = Icons.Rounded.PriceCheck,
@@ -1255,8 +1261,8 @@ private fun ConfirmedProductRateCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(12.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+      modifier = Modifier.padding(10.dp),
+      verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
       // Select Product header + SKU code
       Row(
@@ -1295,35 +1301,59 @@ private fun ConfirmedProductRateCard(
         }
       }
 
-      // Product dropdown
+      // Product dropdown (compact trigger + compact bounded menu)
       Box {
-        OutlinedTextField(
-          value = "${selectedCatalogProduct.name} [${selectedCatalogProduct.code}]",
-          onValueChange = {},
-          readOnly = true,
-          leadingIcon = { Icon(Icons.Rounded.Inventory2, contentDescription = null, modifier = Modifier.size(18.dp)) },
-          trailingIcon = { Icon(Icons.Rounded.ExpandMore, contentDescription = null) },
-          singleLine = true,
+        Surface(
+          color = MaterialTheme.colorScheme.surface,
           shape = RoundedCornerShape(10.dp),
-          colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-          ),
-          modifier = Modifier.fillMaxWidth(),
-        )
-        Box(
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
           modifier = Modifier
-            .matchParentSize()
+            .fillMaxWidth()
+            .height(42.dp)
+            .clip(RoundedCornerShape(10.dp))
             .clickable { productMenuOpen = true },
-        )
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Inventory2,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.secondary,
+              modifier = Modifier.size(17.dp),
+            )
+            Text(
+              text = "${selectedCatalogProduct.name} [${selectedCatalogProduct.code}]",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurface,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.weight(1f),
+            )
+            Icon(
+              imageVector = Icons.Rounded.ExpandMore,
+              contentDescription = "Select product",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(18.dp),
+            )
+          }
+        }
         DropdownMenu(
           expanded = productMenuOpen,
           onDismissRequest = { productMenuOpen = false },
+          modifier = Modifier
+            .widthIn(min = 210.dp, max = 320.dp)
+            .heightIn(max = 260.dp),
         ) {
           distinctProductNames.forEach { prodName ->
             val firstVariant = SnackCatalog.products.first { it.name == prodName }
-            DropdownMenuItem(
-              text = { Text("$prodName (${firstVariant.category})") },
+            CompactDropdownMenuItem(
+              text = "$prodName (${firstVariant.category})",
+              selected = rate.productName == prodName,
               onClick = {
                 onUpdate(
                   rate.copy(
@@ -1362,34 +1392,56 @@ private fun ConfirmedProductRateCard(
       }
 
       Box {
-        OutlinedTextField(
-          value = "${selectedCatalogProduct.packSize} Pouch (Std: ₹${String.format(Locale.US, "%.2f", stdWholesale)})",
-          onValueChange = {},
-          readOnly = true,
-          leadingIcon = { Icon(Icons.Rounded.Straighten, contentDescription = null, modifier = Modifier.size(18.dp)) },
-          trailingIcon = { Icon(Icons.Rounded.ExpandMore, contentDescription = null) },
-          singleLine = true,
+        Surface(
+          color = MaterialTheme.colorScheme.surface,
           shape = RoundedCornerShape(10.dp),
-          colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-          ),
-          modifier = Modifier.fillMaxWidth(),
-        )
-        Box(
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
           modifier = Modifier
-            .matchParentSize()
+            .fillMaxWidth()
+            .height(42.dp)
+            .clip(RoundedCornerShape(10.dp))
             .clickable { packMenuOpen = true },
-        )
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxSize()
+              .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Straighten,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.secondary,
+              modifier = Modifier.size(17.dp),
+            )
+            Text(
+              text = "${selectedCatalogProduct.packSize} Pouch (Std: ₹${String.format(Locale.US, "%.2f", stdWholesale)})",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurface,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.weight(1f),
+            )
+            Icon(
+              imageVector = Icons.Rounded.ExpandMore,
+              contentDescription = "Select pack size",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(18.dp),
+            )
+          }
+        }
         DropdownMenu(
           expanded = packMenuOpen,
           onDismissRequest = { packMenuOpen = false },
+          modifier = Modifier
+            .widthIn(min = 200.dp, max = 300.dp)
+            .heightIn(max = 240.dp),
         ) {
           matchingVariants.forEach { variant ->
-            DropdownMenuItem(
-              text = {
-                Text("${variant.packSize} Pouch (Std: ₹${String.format(Locale.US, "%.2f", variant.defaultPrice)})")
-              },
+            CompactDropdownMenuItem(
+              text = "${variant.packSize} Pouch (Std: ₹${String.format(Locale.US, "%.2f", variant.defaultPrice)})",
+              selected = rate.packSize == variant.packSize,
               onClick = {
                 onUpdate(
                   rate.copy(
@@ -1575,8 +1627,8 @@ fun RegistrationMetadataCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),

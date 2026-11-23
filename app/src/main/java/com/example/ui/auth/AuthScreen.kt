@@ -212,7 +212,7 @@ fun AuthScreen(
         )
       )
       .systemBarsPadding()
-      .padding(20.dp),
+      .padding(14.dp),
     contentAlignment = Alignment.Center,
   ) {
     Column(
@@ -220,7 +220,7 @@ fun AuthScreen(
         .fillMaxWidth()
         .widthIn(max = 460.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.spacedBy(18.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       Card(
         shape = RoundedCornerShape(24.dp),
@@ -240,8 +240,8 @@ fun AuthScreen(
               .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
           )
           Column(
-            modifier = Modifier.padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
           ) {
             Surface(
               color = MaterialTheme.colorScheme.primaryContainer,
@@ -269,8 +269,8 @@ fun AuthScreen(
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 6.dp),
-              horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(top = 4.dp),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
               FeaturePill(
                 icon = Icons.Rounded.Storefront,

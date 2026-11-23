@@ -523,8 +523,8 @@ fun AddEditShopScreen(
         .fillMaxSize()
         .padding(innerPadding)
         .background(MaterialTheme.colorScheme.background),
-      contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+      verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
       // Sub-header: Status pill + Step 1 of 1 + Notes quick trigger
       item {

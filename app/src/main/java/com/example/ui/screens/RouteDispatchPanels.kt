@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -59,7 +60,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -93,6 +93,7 @@ import java.util.Locale
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
+import com.example.ui.components.CompactDropdownMenuItem
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.haversineDistanceMeters
 import com.example.ui.components.openDialer
@@ -193,14 +194,14 @@ fun AllocationDispatchDrawer(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(bottom = 16.dp),
+        .padding(bottom = 10.dp),
     ) {
       // Handle & Dispatch Sheet Header
       Column(
         modifier = Modifier
           .fillMaxWidth()
           .clickable(onClick = onToggleExpand)
-          .padding(top = 10.dp, bottom = 8.dp)
+          .padding(top = 7.dp, bottom = 5.dp)
           .testTag("drawer_header_toggle"),
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
@@ -211,7 +212,7 @@ fun AllocationDispatchDrawer(
             .clip(RoundedCornerShape(999.dp))
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
         )
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Row(
           modifier = Modifier
             .fillMaxWidth()
@@ -334,15 +335,15 @@ fun AllocationDispatchDrawer(
         }
       }
 
-      Spacer(modifier = Modifier.height(6.dp))
+      Spacer(modifier = Modifier.height(4.dp))
 
       when (activeTab) {
         DispatchDrawerTab.ROUTES -> {
           Column(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+              .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
           ) {
             routes.forEach { route ->
               val assignedCount = shops.count { it.routeId == route.id }
@@ -372,8 +373,8 @@ fun AllocationDispatchDrawer(
                   .testTag("route_card_${route.id}"),
               ) {
                 Column(
-                  modifier = Modifier.padding(14.dp),
-                  verticalArrangement = Arrangement.spacedBy(8.dp),
+                  modifier = Modifier.padding(11.dp),
+                  verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                   Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -525,8 +526,8 @@ fun AllocationDispatchDrawer(
           Column(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+              .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
           ) {
             StandardCompactSearchBar(
               query = unallocatedQuery,
@@ -1027,12 +1028,12 @@ private fun SelectedRouteChecklistPanel(
     border = BorderStroke(1.4.dp, spec.primary.copy(alpha = 0.7f)),
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 6.dp)
+      .padding(horizontal = 12.dp, vertical = 4.dp)
       .testTag("selected_route_checklist_panel"),
   ) {
     Column(
-      modifier = Modifier.padding(12.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
+      modifier = Modifier.padding(10.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1459,8 +1460,8 @@ fun EditRouteBottomSheet(
           .fillMaxWidth()
           .weight(1f, fill = false)
           .verticalScroll(rememberScrollState())
-          .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+          .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         Surface(
           color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
@@ -1606,11 +1607,15 @@ fun EditRouteBottomSheet(
                 DropdownMenu(
                   expanded = vehicleDropdownOpen,
                   onDismissRequest = { vehicleDropdownOpen = false },
+                  modifier = Modifier
+                    .widthIn(min = 220.dp, max = 300.dp)
+                    .heightIn(max = 240.dp),
                 ) {
                   vehiclePresets.forEach { (vehName, cap) ->
                     val presetSummary = parseVehicleSummary(vehName)
-                    DropdownMenuItem(
-                      text = { Text("$vehName • Cap: $cap Crates") },
+                    CompactDropdownMenuItem(
+                      text = "$vehName • Cap: $cap Crates",
+                      selected = vehicleNumber.equals(presetSummary.plateNumber, ignoreCase = true),
                       onClick = {
                         vehicleModel = presetSummary.modelName
                         vehicleNumber = presetSummary.plateNumber
@@ -1756,10 +1761,14 @@ fun EditRouteBottomSheet(
             DropdownMenu(
               expanded = bayDropdownOpen,
               onDismissRequest = { bayDropdownOpen = false },
+              modifier = Modifier
+                .widthIn(min = 190.dp, max = 280.dp)
+                .heightIn(max = 240.dp),
             ) {
               stagingBayPresets.forEach { bay ->
-                DropdownMenuItem(
-                  text = { Text(bay) },
+                CompactDropdownMenuItem(
+                  text = bay,
+                  selected = stagingBay == bay,
                   onClick = {
                     stagingBay = bay
                     bayDropdownOpen = false

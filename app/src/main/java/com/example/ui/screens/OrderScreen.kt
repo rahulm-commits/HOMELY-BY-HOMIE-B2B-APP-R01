@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -102,6 +104,7 @@ private enum class OrderSectionTab(val label: String) {
   NO_ORDERS("No Orders"),
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OrderScreen(
   shops: List<Shop>,
@@ -155,117 +158,134 @@ fun OrderScreen(
     }
   }
 
-  Column(
+  var orderPendingDelete by remember { mutableStateOf<OrderRecord?>(null) }
+  val totalRemainingOnAll = remember(activeShops) {
+    activeShops.count { it.inquiryStatus == InquiryStatus.PENDING_INQUIRY }
+  }
+
+  LazyColumn(
     modifier = modifier
       .fillMaxSize()
       .background(MaterialTheme.colorScheme.background),
+    contentPadding = PaddingValues(bottom = 14.dp),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    Surface(
-      color = MaterialTheme.colorScheme.surface,
-      tonalElevation = 0.dp,
-      shadowElevation = 2.dp,
-      modifier = Modifier.fillMaxWidth(),
-    ) {
-      val totalRemainingOnAll = remember(activeShops) {
-        activeShops.count { it.inquiryStatus == InquiryStatus.PENDING_INQUIRY }
-      }
-      Column(modifier = Modifier.fillMaxWidth()) {
+    // Scrollable Top Header + Route Filter
+    item(key = "order_top_widgets") {
+      Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
         Column(
-          modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-          verticalArrangement = Arrangement.spacedBy(6.dp),
+          modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 2.dp),
+          verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-        // Compact Header + inline remaining calls pill
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-            text = "Orders & Inquiry",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-          )
-          Surface(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
-            shape = RoundedCornerShape(999.dp),
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
           ) {
             Text(
-              text = "$totalRemainingOnAll/${activeShops.size} calls left",
-              style = MaterialTheme.typography.labelSmall,
-              fontWeight = FontWeight.SemiBold,
-              color = MaterialTheme.colorScheme.onPrimaryContainer,
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+              text = "Orders & Inquiry",
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.onSurface,
             )
-          }
-        }
-
-        // Standard Route Selection Dropdown
-        StandardRouteDropdown(
-          selectedRoute = selectedRoute,
-          routes = routes,
-          onRouteSelected = { selectedRoute = it },
-          fieldTestTag = "order_route_filter",
-        )
-
-        // Compact Shop Search Bar
-        StandardCompactSearchBar(
-          query = searchQuery,
-          onQueryChange = { searchQuery = it },
-          placeholder = "Search shop name, ID, or contact...",
-          fieldTestTag = "order_search_input",
-        )
-
-        // Compact Selection Tabs with count in brackets
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-          OrderSectionTab.entries.forEach { tab ->
-            val count = when (tab) {
-              OrderSectionTab.PENDING_INQUIRY -> pendingInquiryShops.size
-              OrderSectionTab.CONFIRMED_ORDERS -> filteredOrders.size
-              OrderSectionTab.UNATTENDED -> unattendedShops.size
-              OrderSectionTab.NO_ORDERS -> noOrderShops.size
+            Surface(
+              color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f),
+              shape = RoundedCornerShape(999.dp),
+            ) {
+              Text(
+                text = "$totalRemainingOnAll/${activeShops.size} calls left",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+              )
             }
-            val isSelected = selectedSection == tab
-            FilterChip(
-              selected = isSelected,
-              onClick = { selectedSection = tab },
-              colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                containerColor = MaterialTheme.colorScheme.surface,
-                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-              ),
-              border = FilterChipDefaults.filterChipBorder(
-                enabled = true,
-                selected = isSelected,
-                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
-              ),
-              label = {
-                Text(
-                  text = "${tab.label} ($count)",
-                  style = MaterialTheme.typography.labelMedium,
-                  fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                )
-              },
-              modifier = Modifier
-                .height(34.dp)
-                .testTag("order_tab_${tab.name.lowercase()}"),
-            )
           }
-          }
+
+          StandardRouteDropdown(
+            selectedRoute = selectedRoute,
+            routes = routes,
+            onRouteSelected = { selectedRoute = it },
+            fieldTestTag = "order_route_filter",
+          )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+      }
+    }
+
+    // Sticky Search Bar + Section Toggle Tabs
+    stickyHeader(key = "order_sticky_controls") {
+      Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+          Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            StandardCompactSearchBar(
+              query = searchQuery,
+              onQueryChange = { searchQuery = it },
+              placeholder = "Search shop name, ID, or contact...",
+              fieldTestTag = "order_search_input",
+            )
+
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              OrderSectionTab.entries.forEach { tab ->
+                val count = when (tab) {
+                  OrderSectionTab.PENDING_INQUIRY -> pendingInquiryShops.size
+                  OrderSectionTab.CONFIRMED_ORDERS -> filteredOrders.size
+                  OrderSectionTab.UNATTENDED -> unattendedShops.size
+                  OrderSectionTab.NO_ORDERS -> noOrderShops.size
+                }
+                val isSelected = selectedSection == tab
+                FilterChip(
+                  selected = isSelected,
+                  onClick = { selectedSection = tab },
+                  colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                  ),
+                  border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = isSelected,
+                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                  ),
+                  label = {
+                    Text(
+                      text = "${tab.label} ($count)",
+                      style = MaterialTheme.typography.labelMedium,
+                      fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    )
+                  },
+                  modifier = Modifier
+                    .height(34.dp)
+                    .testTag("order_tab_${tab.name.lowercase()}"),
+                )
+              }
+            }
+          }
+          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+        }
       }
     }
 
     when (selectedSection) {
       OrderSectionTab.PENDING_INQUIRY -> {
-        InquiryShopListContent(
+        inquiryShopListItems(
           shops = pendingInquiryShops,
           emptyLabel = "No pending inquiry shops left on this filter.",
           showStatusQuickActions = true,
@@ -278,14 +298,14 @@ fun OrderScreen(
         )
       }
       OrderSectionTab.CONFIRMED_ORDERS -> {
-        ConfirmedOrdersListContent(
+        confirmedOrdersListItems(
           orders = filteredOrders,
           onEditOrder = onEditOrderClick,
-          onDeleteOrder = onDeleteOrderClick,
+          onRequestDeleteOrder = { orderPendingDelete = it },
         )
       }
       OrderSectionTab.UNATTENDED -> {
-        InquiryShopListContent(
+        inquiryShopListItems(
           shops = unattendedShops,
           emptyLabel = "No Pick the Call shops.",
           showStatusQuickActions = false,
@@ -298,7 +318,7 @@ fun OrderScreen(
         )
       }
       OrderSectionTab.NO_ORDERS -> {
-        InquiryShopListContent(
+        inquiryShopListItems(
           shops = noOrderShops,
           emptyLabel = "No shops marked as no-order.",
           showStatusQuickActions = false,
@@ -312,10 +332,48 @@ fun OrderScreen(
       }
     }
   }
+
+  orderPendingDelete?.let { targetOrder ->
+    AlertDialog(
+      onDismissRequest = { orderPendingDelete = null },
+      title = {
+        Text(
+          text = "Delete Order?",
+          fontWeight = FontWeight.Bold,
+        )
+      },
+      text = {
+        Text(
+          text = "Delete ${targetOrder.orderCode} for ${targetOrder.shopName}? This will remove the order from your confirmed list and synced servers.",
+        )
+      },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            onDeleteOrderClick(targetOrder)
+            orderPendingDelete = null
+          },
+          colors = ButtonDefaults.textButtonColors(
+            contentColor = MaterialTheme.colorScheme.error,
+          ),
+          modifier = Modifier.testTag("confirm_delete_order_button"),
+        ) {
+          Text("Delete", fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = { orderPendingDelete = null },
+          modifier = Modifier.testTag("cancel_delete_order_button"),
+        ) {
+          Text("Cancel")
+        }
+      },
+    )
+  }
 }
 
-@Composable
-private fun InquiryShopListContent(
+private fun LazyListScope.inquiryShopListItems(
   shops: List<Shop>,
   emptyLabel: String,
   showStatusQuickActions: Boolean,
@@ -324,32 +382,28 @@ private fun InquiryShopListContent(
   onWhatsApp: (Shop) -> Unit,
   onMarkStatus: (shopId: String, newStatus: String, feedback: String) -> Unit,
 ) {
-  LazyColumn(
-    modifier = Modifier.fillMaxSize(),
-    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-    verticalArrangement = Arrangement.spacedBy(8.dp),
-  ) {
-    if (shops.isEmpty()) {
-      item {
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 36.dp),
-          contentAlignment = Alignment.Center,
-        ) {
-          Text(
-            text = emptyLabel,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-        }
+  if (shops.isEmpty()) {
+    item {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 12.dp, vertical = 36.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          text = emptyLabel,
+          style = MaterialTheme.typography.bodyLarge,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
       }
-    } else {
-      items(
-        shops,
-        key = { it.id.ifBlank { it.shopCode } },
-        contentType = { "inquiry_shop_card" },
-      ) { shop ->
+    }
+  } else {
+    items(
+      shops,
+      key = { it.id.ifBlank { it.shopCode } },
+      contentType = { "inquiry_shop_card" },
+    ) { shop ->
+      Box(modifier = Modifier.padding(horizontal = 12.dp)) {
         PendingInquiryShopCard(
           shop = shop,
           showStatusQuickActions = showStatusQuickActions,
@@ -445,8 +499,8 @@ private fun PendingInquiryShopCard(
       HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
       Column(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
       ) {
       // Photo + Shop Identity + Contact + Address + GPS
       Row(
@@ -826,271 +880,225 @@ private fun PendingInquiryShopCard(
   }
 }
 
-@Composable
-private fun ConfirmedOrdersListContent(
+private fun LazyListScope.confirmedOrdersListItems(
   orders: List<OrderRecord>,
   onEditOrder: (OrderRecord) -> Unit,
-  onDeleteOrder: (OrderRecord) -> Unit,
+  onRequestDeleteOrder: (OrderRecord) -> Unit,
 ) {
-  var orderPendingDelete by remember { mutableStateOf<OrderRecord?>(null) }
-
-  LazyColumn(
-    modifier = Modifier.fillMaxSize(),
-    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-    verticalArrangement = Arrangement.spacedBy(8.dp),
-  ) {
-    if (orders.isEmpty()) {
-      item {
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 40.dp),
-          contentAlignment = Alignment.Center,
+  if (orders.isEmpty()) {
+    item {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 12.dp, vertical = 40.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Column(
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
-            Icon(
-              imageVector = Icons.AutoMirrored.Rounded.ReceiptLong,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-              modifier = Modifier.size(48.dp),
-            )
-            Text(
-              text = "No confirmed orders matching this filter",
-              style = MaterialTheme.typography.bodyLarge,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
+          Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ReceiptLong,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            modifier = Modifier.size(48.dp),
+          )
+          Text(
+            text = "No confirmed orders matching this filter",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
         }
       }
-    } else {
-      items(
-        orders,
-        key = { it.id.ifBlank { it.orderCode } },
-        contentType = { "confirmed_order_card" },
-      ) { order ->
-        val canEditOrder = order.status != OrderStatus.DELIVERED && order.status != OrderStatus.REJECTED
-        Card(
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
-          elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
-          modifier = Modifier.fillMaxWidth(),
-        ) {
-          Column(modifier = Modifier.fillMaxWidth()) {
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)) {
+    }
+  } else {
+    items(
+      orders,
+      key = { it.id.ifBlank { it.orderCode } },
+      contentType = { "confirmed_order_card" },
+    ) { order ->
+      val canEditOrder = order.status != OrderStatus.DELIVERED && order.status != OrderStatus.REJECTED
+      Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 12.dp),
+      ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+          Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)) {
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
               Row(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
               ) {
-                Row(
-                  modifier = Modifier.weight(1f),
-                  verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Surface(
+                  color = MaterialTheme.colorScheme.primaryContainer,
+                  shape = RoundedCornerShape(6.dp),
                 ) {
-                  Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(6.dp),
-                  ) {
-                    Text(
-                      text = order.orderCode,
-                      style = MaterialTheme.typography.labelSmall,
-                      fontWeight = FontWeight.Bold,
-                      color = MaterialTheme.colorScheme.onPrimaryContainer,
-                      modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                    )
-                  }
                   Text(
-                    text = order.shopCode,
+                    text = order.orderCode,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                   )
                 }
+                Text(
+                  text = order.shopCode,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  fontWeight = FontWeight.SemiBold,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  if (canEditOrder) {
-                    IconButton(
-                      onClick = { onEditOrder(order) },
-                      modifier = Modifier
-                        .minimumInteractiveComponentSize()
-                        .testTag("edit_order_${order.orderCode}"),
-                    ) {
-                      Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = "Edit order ${order.orderCode}",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                      )
-                    }
-                  }
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                if (canEditOrder) {
                   IconButton(
-                    onClick = { orderPendingDelete = order },
+                    onClick = { onEditOrder(order) },
                     modifier = Modifier
                       .minimumInteractiveComponentSize()
-                      .testTag("delete_order_${order.orderCode}"),
+                      .testTag("edit_order_${order.orderCode}"),
                   ) {
                     Icon(
-                      imageVector = Icons.Rounded.DeleteOutline,
-                      contentDescription = "Delete order ${order.orderCode}",
-                      tint = MaterialTheme.colorScheme.error,
+                      imageVector = Icons.Rounded.Edit,
+                      contentDescription = "Edit order ${order.orderCode}",
+                      tint = MaterialTheme.colorScheme.primary,
                       modifier = Modifier.size(18.dp),
                     )
                   }
                 }
-              }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            Column(
-              modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-              verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                Text(
-                  text = order.shopName,
-                  style = MaterialTheme.typography.titleSmall,
-                  fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.onSurface,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                  modifier = Modifier.weight(1f),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Surface(
-                  color = MaterialTheme.semanticColors.successContainer,
-                  shape = RoundedCornerShape(999.dp),
-                  border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
+                IconButton(
+                  onClick = { onRequestDeleteOrder(order) },
+                  modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("delete_order_${order.orderCode}"),
                 ) {
-                  Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                  ) {
-                    Icon(
-                      imageVector = Icons.Rounded.CheckCircle,
-                      contentDescription = null,
-                      tint = MaterialTheme.semanticColors.success,
-                      modifier = Modifier.size(13.dp),
-                    )
-                    Text(
-                      text = order.status.replaceFirstChar { it.uppercase() },
-                      style = MaterialTheme.typography.labelSmall,
-                      fontWeight = FontWeight.Bold,
-                      color = MaterialTheme.semanticColors.success,
-                    )
-                  }
+                  Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "Delete order ${order.orderCode}",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp),
+                  )
                 }
               }
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.Rounded.Inventory2,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.secondary,
-                  modifier = Modifier.size(14.dp),
-                )
-                Text(
-                  text = order.itemsSummary,
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  maxLines = 2,
-                  overflow = TextOverflow.Ellipsis,
-                )
-              }
-              if (order.note.isNotBlank()) {
-                Text(
-                  text = "Note: ${order.note}",
-                  style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-              }
-              HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            }
+          }
+          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+          Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Text(
+                text = order.shopName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+              )
+              Spacer(modifier = Modifier.width(8.dp))
+              Surface(
+                color = MaterialTheme.semanticColors.successContainer,
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
               ) {
                 Row(
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                   verticalAlignment = Alignment.CenterVertically,
                   horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                   Icon(
-                    imageVector = Icons.Rounded.Event,
+                    imageVector = Icons.Rounded.CheckCircle,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MaterialTheme.semanticColors.success,
                     modifier = Modifier.size(13.dp),
                   )
                   Text(
-                    text = "${order.itemCount} pkts • ${order.orderDate}",
+                    text = order.status.replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.semanticColors.success,
                   )
                 }
+              }
+            }
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.Inventory2,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.size(14.dp),
+              )
+              Text(
+                text = order.itemsSummary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+            if (order.note.isNotBlank()) {
+              Text(
+                text = "Note: ${order.note}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Event,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.size(13.dp),
+                )
                 Text(
-                  text = formatInr(order.totalAmount),
-                  style = MaterialTheme.typography.titleSmall,
-                  fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.primary,
+                  text = "${order.itemCount} pkts • ${order.orderDate}",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
               }
+              Text(
+                text = formatInr(order.totalAmount),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+              )
             }
           }
         }
       }
     }
-  }
-
-  orderPendingDelete?.let { targetOrder ->
-    AlertDialog(
-      onDismissRequest = { orderPendingDelete = null },
-      title = {
-        Text(
-          text = "Delete Order?",
-          fontWeight = FontWeight.Bold,
-        )
-      },
-      text = {
-        Text(
-          text = "Delete ${targetOrder.orderCode} for ${targetOrder.shopName}? This will remove the order from your confirmed list and synced servers.",
-        )
-      },
-      confirmButton = {
-        TextButton(
-          onClick = {
-            onDeleteOrder(targetOrder)
-            orderPendingDelete = null
-          },
-          colors = ButtonDefaults.textButtonColors(
-            contentColor = MaterialTheme.colorScheme.error,
-          ),
-          modifier = Modifier.testTag("confirm_delete_order_button"),
-        ) {
-          Text("Delete", fontWeight = FontWeight.Bold)
-        }
-      },
-      dismissButton = {
-        TextButton(
-          onClick = { orderPendingDelete = null },
-          modifier = Modifier.testTag("cancel_delete_order_button"),
-        ) {
-          Text("Cancel")
-        }
-      },
-    )
   }
 }

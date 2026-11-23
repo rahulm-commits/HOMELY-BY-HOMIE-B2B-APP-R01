@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -93,6 +94,7 @@ private enum class SupplierFilterTab(val label: String) {
   INACTIVE("Inactive"),
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SuppliersScreen(
   suppliers: List<Supplier>,
@@ -171,15 +173,22 @@ fun SuppliersScreen(
       .fillMaxSize()
       .background(MaterialTheme.colorScheme.background),
   ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-      // Header bar matching HOMELY BY HOMIE operational style
-      Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth(),
-      ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+    LazyColumn(
+      modifier = Modifier
+        .fillMaxSize()
+        .testTag("suppliers_lazy_list"),
+      contentPadding = PaddingValues(bottom = 82.dp),
+      verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+      // Scrollable top header bar & metrics badges
+      item(key = "supplier_top_header") {
+        Surface(
+          color = MaterialTheme.colorScheme.surface,
+          tonalElevation = 0.dp,
+          shadowElevation = 1.dp,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column(modifier = Modifier.fillMaxWidth()) {
           Row(
             modifier = Modifier
               .fillMaxWidth()
@@ -309,8 +318,8 @@ fun SuppliersScreen(
             modifier = Modifier
               .fillMaxWidth()
               .horizontalScroll(rememberScrollState())
-              .padding(horizontal = 14.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+              .padding(horizontal = 12.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Surface(
@@ -384,16 +393,27 @@ fun SuppliersScreen(
                 )
               }
             }
+            // End of scrollable top header & metrics ribbon
           }
+        }
+        }
+      }
 
-          // Search + Horizontal Filter Chips
-          Column(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 14.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
-            StandardCompactSearchBar(
+      // Sticky Search Bar + Horizontal Filter Chips
+      stickyHeader(key = "supplier_sticky_controls") {
+        Surface(
+          color = MaterialTheme.colorScheme.background,
+          shadowElevation = 2.dp,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 5.dp),
+              verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              StandardCompactSearchBar(
               query = searchQuery,
               onQueryChange = { searchQuery = it },
               placeholder = "Search by supplier name, ID, contact person, phone...",
@@ -488,88 +508,85 @@ fun SuppliersScreen(
                 }
               }
             }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
           }
-          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
         }
       }
 
       if (filteredSuppliers.isEmpty()) {
-        Box(
-          modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
-          contentAlignment = Alignment.Center,
-        ) {
-          Card(
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+        item(key = "suppliers_empty_state", contentType = "empty_state") {
+          Box(
             modifier = Modifier
               .fillMaxWidth()
-              .testTag("no_suppliers_matched_card"),
+              .padding(20.dp),
+            contentAlignment = Alignment.Center,
           ) {
-            Column(
+            Card(
+              shape = RoundedCornerShape(18.dp),
+              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-              horizontalAlignment = Alignment.CenterHorizontally,
-              verticalArrangement = Arrangement.spacedBy(10.dp),
+                .testTag("no_suppliers_matched_card"),
             ) {
-              Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = CircleShape,
-                modifier = Modifier.size(56.dp),
+              Column(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
               ) {
-                Box(contentAlignment = Alignment.Center) {
-                  Icon(
-                    imageVector = Icons.Rounded.SearchOff,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(28.dp),
-                  )
+                Surface(
+                  color = MaterialTheme.colorScheme.secondaryContainer,
+                  shape = CircleShape,
+                  modifier = Modifier.size(56.dp),
+                ) {
+                  Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                      imageVector = Icons.Rounded.SearchOff,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.secondary,
+                      modifier = Modifier.size(28.dp),
+                    )
+                  }
                 }
-              }
-              Text(
-                text = "No suppliers matched",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-              )
-              Text(
-                text = "Try adjusting your search keywords, phone digits, or clear category filter pills.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              Button(
-                onClick = {
-                  searchQuery = ""
-                  selectedFilter = SupplierFilterTab.ALL
-                },
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.secondary,
-                  contentColor = MaterialTheme.colorScheme.onSecondary,
-                ),
-                modifier = Modifier.testTag("reset_supplier_filters_button"),
-              ) {
-                Text("Reset Search Filters")
+                Text(
+                  text = "No suppliers matched",
+                  style = MaterialTheme.typography.titleMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                  text = "Try adjusting your search keywords, phone digits, or clear category filter pills.",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                  onClick = {
+                    searchQuery = ""
+                    selectedFilter = SupplierFilterTab.ALL
+                  },
+                  shape = RoundedCornerShape(10.dp),
+                  colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                  ),
+                  modifier = Modifier.testTag("reset_supplier_filters_button"),
+                ) {
+                  Text("Reset Search Filters")
+                }
               }
             }
           }
         }
       } else {
-        LazyColumn(
-          modifier = Modifier
-            .fillMaxSize()
-            .testTag("suppliers_lazy_list"),
-          contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 92.dp),
-          verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-          items(
-            filteredSuppliers,
-            key = { it.id.ifBlank { it.supplierCode } },
-            contentType = { "supplier_card" },
-          ) { supplier ->
+        items(
+          filteredSuppliers,
+          key = { it.id.ifBlank { it.supplierCode } },
+          contentType = { "supplier_card" },
+        ) { supplier ->
+          Box(modifier = Modifier.padding(horizontal = 12.dp)) {
             SupplierCardItem(
               supplier = supplier,
               onCardClick = { selectedSheetSupplier = supplier },
@@ -799,8 +816,8 @@ private fun SupplierCardItem(
       Row(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+          .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,
       ) {
         SupplierThumbnailBadge(supplier = supplier)

@@ -451,8 +451,8 @@ fun AddEditProductScreen(
         .padding(innerPadding)
         .background(MaterialTheme.colorScheme.background)
         .testTag("add_edit_product_list"),
-      contentPadding = PaddingValues(14.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      contentPadding = PaddingValues(12.dp),
+      verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
       if (validationError != null) {
         item {
@@ -516,8 +516,8 @@ fun AddEditProductScreen(
           Column(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+              .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             ProductFormSectionHeader(
               icon = Icons.Rounded.Inventory2,

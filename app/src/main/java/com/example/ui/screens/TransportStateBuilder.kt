@@ -22,6 +22,8 @@ enum class TransportStopFilter(val label: String) {
   COMPLETED("Completed"),
 }
 
+const val DELIVERY_ARRIVAL_RADIUS_METERS = 150.0
+
 data class TransportStopItem(
   val stopNumber: Int,
   val shop: Shop,
@@ -37,9 +39,14 @@ data class TransportStopItem(
   val paymentLabel: String,
   val isCod: Boolean,
   val podNote: String,
+  val hasArrivedByGps: Boolean = false,
+  val isManualArrivalConfirmed: Boolean = false,
 ) {
   val formattedStopNum: String
     get() = String.format(Locale.US, "%02d", stopNumber)
+
+  val isReadyToCompleteDelivery: Boolean
+    get() = isCompleted || hasArrivedByGps || isManualArrivalConfirmed
 
   val shortShopName: String
     get() = shop.name
@@ -276,6 +283,7 @@ fun buildTransportRoutePlanState(
   allOrders: List<OrderRecord>,
   locallyCompletedShopIds: Set<String> = emptySet(),
   localPodNotesByShopId: Map<String, String> = emptyMap(),
+  arrivedShopIds: Set<String> = emptySet(),
   userLatitude: Double? = null,
   userLongitude: Double? = null,
   useShortestPath: Boolean = true,
@@ -343,6 +351,9 @@ fun buildTransportRoutePlanState(
       else -> "Scheduled Stop"
     }
 
+    val arrivedByGps = distMeters != null && distMeters <= DELIVERY_ARRIVAL_RADIUS_METERS
+    val arrivedManually = arrivedShopIds.contains(shop.id)
+
     TransportStopItem(
       stopNumber = index + 1,
       shop = shop,
@@ -358,6 +369,8 @@ fun buildTransportRoutePlanState(
       paymentLabel = payLabel,
       isCod = collectAmt > 0.0 && !isPrepaid,
       podNote = pod,
+      hasArrivedByGps = arrivedByGps,
+      isManualArrivalConfirmed = arrivedManually,
     )
   }
 
@@ -380,9 +393,16 @@ fun buildTransportRoutePlanState(
     .map { it.shop.latitude to it.shop.longitude }
     .filter { (lat, lng) -> lat != 0.0 || lng != 0.0 }
 
+  val lastCompletedCoord = finalStops
+    .takeWhile { it.isCompleted }
+    .lastOrNull { it.shop.latitude != 0.0 || it.shop.longitude != 0.0 }
+    ?.let { it.shop.latitude to it.shop.longitude }
+
   val waypoints = buildList {
     if (hasValidUserGps && pendingCoords.isNotEmpty()) {
       add(userLatitude!! to userLongitude!!)
+    } else if (lastCompletedCoord != null && pendingCoords.isNotEmpty()) {
+      add(lastCompletedCoord)
     }
     addAll(pendingCoords)
   }
@@ -467,10 +487,13 @@ fun launchExternalGoogleMapsNavigation(
   }
 
   val destinationStr = "${target.shop.latitude},${target.shop.longitude}"
-  val extraWaypoints = validUpcoming
-    .filter { it.shop.id != target.shop.id }
-    .take(8)
-    .joinToString("|") { "${it.shop.latitude},${it.shop.longitude}" }
+  val turnByTurnUri = Uri.parse("google.navigation:q=$destinationStr&mode=d")
+  val turnByTurnIntent = Intent(Intent.ACTION_VIEW, turnByTurnUri).apply {
+    setPackage("com.google.android.apps.maps")
+  }
+  if (runCatching { context.startActivity(turnByTurnIntent) }.isSuccess) {
+    return
+  }
 
   val uriBuilder = Uri.parse("https://www.google.com/maps/dir/").buildUpon()
     .appendQueryParameter("api", "1")
@@ -480,15 +503,12 @@ fun launchExternalGoogleMapsNavigation(
   if (userLatitude != null && userLongitude != null && (userLatitude != 0.0 || userLongitude != 0.0)) {
     uriBuilder.appendQueryParameter("origin", "$userLatitude,$userLongitude")
   }
-  if (extraWaypoints.isNotBlank()) {
-    uriBuilder.appendQueryParameter("waypoints", extraWaypoints)
-  }
 
   val intent = Intent(Intent.ACTION_VIEW, uriBuilder.build())
   try {
     context.startActivity(intent)
   } catch (_: Exception) {
-    val geoFallback = Uri.parse("geo:${target.shop.latitude},${target.shop.longitude}?q=$destinationStr(${Uri.encode(target.shop.name)})")
+    val geoFallback = Uri.parse("geo:$destinationStr?q=$destinationStr(${Uri.encode(target.shop.name)})")
     try {
       context.startActivity(Intent(Intent.ACTION_VIEW, geoFallback))
     } catch (_: Exception) {

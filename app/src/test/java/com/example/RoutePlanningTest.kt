@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -12,6 +14,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -26,12 +30,17 @@ import com.example.data.repository.SyncCoordinatorRepository
 import com.example.ui.components.MapCameraState
 import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.computeFitBoundsCamera
+import com.example.ui.components.prepareMapRenderData
 import com.example.ui.components.projectLatLngToScreen
 import com.example.ui.screens.EditRouteBottomSheet
 import com.example.ui.screens.RoutePlanScreen
 import com.example.ui.screens.TransportScreen
+import com.example.ui.screens.createInitialMapRouteEditorDraft
 import com.example.ui.screens.formatVehicleSummary
 import com.example.ui.screens.parseVehicleSummary
+import com.example.ui.screens.toggleShopSelection
+import com.example.ui.screens.undoLastChange
+import com.example.ui.screens.withTargetRoute
 import com.example.ui.theme.RouteColorPalette
 import com.example.ui.theme.RouteComboPattern
 import com.example.ui.theme.HomelyTheme
@@ -497,5 +506,201 @@ class RoutePlanningTest {
       listOf(listOf("s_unalloc_2") to RoutesCatalog.R02_KANNUR_KOZHIKODE),
       batchEvents,
     )
+  }
+
+  @Test
+  fun allShopsMapMode_numbersAllShopsAcrossAllRoutesSequentially() {
+    val routes = listOf(
+      DeliveryRoute(id = "R1", name = "Route 1", colorIndex = 0, stopOrderIds = listOf("s1", "s2")),
+      DeliveryRoute(id = "R2", name = "Route 2", colorIndex = 1, stopOrderIds = listOf("s3", "s4")),
+      DeliveryRoute(id = "R3", name = "Route 3", colorIndex = 2, stopOrderIds = listOf("s5")),
+    )
+    val shops = listOf(
+      Shop(id = "s1", shopCode = "S1", name = "Shop 1", routeId = "R1", latitude = 11.87, longitude = 75.37),
+      Shop(id = "s2", shopCode = "S2", name = "Shop 2", routeId = "R1", latitude = 11.90, longitude = 75.40),
+      Shop(id = "s3", shopCode = "S3", name = "Shop 3", routeId = "R2", latitude = 11.50, longitude = 75.60),
+      Shop(id = "s4", shopCode = "S4", name = "Shop 4", routeId = "R2", latitude = 11.25, longitude = 75.78),
+      Shop(id = "s5", shopCode = "S5", name = "Shop 5", routeId = "R3", latitude = 11.68, longitude = 76.13),
+      Shop(id = "s6", shopCode = "S6", name = "Shop 6", routeId = RoutesCatalog.UNALLOCATED, latitude = 10.02, longitude = 76.31),
+    )
+
+    val (pins, tracks) = prepareMapRenderData(
+      shops = shops,
+      routes = routes,
+      selectedRouteId = RoutesCatalog.ALL,
+      editingTargetRouteId = null,
+    )
+
+    assertEquals(6, pins.size)
+    assertEquals(listOf(1, 2, 3, 4, 5, 6), pins.map { it.stopNumber })
+    // R1 and R2 have >=2 stops so both route polylines appear
+    assertEquals(listOf("R1", "R2"), tracks.map { it.route.id })
+
+    // In Edit Mode for R2, ALL 6 shops stay visible, R2 stops are highlighted & numbered 1..2, others dimmed
+    val (editPins, editTracks) = prepareMapRenderData(
+      shops = shops,
+      routes = routes,
+      selectedRouteId = "R2",
+      editingTargetRouteId = "R2",
+    )
+    assertEquals(6, editPins.size)
+    assertEquals(listOf("s3", "s4"), editPins.filter { it.isEditTargetSelected }.map { it.shop.id })
+    assertEquals(listOf(1, 2), editPins.filter { it.isEditTargetSelected }.map { it.stopNumber })
+    assertEquals(4, editPins.count { it.isDimmedForEdit })
+    assertEquals(listOf("R1", "R2"), editTracks.map { it.route.id })
+    assertTrue(editTracks.first { it.route.id == "R1" }.isDimmed)
+    assertFalse(editTracks.first { it.route.id == "R2" }.isDimmed)
+  }
+
+  @Test
+  fun mapRouteEditorDraft_selectDeselectUndoAndUpdateSavePayload() {
+    val routes = listOf(
+      DeliveryRoute(id = "R1", name = "Route 1", colorIndex = 0, stopOrderIds = listOf("s1")),
+      DeliveryRoute(id = "R2", name = "Route 2", colorIndex = 1, stopOrderIds = emptyList()),
+    )
+    val s1 = Shop(id = "s1", shopCode = "S1", name = "Alpha", routeId = "R1", latitude = 11.87, longitude = 75.37)
+    val s2 = Shop(id = "s2", shopCode = "S2", name = "Beta", routeId = RoutesCatalog.UNALLOCATED, latitude = 11.90, longitude = 75.40)
+    val s3 = Shop(id = "s3", shopCode = "S3", name = "Gamma", routeId = RoutesCatalog.UNALLOCATED, latitude = 11.95, longitude = 75.45)
+
+    var draft = createInitialMapRouteEditorDraft(
+      shops = listOf(s1, s2, s3),
+      routes = routes,
+      initialTargetRouteId = "R1",
+    )
+    assertFalse(draft.canUndo)
+    assertEquals(0, draft.pendingChangeCount)
+
+    // Click s2 -> selects for R1
+    draft = draft.toggleShopSelection(s2)
+    assertEquals("R1", draft.draftShopRoutes["s2"])
+    assertEquals(listOf("s1", "s2"), draft.draftRouteStopOrders["R1"])
+    assertEquals(1, draft.pendingChangeCount)
+    assertTrue(draft.canUndo)
+
+    // Click s2 again -> deselects from R1
+    draft = draft.toggleShopSelection(s2)
+    assertEquals(RoutesCatalog.UNALLOCATED, draft.draftShopRoutes["s2"])
+    assertEquals(listOf("s1"), draft.draftRouteStopOrders["R1"])
+    assertEquals(0, draft.pendingChangeCount)
+
+    // Click s3 -> selects for R1, switch to R2, click s1 -> moves s1 from R1 to R2
+    draft = draft.toggleShopSelection(s3).withTargetRoute("R2").toggleShopSelection(s1)
+    assertEquals("R1", draft.draftShopRoutes["s3"])
+    assertEquals("R2", draft.draftShopRoutes["s1"])
+    assertEquals(listOf("s3"), draft.draftRouteStopOrders["R1"])
+    assertEquals(listOf("s1"), draft.draftRouteStopOrders["R2"])
+
+    // Undo last change -> restores s1 back to R1
+    draft = draft.undoLastChange()
+    assertEquals("R1", draft.draftShopRoutes["s1"])
+    assertEquals(listOf("s1", "s3"), draft.draftRouteStopOrders["R1"])
+    assertEquals(emptyList<String>(), draft.draftRouteStopOrders["R2"])
+
+    val payload = draft.changedShopsByTargetRoute()
+    assertEquals(mapOf("R1" to listOf("s3")), payload)
+  }
+
+  @Test
+  fun routePlanScreen_onMapEditMode_entersEditsSwitchesRouteUndoesAndSaves() {
+    val routes = listOf(
+      DeliveryRoute(
+        id = RoutesCatalog.R01_KANNUR_BANGALORE,
+        name = "Route 1: Kannur - Bangalore",
+        vehicle = "KL-13-AB-1122",
+        maxCrates = 40,
+        colorIndex = 0,
+        stopOrderIds = listOf("s1"),
+      ),
+      DeliveryRoute(
+        id = RoutesCatalog.R02_KANNUR_KOZHIKODE,
+        name = "Route 2: Kannur - Kozhikode",
+        vehicle = "KL-07-CB-9081",
+        maxCrates = 40,
+        colorIndex = 3,
+      ),
+    )
+    // Place s2 cleanly at center of bounding box so tapping center of canvas hits s2 directly
+    val shops = listOf(
+      Shop(
+        id = "s1",
+        shopCode = "SHP-101",
+        name = "North Bakery",
+        ownerName = "Rajan",
+        phone = "9845011223",
+        address = "Kannur",
+        pinCode = "670001",
+        routeId = RoutesCatalog.R01_KANNUR_BANGALORE,
+        latitude = 11.8745,
+        longitude = 75.3704,
+      ),
+      Shop(
+        id = "s2",
+        shopCode = "SHP-102",
+        name = "Center Fresh Mart",
+        ownerName = "Anil",
+        phone = "9845099887",
+        address = "Thalassery",
+        pinCode = "670101",
+        routeId = RoutesCatalog.UNALLOCATED,
+        latitude = 11.8745,
+        longitude = 75.3704,
+      ),
+    )
+
+    val bulkUpdates = mutableListOf<Pair<List<String>, String>>()
+    val savedRoutes = mutableListOf<DeliveryRoute>()
+
+    composeTestRule.setContent {
+      HomelyTheme {
+        RoutePlanScreen(
+          shops = shops,
+          routes = routes,
+          onSaveRoute = { route, _ -> savedRoutes += route },
+          onUpdateShopRoute = { _, _, _ -> },
+          onBulkAssignShopsToRoute = { ids, routeId, _ -> bulkUpdates += (ids to routeId) },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    // Verify "All Shops" pill & on-map Edit controls are rendered directly on the map
+    composeTestRule.onNodeWithTag("map_route_pill_all").assertIsDisplayed()
+    composeTestRule.onNodeWithText("All Shops (2)").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("map_edit_mode_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("map_surface_edit_chip").assertIsDisplayed()
+
+    // Enter Edit Mode from the map itself
+    composeTestRule.onNodeWithTag("map_edit_mode_button").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("map_edit_target_route_dropdown").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("map_edit_route_pills_row").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("map_edit_action_bar").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("map_edit_undo_button").assertIsNotEnabled()
+    composeTestRule.onNodeWithTag("map_edit_save_button").assertIsDisplayed()
+
+    // Choose Route 2 pill to update
+    composeTestRule.onNodeWithTag("map_edit_route_pill_${RoutesCatalog.R02_KANNUR_KOZHIKODE}").performClick()
+    composeTestRule.waitForIdle()
+
+    // Click shop pin at center of map canvas -> assigns s2 to Route 2 and enables Undo
+    composeTestRule.onNodeWithTag("real_osm_map_canvas").performTouchInput { click(center) }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("map_edit_undo_button").assertIsEnabled()
+
+    // Click again to deselect, then Undo to restore selection, then Update & Save
+    composeTestRule.onNodeWithTag("real_osm_map_canvas").performTouchInput { click(center) }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("map_edit_undo_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("map_edit_save_button").performClick()
+    composeTestRule.waitForIdle()
+
+    assertTrue(bulkUpdates.any { (ids, routeId) ->
+      "s2" in ids && routeId == RoutesCatalog.R02_KANNUR_KOZHIKODE
+    })
+    assertTrue(savedRoutes.any { route ->
+      route.id == RoutesCatalog.R02_KANNUR_KOZHIKODE && "s2" in route.stopOrderIds
+    })
   }
 }

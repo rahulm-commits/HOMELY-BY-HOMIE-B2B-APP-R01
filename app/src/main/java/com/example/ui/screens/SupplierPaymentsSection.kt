@@ -127,8 +127,8 @@ fun SupplierBillCard(
       Column(
         modifier = Modifier
           .weight(1f)
-          .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+          .padding(11.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
       ) {
         // Header row: codes + status + call button
         Row(
@@ -398,9 +398,9 @@ fun SupplierBillDetailSheet(
       modifier = Modifier
         .fillMaxWidth()
         .verticalScroll(rememberScrollState())
-        .padding(horizontal = 16.dp)
-        .padding(bottom = 28.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+        .padding(horizontal = 14.dp)
+        .padding(bottom = 16.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -574,9 +574,9 @@ fun AddSupplierBillSheet(
       modifier = Modifier
         .fillMaxWidth()
         .verticalScroll(rememberScrollState())
-        .padding(horizontal = 16.dp)
-        .padding(bottom = 28.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+        .padding(horizontal = 14.dp)
+        .padding(bottom = 16.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),

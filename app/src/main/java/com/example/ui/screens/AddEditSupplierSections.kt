@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,7 +43,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.SupplierCatalogHelper
+import com.example.ui.components.CompactDropdownMenuItem
 import com.example.ui.components.RealOsmMapView
 import com.example.ui.components.rememberFileExistsAsync
 import com.example.ui.components.rememberThumbnailImageRequest
@@ -111,8 +112,8 @@ fun SupplierInfoSectionCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
       SectionCardHeader(
         icon = Icons.Rounded.Storefront,
@@ -226,7 +227,7 @@ fun SupplierInfoSectionCard(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 12.dp, vertical = 12.dp),
+              .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
           ) {
@@ -243,16 +244,18 @@ fun SupplierInfoSectionCard(
                 color = MaterialTheme.colorScheme.onSurface,
               )
             }
-            Icon(Icons.Rounded.ExpandMore, contentDescription = "Select category")
+            Icon(Icons.Rounded.ExpandMore, contentDescription = "Select category", modifier = Modifier.size(20.dp))
           }
         }
         DropdownMenu(
           expanded = categoryMenuExpanded,
           onDismissRequest = { categoryMenuExpanded = false },
+          modifier = Modifier.heightIn(max = 260.dp),
         ) {
           SupplierCatalogHelper.defaultCategories.forEach { cat ->
-            DropdownMenuItem(
-              text = { Text(cat) },
+            CompactDropdownMenuItem(
+              text = cat,
+              selected = category == cat,
               onClick = {
                 onCategoryChange(cat)
                 categoryMenuExpanded = false
@@ -457,8 +460,8 @@ fun SupplierContactSectionCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
       SectionCardHeader(
         icon = Icons.Rounded.ContactPhone,
@@ -569,8 +572,8 @@ fun SupplierLocationSectionCard(
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(
-      modifier = Modifier.padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      modifier = Modifier.padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
       SectionCardHeader(
         icon = Icons.Rounded.LocationOn,
@@ -691,7 +694,7 @@ fun SupplierRatesAndAuditSections(
   addedByName: String,
   isOnline: Boolean,
 ) {
-  Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+  Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
     Card(
       shape = RoundedCornerShape(18.dp),
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -700,8 +703,8 @@ fun SupplierRatesAndAuditSections(
       modifier = Modifier.fillMaxWidth(),
     ) {
       Column(
-        modifier = Modifier.padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
         SectionCardHeader(
           icon = Icons.Rounded.CurrencyRupee,
@@ -731,8 +734,8 @@ fun SupplierRatesAndAuditSections(
       modifier = Modifier.fillMaxWidth(),
     ) {
       Column(
-        modifier = Modifier.padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
       ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,

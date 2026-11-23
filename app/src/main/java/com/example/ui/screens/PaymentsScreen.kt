@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -13,9 +14,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -40,9 +43,9 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -75,6 +78,7 @@ import com.example.data.model.Shop
 import com.example.data.model.ShopLedgerSummary
 import com.example.data.model.SupplierBill
 import com.example.data.model.SupplierBillStatus
+import com.example.ui.components.CompactDropdownMenuItem
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.formatInr
 import com.example.ui.components.isNetworkAvailable
@@ -93,6 +97,7 @@ private enum class LedgerSortMode(val label: String) {
   NAME_ASC("Name A-Z"),
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PaymentsScreen(
   shops: List<Shop>,
@@ -262,102 +267,108 @@ fun PaymentsScreen(
       .fillMaxSize()
       .background(MaterialTheme.colorScheme.background)
       .testTag("payments_lazy_list"),
-    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-    verticalArrangement = Arrangement.spacedBy(12.dp),
+    contentPadding = PaddingValues(top = 6.dp, bottom = 20.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    // 1. Header Bar
-    item {
-      Row(
+    // 1. Header Bar + Mode Switcher (Customer Collections vs Supplier Payouts) + Route Pill
+    item(key = "payments_header_and_mode") {
+      Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = "HOMELY BY HOMIE",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-          )
-          Text(
-            text = if (isSupplierMode) "Supplier Payouts" else "Shop Payments",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-          )
-        }
-
         Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-          Surface(
-            color = if (isOnline && pendingQueueCount == 0) {
-              MaterialTheme.semanticColors.successContainer
-            } else {
-              MaterialTheme.semanticColors.warningContainer
-            },
-            shape = RoundedCornerShape(999.dp),
-            modifier = Modifier
-              .clip(RoundedCornerShape(999.dp))
-              .clickable(onClick = onOpenSyncServers)
-              .testTag("payments_sync_pill"),
-          ) {
-            Row(
-              modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-              Icon(
-                imageVector = if (isOnline && pendingQueueCount == 0) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff,
-                contentDescription = "Sync status",
-                tint = if (isOnline && pendingQueueCount == 0) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
-                modifier = Modifier.size(14.dp),
-              )
-              Text(
-                text = when {
-                  pendingQueueCount > 0 -> "$pendingQueueCount Queued"
-                  laptopServerEnabled -> "Hub + Cloud"
-                  isOnline -> "Live Sync"
-                  else -> "Offline"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = if (isOnline && pendingQueueCount == 0) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
-              )
-            }
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              text = "HOMELY BY HOMIE",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+              text = if (isSupplierMode) "Supplier Payouts" else "Shop Payments",
+              style = MaterialTheme.typography.headlineSmall,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.onBackground,
+            )
           }
 
-          IconButton(
-            onClick = { showOverdueDialog = true },
-            modifier = Modifier.testTag("payments_alerts_bell"),
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
-            BadgedBox(
-              badge = {
-                if (totalAlertCount > 0) {
-                  Badge(
-                    containerColor = MaterialTheme.semanticColors.danger,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                  ) {
-                    Text(totalAlertCount.toString())
-                  }
-                }
+            Surface(
+              color = if (isOnline && pendingQueueCount == 0) {
+                MaterialTheme.semanticColors.successContainer
+              } else {
+                MaterialTheme.semanticColors.warningContainer
               },
+              shape = RoundedCornerShape(999.dp),
+              modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .clickable(onClick = onOpenSyncServers)
+                .testTag("payments_sync_pill"),
             ) {
-              Icon(
-                imageVector = Icons.Rounded.Notifications,
-                contentDescription = "Overdue alerts",
-                tint = MaterialTheme.colorScheme.onBackground,
-              )
+              Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+              ) {
+                Icon(
+                  imageVector = if (isOnline && pendingQueueCount == 0) Icons.Rounded.CloudDone else Icons.Rounded.CloudOff,
+                  contentDescription = "Sync status",
+                  tint = if (isOnline && pendingQueueCount == 0) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
+                  modifier = Modifier.size(14.dp),
+                )
+                Text(
+                  text = when {
+                    pendingQueueCount > 0 -> "$pendingQueueCount Queued"
+                    laptopServerEnabled -> "Hub + Cloud"
+                    isOnline -> "Live Sync"
+                    else -> "Offline"
+                  },
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = if (isOnline && pendingQueueCount == 0) MaterialTheme.semanticColors.success else MaterialTheme.semanticColors.warning,
+                )
+              }
+            }
+
+            IconButton(
+              onClick = { showOverdueDialog = true },
+              modifier = Modifier.testTag("payments_alerts_bell"),
+            ) {
+              BadgedBox(
+                badge = {
+                  if (totalAlertCount > 0) {
+                    Badge(
+                      containerColor = MaterialTheme.semanticColors.danger,
+                      contentColor = MaterialTheme.colorScheme.onError,
+                    ) {
+                      Text(totalAlertCount.toString())
+                    }
+                  }
+                },
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Notifications,
+                  contentDescription = "Overdue alerts",
+                  tint = MaterialTheme.colorScheme.onBackground,
+                )
+              }
             }
           }
         }
-      }
-    }
 
-    // 2. Mode Switcher (Customer Collections vs Supplier Payouts) + Route Pill
-    item {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+          modifier = Modifier.padding(horizontal = 12.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
         Surface(
           color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
           shape = RoundedCornerShape(14.dp),
@@ -430,12 +441,14 @@ fun PaymentsScreen(
             DropdownMenu(
               expanded = showRouteMenu,
               onDismissRequest = { showRouteMenu = false },
+              modifier = Modifier
+                .widthIn(min = 180.dp, max = 260.dp)
+                .heightIn(max = 260.dp),
             ) {
               routeOptions.forEach { routeId ->
-                DropdownMenuItem(
-                  text = {
-                    Text(if (routeId == RoutesCatalog.ALL) "All Delivery Routes" else routeId)
-                  },
+                CompactDropdownMenuItem(
+                  text = if (routeId == RoutesCatalog.ALL) "All Delivery Routes" else routeId,
+                  selected = selectedRoute == routeId,
                   onClick = {
                     selectedRoute = routeId
                     showRouteMenu = false
@@ -446,11 +459,15 @@ fun PaymentsScreen(
           }
         }
       }
+      }
     }
 
     // 3. 2x2 Bento Summary Matrix
     item {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Column(
+        modifier = Modifier.padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
         if (!isSupplierMode) {
           Row(
             modifier = Modifier.fillMaxWidth(),
@@ -543,147 +560,162 @@ fun PaymentsScreen(
       }
     }
 
-    // 4. 3-Tab Suite
-    item {
+    // 4 & 5. Sticky Section Tabs, Search Bar & Filter Chips
+    stickyHeader(key = "payments_sticky_controls") {
       Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+        shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth(),
       ) {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(4.dp),
-          horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-          SectionTabChip(
-            label = if (isSupplierMode) "Supplier Bills" else "Shop Ledger",
-            selected = selectedTab == PaymentsSectionTab.LEDGER,
-            onClick = { selectedTab = PaymentsSectionTab.LEDGER },
-            modifier = Modifier.weight(1f).testTag("tab_payments_ledger"),
-          )
-          SectionTabChip(
-            label = if (isSupplierMode) "Payouts (${supplierPayouts.size})" else "Receipts (${collectPayments.size})",
-            selected = selectedTab == PaymentsSectionTab.TRANSACTIONS,
-            onClick = { selectedTab = PaymentsSectionTab.TRANSACTIONS },
-            modifier = Modifier.weight(1f).testTag("tab_payments_receipts"),
-          )
-          SectionTabChip(
-            label = "Aging Analysis",
-            selected = selectedTab == PaymentsSectionTab.AGING,
-            onClick = { selectedTab = PaymentsSectionTab.AGING },
-            modifier = Modifier.weight(1f).testTag("tab_payments_aging"),
-          )
-        }
-      }
-    }
-
-    // 5. Search, Filters & Sort (when on Ledger or Transactions)
-    if (selectedTab != PaymentsSectionTab.AGING) {
-      item {
-        StandardCompactSearchBar(
-          query = searchQuery,
-          onQueryChange = { searchQuery = it },
-          placeholder = if (isSupplierMode) {
-            "Search supplier, code, or bill number..."
-          } else {
-            "Search shop name, code, owner, or order..."
-          },
-          fieldTestTag = "payments_search_input",
-        )
-      }
-    }
-
-    if (selectedTab == PaymentsSectionTab.LEDGER) {
-      item {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          val allCount = if (isSupplierMode) supplierBills.size else routeFilteredLedgers.size
-          val pendCount = if (isSupplierMode) pendingBillsCount else pendingShopsCount
-          val ovdCount = if (isSupplierMode) overdueSupplierBills.size else overdueShopLedgers.size
-          val setCount = if (isSupplierMode) settledBillsCount else routeFilteredLedgers.count { it.isSettled }
-
-          Row(
+        Column(modifier = Modifier.fillMaxWidth()) {
+          Column(
             modifier = Modifier
               .fillMaxWidth()
-              .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-          ) {
-            listOf(
-              LedgerStatusFilter.ALL to "All ($allCount)",
-              LedgerStatusFilter.PENDING to "Pending ($pendCount)",
-              LedgerStatusFilter.OVERDUE to "Overdue ($ovdCount)",
-              LedgerStatusFilter.SETTLED to (if (isSupplierMode) "Settled ($setCount)" else "Fully Paid ($setCount)"),
-            ).forEach { (filter, label) ->
-              FilterChip(
-                selected = selectedFilter == filter,
-                onClick = { selectedFilter = filter },
-                label = { Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold) },
-                colors = FilterChipDefaults.filterChipColors(
-                  selectedContainerColor = MaterialTheme.colorScheme.primary,
-                  selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                modifier = Modifier.testTag("filter_${filter.name.lowercase()}"),
-              )
-            }
-          }
-
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+              .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
           ) {
             Surface(
-              color = MaterialTheme.colorScheme.surfaceVariant,
-              shape = RoundedCornerShape(999.dp),
-              modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .clickable {
-                  val modes = LedgerSortMode.entries
-                  sortMode = modes[(modes.indexOf(sortMode) + 1) % modes.size]
-                }
-                .testTag("payments_sort_button"),
+              color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+              shape = RoundedCornerShape(12.dp),
+              modifier = Modifier.fillMaxWidth(),
             ) {
               Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
               ) {
-                Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null, modifier = Modifier.size(15.dp))
-                Text(
-                  text = "Sort: ${sortMode.label}",
-                  style = MaterialTheme.typography.labelSmall,
-                  fontWeight = FontWeight.SemiBold,
+                SectionTabChip(
+                  label = if (isSupplierMode) "Supplier Bills" else "Shop Ledger",
+                  selected = selectedTab == PaymentsSectionTab.LEDGER,
+                  onClick = { selectedTab = PaymentsSectionTab.LEDGER },
+                  modifier = Modifier.weight(1f).testTag("tab_payments_ledger"),
+                )
+                SectionTabChip(
+                  label = if (isSupplierMode) "Payouts (${supplierPayouts.size})" else "Receipts (${collectPayments.size})",
+                  selected = selectedTab == PaymentsSectionTab.TRANSACTIONS,
+                  onClick = { selectedTab = PaymentsSectionTab.TRANSACTIONS },
+                  modifier = Modifier.weight(1f).testTag("tab_payments_receipts"),
+                )
+                SectionTabChip(
+                  label = "Aging Analysis",
+                  selected = selectedTab == PaymentsSectionTab.AGING,
+                  onClick = { selectedTab = PaymentsSectionTab.AGING },
+                  modifier = Modifier.weight(1f).testTag("tab_payments_aging"),
                 )
               }
             }
 
-            val shown = if (isSupplierMode) filteredSupplierBills.size else filteredShopLedgers.size
-            val total = if (isSupplierMode) supplierBills.size else routeFilteredLedgers.size
-            Text(
-              text = "Showing $shown of $total",
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
+            if (selectedTab != PaymentsSectionTab.AGING) {
+              StandardCompactSearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholder = if (isSupplierMode) {
+                  "Search supplier, code, or bill number..."
+                } else {
+                  "Search shop name, code, owner, or order..."
+                },
+                fieldTestTag = "payments_search_input",
+              )
+            }
 
-          if (isSupplierMode) {
-            Button(
-              onClick = { showAddSupplierBillSheet = true },
-              shape = RoundedCornerShape(12.dp),
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-              ),
-              modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .testTag("add_supplier_bill_button"),
-            ) {
-              Icon(Icons.Rounded.AddBusiness, contentDescription = null, modifier = Modifier.size(18.dp))
-              Spacer(modifier = Modifier.width(6.dp))
-              Text("Add Supplier Payable Bill", fontWeight = FontWeight.Bold)
+            if (selectedTab == PaymentsSectionTab.LEDGER) {
+              val allCount = if (isSupplierMode) supplierBills.size else routeFilteredLedgers.size
+              val pendCount = if (isSupplierMode) pendingBillsCount else pendingShopsCount
+              val ovdCount = if (isSupplierMode) overdueSupplierBills.size else overdueShopLedgers.size
+              val setCount = if (isSupplierMode) settledBillsCount else routeFilteredLedgers.count { it.isSettled }
+
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                listOf(
+                  LedgerStatusFilter.ALL to "All ($allCount)",
+                  LedgerStatusFilter.PENDING to "Pending ($pendCount)",
+                  LedgerStatusFilter.OVERDUE to "Overdue ($ovdCount)",
+                  LedgerStatusFilter.SETTLED to (if (isSupplierMode) "Settled ($setCount)" else "Fully Paid ($setCount)"),
+                ).forEach { (filter, label) ->
+                  FilterChip(
+                    selected = selectedFilter == filter,
+                    onClick = { selectedFilter = filter },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold) },
+                    colors = FilterChipDefaults.filterChipColors(
+                      selectedContainerColor = MaterialTheme.colorScheme.primary,
+                      selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                    modifier = Modifier
+                      .height(32.dp)
+                      .testTag("filter_${filter.name.lowercase()}"),
+                  )
+                }
+              }
+
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Surface(
+                  color = MaterialTheme.colorScheme.surfaceVariant,
+                  shape = RoundedCornerShape(999.dp),
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable {
+                      val modes = LedgerSortMode.entries
+                      sortMode = modes[(modes.indexOf(sortMode) + 1) % modes.size]
+                    }
+                    .testTag("payments_sort_button"),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  ) {
+                    Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Text(
+                      text = "Sort: ${sortMode.label}",
+                      style = MaterialTheme.typography.labelSmall,
+                      fontWeight = FontWeight.SemiBold,
+                    )
+                  }
+                }
+
+                val shown = if (isSupplierMode) filteredSupplierBills.size else filteredShopLedgers.size
+                val total = if (isSupplierMode) supplierBills.size else routeFilteredLedgers.size
+                Text(
+                  text = "Showing $shown of $total",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
             }
           }
+          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+        }
+      }
+    }
+
+    if (selectedTab == PaymentsSectionTab.LEDGER && isSupplierMode) {
+      item {
+        Button(
+          onClick = { showAddSupplierBillSheet = true },
+          shape = RoundedCornerShape(12.dp),
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary,
+          ),
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .height(48.dp)
+            .testTag("add_supplier_bill_button"),
+        ) {
+          Icon(Icons.Rounded.AddBusiness, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(modifier = Modifier.width(6.dp))
+          Text("Add Supplier Payable Bill", fontWeight = FontWeight.Bold)
         }
       }
     }
@@ -694,7 +726,9 @@ fun PaymentsScreen(
         if (!isSupplierMode) {
           if (filteredShopLedgers.isEmpty()) {
             item(key = "empty_shops_ledger", contentType = "empty_placeholder") {
-              EmptyPaymentsPlaceholder("No shops match the selected payment filter.")
+              Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                EmptyPaymentsPlaceholder("No shops match the selected payment filter.")
+              }
             }
           } else {
             items(
@@ -703,18 +737,22 @@ fun PaymentsScreen(
               contentType = { "shop_payment_card" },
             ) { ledger ->
               val shopOrderCount = nonRejectedOrderCountsByShopKey[ledger.shop.id] ?: 0
-              ShopPaymentCard(
-                ledger = ledger,
-                totalOrderCount = shopOrderCount,
-                onViewInvoicesClick = { detailShopLedger = ledger },
-                onRecordPaymentClick = { activePaymentTarget = PaymentSheetTarget.ShopCollection(ledger) },
-              )
+              Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                ShopPaymentCard(
+                  ledger = ledger,
+                  totalOrderCount = shopOrderCount,
+                  onViewInvoicesClick = { detailShopLedger = ledger },
+                  onRecordPaymentClick = { activePaymentTarget = PaymentSheetTarget.ShopCollection(ledger) },
+                )
+              }
             }
           }
         } else {
           if (filteredSupplierBills.isEmpty()) {
             item(key = "empty_supplier_bills", contentType = "empty_placeholder") {
-              EmptyPaymentsPlaceholder("No supplier bills match the selected filter.")
+              Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                EmptyPaymentsPlaceholder("No supplier bills match the selected filter.")
+              }
             }
           } else {
             items(
@@ -722,11 +760,13 @@ fun PaymentsScreen(
               key = { it.id.ifBlank { it.billNumber } },
               contentType = { "supplier_bill_card" },
             ) { bill ->
-              SupplierBillCard(
-                bill = bill,
-                onPayClick = { activePaymentTarget = PaymentSheetTarget.SupplierPayout(bill) },
-                onViewDetailsClick = { detailSupplierBill = bill },
-              )
+              Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                SupplierBillCard(
+                  bill = bill,
+                  onPayClick = { activePaymentTarget = PaymentSheetTarget.SupplierPayout(bill) },
+                  onViewDetailsClick = { detailSupplierBill = bill },
+                )
+              }
             }
           }
         }

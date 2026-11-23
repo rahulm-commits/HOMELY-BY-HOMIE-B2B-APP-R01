@@ -217,8 +217,8 @@ fun HomeScreen(
     modifier = modifier
       .fillMaxSize()
       .background(MaterialTheme.colorScheme.background),
-    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-    verticalArrangement = Arrangement.spacedBy(16.dp),
+    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 18.dp),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     // 1. Top Header with Live Date/Time + Connectivity + Sign Out
     item(key = "home_header", contentType = "home_header") {
@@ -241,9 +241,9 @@ fun HomeScreen(
                 )
               )
             )
-            .padding(16.dp)
+            .padding(12.dp)
         ) {
-          Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
@@ -322,10 +322,10 @@ fun HomeScreen(
 
     // 2. Period Toggle + Swipeable HorizontalPager for 4-Card Dashboard
     item(key = "home_dashboard_pager", contentType = "home_dashboard_pager") {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(
           modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           periods.forEachIndexed { index, period ->
             val selected = pagerState.currentPage == index
@@ -406,8 +406,8 @@ fun HomeScreen(
         modifier = Modifier.fillMaxWidth(),
       ) {
         Column(
-          modifier = Modifier.padding(16.dp),
-          verticalArrangement = Arrangement.spacedBy(12.dp),
+          modifier = Modifier.padding(12.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Row(
             modifier = Modifier.fillMaxWidth(),
@@ -446,8 +446,8 @@ fun HomeScreen(
               .clickable(onClick = onNavigateToShops),
           ) {
             Column(
-              modifier = Modifier.padding(12.dp),
-              verticalArrangement = Arrangement.spacedBy(8.dp),
+              modifier = Modifier.padding(10.dp),
+              verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
               Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -490,7 +490,7 @@ fun HomeScreen(
 
           Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
           ) {
             WorkMetricTile(
               icon = Icons.Rounded.Call,
@@ -514,7 +514,7 @@ fun HomeScreen(
 
           Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
           ) {
             WorkMetricTile(
               icon = Icons.Rounded.LocalShipping,
@@ -631,14 +631,14 @@ fun HomeScreen(
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(14.dp),
+            .padding(10.dp),
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.SpaceBetween,
         ) {
           Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
           ) {
             Box(
               modifier = Modifier
@@ -788,10 +788,10 @@ private fun DashboardQuadGrid(
   onCollectClick: () -> Unit = {},
   onSuppliersClick: () -> Unit = {},
 ) {
-  Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+  Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
     Row(
       modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
       // Card 1: Total Sales in Rupees
       Card(
@@ -802,8 +802,8 @@ private fun DashboardQuadGrid(
         modifier = Modifier.weight(1f),
       ) {
         Column(
-          modifier = Modifier.padding(14.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
+          modifier = Modifier.padding(11.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -855,8 +855,8 @@ private fun DashboardQuadGrid(
         modifier = Modifier.weight(1f),
       ) {
         Column(
-          modifier = Modifier.padding(14.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
+          modifier = Modifier.padding(11.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Row(
             modifier = Modifier.fillMaxWidth(),
@@ -896,7 +896,7 @@ private fun DashboardQuadGrid(
 
     Row(
       modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
       // Card 3: To Collect
       Card(
@@ -911,8 +911,8 @@ private fun DashboardQuadGrid(
           .testTag("home_to_collect_card"),
       ) {
         Column(
-          modifier = Modifier.padding(14.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
+          modifier = Modifier.padding(11.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -969,8 +969,8 @@ private fun DashboardQuadGrid(
           .testTag("home_to_suppliers_card"),
       ) {
         Column(
-          modifier = Modifier.padding(14.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
+          modifier = Modifier.padding(11.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1069,9 +1069,9 @@ private fun WorkMetricTile(
       .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
   ) {
     Row(
-      modifier = Modifier.padding(12.dp),
+      modifier = Modifier.padding(10.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),

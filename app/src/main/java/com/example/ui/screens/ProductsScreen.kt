@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,9 +15,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -51,7 +54,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -91,6 +93,7 @@ import com.example.R
 import com.example.data.model.Product
 import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.ProductStatus
+import com.example.ui.components.CompactDropdownMenuItem
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
@@ -109,7 +112,7 @@ private enum class ProductSortOption(val label: String) {
   NAME_A_Z("Product Name (A - Z)"),
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProductsScreen(
   products: List<Product>,
@@ -195,500 +198,525 @@ fun ProductsScreen(
       .fillMaxSize()
       .background(MaterialTheme.colorScheme.background),
   ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-      // Top App Identity Header (Consistent with Dark Theme)
-      Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth(),
-      ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                text = "HOMELY BY HOMIE",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-              )
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-              ) {
-                Text(
-                  text = "Products",
-                  style = MaterialTheme.typography.titleLarge,
-                  color = MaterialTheme.colorScheme.onSurface,
-                  fontWeight = FontWeight.Bold,
-                )
-                Text(
-                  text = "• Kochi Central Hub",
-                  style = MaterialTheme.typography.labelMedium,
-                  color = MaterialTheme.colorScheme.secondary,
-                  fontWeight = FontWeight.SemiBold,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-              }
-            }
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-              IconButton(
-                onClick = { showSearchBarFocusedHint = !showSearchBarFocusedHint },
-                modifier = Modifier.testTag("header_search_button"),
-              ) {
-                Icon(
-                  imageVector = Icons.Rounded.Search,
-                  contentDescription = "Search catalog",
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-              }
-              IconButton(
-                onClick = { selectedTab = ProductStatusTab.LOW_STOCK },
-                modifier = Modifier.testTag("header_alerts_button"),
-              ) {
-                BadgedBox(
-                  badge = {
-                    if (lowAndInactiveCount > 0) {
-                      Badge(
-                        containerColor = MaterialTheme.semanticColors.danger,
-                        contentColor = Color.White,
-                      ) {
-                        Text("$lowAndInactiveCount")
-                      }
-                    }
-                  },
-                ) {
-                  Icon(
-                    imageVector = Icons.Rounded.Notifications,
-                    contentDescription = "Low stock & inactive alerts",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                  )
-                }
-              }
-              Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = CircleShape,
-                modifier = Modifier
-                  .size(36.dp)
-                  .clip(CircleShape)
-                  .clickable(onClick = onOpenSyncServers),
-              ) {
-                Box(contentAlignment = Alignment.Center) {
-                  Icon(
-                    imageVector = Icons.Rounded.Person,
-                    contentDescription = "Sync & account status",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(19.dp),
-                  )
-                }
-              }
-            }
-          }
-          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-        }
-      }
-
-      LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 92.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-      ) {
-        // Overview Header + Top Add Product Button
-        item {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-              Text(
-                text = "Products",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold,
-              )
-              Text(
-                text = "Manage your grocery product catalogue",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-              )
-            }
-            Button(
-              onClick = onAddProductClick,
-              shape = RoundedCornerShape(10.dp),
-              contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-              modifier = Modifier.testTag("top_add_product_button"),
-            ) {
-              Icon(
-                imageVector = Icons.Rounded.Add,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-              )
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Add Product", style = MaterialTheme.typography.labelLarge)
-            }
-          }
-        }
-
-        // Search & Quick Barcode/SKU Lookup Bar
-        item {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
-            StandardCompactSearchBar(
-              query = searchQuery,
-              onQueryChange = { searchQuery = it },
-              placeholder = if (showSearchBarFocusedHint) {
-                "Type PRD-00101, SKU-BNC-001, or product name..."
-              } else {
-                "Search by name, SKU, or barcode..."
-              },
-              fieldTestTag = "products_search_input",
-              containerColor = MaterialTheme.colorScheme.surface,
-              modifier = Modifier.weight(1f),
-            )
-            Surface(
-              color = MaterialTheme.colorScheme.secondaryContainer,
-              shape = RoundedCornerShape(10.dp),
-              border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
-              modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { showBarcodeLookupDialog = true }
-                .testTag("products_barcode_lookup_button"),
-            ) {
-              Box(contentAlignment = Alignment.Center) {
-                Icon(
-                  imageVector = Icons.Rounded.QrCodeScanner,
-                  contentDescription = "Quick Barcode or SKU Lookup",
-                  tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                  modifier = Modifier.size(20.dp),
-                )
-              }
-            }
-          }
-        }
-
-        // Hub Status & Live Sync Bar
-        item {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Surface(
-              color = MaterialTheme.semanticColors.successContainer,
-              shape = CircleShape,
-              border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
-            ) {
-              Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-              ) {
-                Box(
-                  modifier = Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.semanticColors.success),
-                )
-                Text(
-                  text = "Kochi Central Hub",
-                  style = MaterialTheme.typography.labelMedium,
-                  color = MaterialTheme.semanticColors.success,
-                  fontWeight = FontWeight.SemiBold,
-                )
-              }
-            }
-
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-              modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onOpenSyncServers)
-                .padding(horizontal = 4.dp, vertical = 2.dp),
-            ) {
-              Icon(
-                imageVector = if (offlinePendingCount > 0) Icons.Rounded.CloudOff else Icons.Rounded.CloudDone,
-                contentDescription = null,
-                tint = if (offlinePendingCount > 0) {
-                  MaterialTheme.semanticColors.warning
-                } else {
-                  MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.size(14.dp),
-              )
-              Text(
-                text = if (offlinePendingCount > 0) {
-                  "$offlinePendingCount pending sync"
-                } else {
-                  "Live Inventory Synced"
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = if (offlinePendingCount > 0) {
-                  MaterialTheme.semanticColors.warning
-                } else {
-                  MaterialTheme.colorScheme.onSurfaceVariant
-                },
-              )
-            }
-          }
-        }
-
-        // 2x2 KPI Summary Cards
-        item {
-          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              ProductKpiCard(
-                label = "Total SKUs",
-                value = "$totalCount",
-                subtitle = "Catalogue total",
-                icon = Icons.Rounded.Inventory2,
-                accentColor = MaterialTheme.colorScheme.primary,
-                iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                onClick = { selectedTab = ProductStatusTab.ALL },
-                modifier = Modifier.weight(1f),
-              )
-              ProductKpiCard(
-                label = "Active Live",
-                value = "$activeCount",
-                subtitle = "In distribution",
-                icon = Icons.Rounded.Verified,
-                accentColor = MaterialTheme.semanticColors.success,
-                iconContainerColor = MaterialTheme.semanticColors.successContainer,
-                onClick = { selectedTab = ProductStatusTab.ACTIVE },
-                modifier = Modifier.weight(1f),
-              )
-            }
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              ProductKpiCard(
-                label = "Low & Inactive",
-                value = "$lowAndInactiveCount",
-                valueTrailing = "($lowStockCount Low)",
-                subtitle = "Action required",
-                icon = Icons.Rounded.WarningAmber,
-                accentColor = MaterialTheme.semanticColors.danger,
-                iconContainerColor = MaterialTheme.semanticColors.dangerContainer,
-                onClick = { selectedTab = ProductStatusTab.LOW_STOCK },
-                modifier = Modifier.weight(1f),
-              )
-              ProductKpiCard(
-                label = "Recent Added",
-                value = "$recentAddedCount",
-                subtitle = "Last 14 days",
-                icon = Icons.Rounded.NewReleases,
-                accentColor = MaterialTheme.colorScheme.secondary,
-                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                onClick = {
-                  sortOption = ProductSortOption.RECENTLY_ADDED
-                  selectedTab = ProductStatusTab.ALL
-                },
-                modifier = Modifier.weight(1f),
-              )
-            }
-          }
-        }
-
-        // Status Tabs Row
-        item {
-          Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
-            modifier = Modifier.fillMaxWidth(),
-          ) {
+    LazyColumn(
+      modifier = Modifier.fillMaxSize(),
+      contentPadding = PaddingValues(bottom = 82.dp),
+      verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+      // Scrollable Top App Identity Header
+      item(key = "products_identity_header") {
+        Surface(
+          color = MaterialTheme.colorScheme.surface,
+          tonalElevation = 0.dp,
+          shadowElevation = 2.dp,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column(modifier = Modifier.fillMaxWidth()) {
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(4.dp)
-                .horizontalScroll(rememberScrollState()),
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
             ) {
-              val tabs = listOf(
-                Triple(ProductStatusTab.ALL, "All ($totalCount)", "tab_products_all"),
-                Triple(ProductStatusTab.ACTIVE, "Active ($activeCount)", "tab_products_active"),
-                Triple(ProductStatusTab.LOW_STOCK, "Low Stock ($lowStockCount)", "tab_products_low"),
-                Triple(ProductStatusTab.INACTIVE, "Inactive ($inactiveCount)", "tab_products_inactive"),
-              )
-              tabs.forEach { (tab, label, tag) ->
-                val isSelected = selectedTab == tab
-                val textColor = when {
-                  isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                  tab == ProductStatusTab.LOW_STOCK -> MaterialTheme.semanticColors.danger
-                  else -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
-                Surface(
-                  color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                  shape = RoundedCornerShape(8.dp),
-                  modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { selectedTab = tab }
-                    .testTag(tag),
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text = "HOMELY BY HOMIE",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.primary,
+                  fontWeight = FontWeight.Bold,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                   Text(
-                    text = label,
+                    text = "Products",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                  )
+                  Text(
+                    text = "• Kochi Central Hub",
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    color = textColor,
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    overflow = TextOverflow.Ellipsis,
                   )
                 }
               }
-            }
-          }
-        }
-
-        // Category Chips + Sort Pill
-        item {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
-            Row(
-              modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-              categoryChips.forEach { category ->
-                val selected = selectedCategory == category
-                FilterChip(
-                  selected = selected,
-                  onClick = { selectedCategory = category },
-                  colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                  ),
-                  border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = selected,
-                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                  ),
-                  label = {
-                    Text(
-                      text = category,
-                      style = MaterialTheme.typography.labelMedium,
-                      maxLines = 1,
-                    )
-                  },
-                  modifier = Modifier.height(34.dp),
-                )
-              }
-            }
-
-            Surface(
-              color = MaterialTheme.colorScheme.surfaceVariant,
-              shape = RoundedCornerShape(10.dp),
-              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
-              modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { showSortSheet = true }
-                .testTag("sort_products_button"),
-            ) {
               Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
               ) {
-                Icon(
-                  imageVector = Icons.AutoMirrored.Rounded.Sort,
-                  contentDescription = "Sort products",
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(16.dp),
-                )
-                Text(
-                  text = when (sortOption) {
-                    ProductSortOption.HIGHEST_SELLING -> "Sort: Sales"
-                    ProductSortOption.STOCK_LOW_TO_HIGH -> "Sort: Stock"
-                    ProductSortOption.RECENTLY_ADDED -> "Sort: Recent"
-                    ProductSortOption.NAME_A_Z -> "Sort: A-Z"
+                IconButton(
+                  onClick = { showSearchBarFocusedHint = !showSearchBarFocusedHint },
+                  modifier = Modifier.testTag("header_search_button"),
+                ) {
+                  Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = "Search catalog",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                }
+                IconButton(
+                  onClick = { selectedTab = ProductStatusTab.LOW_STOCK },
+                  modifier = Modifier.testTag("header_alerts_button"),
+                ) {
+                  BadgedBox(
+                    badge = {
+                      if (lowAndInactiveCount > 0) {
+                        Badge(
+                          containerColor = MaterialTheme.semanticColors.danger,
+                          contentColor = Color.White,
+                        ) {
+                          Text("$lowAndInactiveCount")
+                        }
+                      }
+                    },
+                  ) {
+                    Icon(
+                      imageVector = Icons.Rounded.Notifications,
+                      contentDescription = "Low stock & inactive alerts",
+                      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                  }
+                }
+                Surface(
+                  color = MaterialTheme.colorScheme.primaryContainer,
+                  shape = CircleShape,
+                  modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onOpenSyncServers),
+                ) {
+                  Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                      imageVector = Icons.Rounded.Person,
+                      contentDescription = "Sync & account status",
+                      tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                      modifier = Modifier.size(19.dp),
+                    )
+                  }
+                }
+              }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+          }
+        }
+      }
+
+      // Scrollable Overview Header + Top Add Product Button
+      item(key = "products_overview_header") {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(
+              text = "Products",
+              style = MaterialTheme.typography.headlineSmall,
+              color = MaterialTheme.colorScheme.onBackground,
+              fontWeight = FontWeight.Bold,
+            )
+            Text(
+              text = "Manage your grocery product catalogue",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
+          Button(
+            onClick = onAddProductClick,
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.testTag("top_add_product_button"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Add,
+              contentDescription = null,
+              modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Add Product", style = MaterialTheme.typography.labelLarge)
+          }
+        }
+      }
+
+      // Scrollable Hub Status & Live Sync Bar
+      item(key = "products_hub_status") {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Surface(
+            color = MaterialTheme.semanticColors.successContainer,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
+          ) {
+            Row(
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              Box(
+                modifier = Modifier
+                  .size(7.dp)
+                  .clip(CircleShape)
+                  .background(MaterialTheme.semanticColors.success),
+              )
+              Text(
+                text = "Kochi Central Hub",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.semanticColors.success,
+                fontWeight = FontWeight.SemiBold,
+              )
+            }
+          }
+
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .clickable(onClick = onOpenSyncServers)
+              .padding(horizontal = 4.dp, vertical = 2.dp),
+          ) {
+            Icon(
+              imageVector = if (offlinePendingCount > 0) Icons.Rounded.CloudOff else Icons.Rounded.CloudDone,
+              contentDescription = null,
+              tint = if (offlinePendingCount > 0) {
+                MaterialTheme.semanticColors.warning
+              } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+              },
+              modifier = Modifier.size(14.dp),
+            )
+            Text(
+              text = if (offlinePendingCount > 0) {
+                "$offlinePendingCount pending sync"
+              } else {
+                "Live Inventory Synced"
+              },
+              style = MaterialTheme.typography.labelMedium,
+              color = if (offlinePendingCount > 0) {
+                MaterialTheme.semanticColors.warning
+              } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+              },
+            )
+          }
+        }
+      }
+
+      // Scrollable 2x2 KPI Summary Cards
+      item(key = "products_kpi_grid") {
+        Column(
+          modifier = Modifier.padding(horizontal = 12.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            ProductKpiCard(
+              label = "Total SKUs",
+              value = "$totalCount",
+              subtitle = "Catalogue total",
+              icon = Icons.Rounded.Inventory2,
+              accentColor = MaterialTheme.colorScheme.primary,
+              iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
+              onClick = { selectedTab = ProductStatusTab.ALL },
+              modifier = Modifier.weight(1f),
+            )
+            ProductKpiCard(
+              label = "Active Live",
+              value = "$activeCount",
+              subtitle = "In distribution",
+              icon = Icons.Rounded.Verified,
+              accentColor = MaterialTheme.semanticColors.success,
+              iconContainerColor = MaterialTheme.semanticColors.successContainer,
+              onClick = { selectedTab = ProductStatusTab.ACTIVE },
+              modifier = Modifier.weight(1f),
+            )
+          }
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            ProductKpiCard(
+              label = "Low & Inactive",
+              value = "$lowAndInactiveCount",
+              valueTrailing = "($lowStockCount Low)",
+              subtitle = "Action required",
+              icon = Icons.Rounded.WarningAmber,
+              accentColor = MaterialTheme.semanticColors.danger,
+              iconContainerColor = MaterialTheme.semanticColors.dangerContainer,
+              onClick = { selectedTab = ProductStatusTab.LOW_STOCK },
+              modifier = Modifier.weight(1f),
+            )
+            ProductKpiCard(
+              label = "Recent Added",
+              value = "$recentAddedCount",
+              subtitle = "Last 14 days",
+              icon = Icons.Rounded.NewReleases,
+              accentColor = MaterialTheme.colorScheme.secondary,
+              iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+              onClick = {
+                sortOption = ProductSortOption.RECENTLY_ADDED
+                selectedTab = ProductStatusTab.ALL
+              },
+              modifier = Modifier.weight(1f),
+            )
+          }
+        }
+      }
+
+      // Sticky Search Bar + Status Tabs + Category/Sort Toggle Controls
+      stickyHeader(key = "products_sticky_controls") {
+        Surface(
+          color = MaterialTheme.colorScheme.background,
+          tonalElevation = 0.dp,
+          shadowElevation = 2.dp,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+              verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              // Search & Quick Barcode/SKU Lookup Bar
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                StandardCompactSearchBar(
+                  query = searchQuery,
+                  onQueryChange = { searchQuery = it },
+                  placeholder = if (showSearchBarFocusedHint) {
+                    "Type PRD-00101, SKU-BNC-001, or product name..."
+                  } else {
+                    "Search by name, SKU, or barcode..."
                   },
-                  style = MaterialTheme.typography.labelMedium,
-                  color = MaterialTheme.colorScheme.onSurface,
-                  fontWeight = FontWeight.SemiBold,
+                  fieldTestTag = "products_search_input",
+                  containerColor = MaterialTheme.colorScheme.surface,
+                  modifier = Modifier.weight(1f),
                 )
+                Surface(
+                  color = MaterialTheme.colorScheme.secondaryContainer,
+                  shape = RoundedCornerShape(10.dp),
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
+                  modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showBarcodeLookupDialog = true }
+                    .testTag("products_barcode_lookup_button"),
+                ) {
+                  Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                      imageVector = Icons.Rounded.QrCodeScanner,
+                      contentDescription = "Quick Barcode or SKU Lookup",
+                      tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                      modifier = Modifier.size(20.dp),
+                    )
+                  }
+                }
+              }
+
+              // Status Tabs Row
+              Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                modifier = Modifier.fillMaxWidth(),
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp)
+                    .horizontalScroll(rememberScrollState()),
+                  horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                  val tabs = listOf(
+                    Triple(ProductStatusTab.ALL, "All ($totalCount)", "tab_products_all"),
+                    Triple(ProductStatusTab.ACTIVE, "Active ($activeCount)", "tab_products_active"),
+                    Triple(ProductStatusTab.LOW_STOCK, "Low Stock ($lowStockCount)", "tab_products_low"),
+                    Triple(ProductStatusTab.INACTIVE, "Inactive ($inactiveCount)", "tab_products_inactive"),
+                  )
+                  tabs.forEach { (tab, label, tag) ->
+                    val isSelected = selectedTab == tab
+                    val textColor = when {
+                      isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                      tab == ProductStatusTab.LOW_STOCK -> MaterialTheme.semanticColors.danger
+                      else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Surface(
+                      color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                      shape = RoundedCornerShape(8.dp),
+                      modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { selectedTab = tab }
+                        .testTag(tag),
+                    ) {
+                      Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                        color = textColor,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                      )
+                    }
+                  }
+                }
+              }
+
+              // Category Chips + Sort Pill
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                Row(
+                  modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  categoryChips.forEach { category ->
+                    val selected = selectedCategory == category
+                    FilterChip(
+                      selected = selected,
+                      onClick = { selectedCategory = category },
+                      colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                      ),
+                      border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = selected,
+                        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                      ),
+                      label = {
+                        Text(
+                          text = category,
+                          style = MaterialTheme.typography.labelMedium,
+                          maxLines = 1,
+                        )
+                      },
+                      modifier = Modifier.height(34.dp),
+                    )
+                  }
+                }
+
+                Surface(
+                  color = MaterialTheme.colorScheme.surfaceVariant,
+                  shape = RoundedCornerShape(10.dp),
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showSortSheet = true }
+                    .testTag("sort_products_button"),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  ) {
+                    Icon(
+                      imageVector = Icons.AutoMirrored.Rounded.Sort,
+                      contentDescription = "Sort products",
+                      tint = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                      text = when (sortOption) {
+                        ProductSortOption.HIGHEST_SELLING -> "Sort: Sales"
+                        ProductSortOption.STOCK_LOW_TO_HIGH -> "Sort: Stock"
+                        ProductSortOption.RECENTLY_ADDED -> "Sort: Recent"
+                        ProductSortOption.NAME_A_Z -> "Sort: A-Z"
+                      },
+                      style = MaterialTheme.typography.labelMedium,
+                      color = MaterialTheme.colorScheme.onSurface,
+                      fontWeight = FontWeight.SemiBold,
+                    )
+                  }
+                }
+              }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+          }
+        }
+      }
+
+      // Empty State or Filtered Product Cards
+      if (filteredProducts.isEmpty()) {
+        item {
+          Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 12.dp),
+          ) {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.Inventory2,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(40.dp),
+              )
+              Text(
+                text = "No matching products",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+              )
+              Text(
+                text = "Adjust filters or tap + Add Product to register a new SKU.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              OutlinedButton(
+                onClick = {
+                  searchQuery = ""
+                  selectedTab = ProductStatusTab.ALL
+                  selectedCategory = "All Categories"
+                },
+              ) {
+                Text("Reset Filters")
               }
             }
           }
         }
-
-        // Empty State or Filtered Product Cards
-        if (filteredProducts.isEmpty()) {
-          item {
-            Card(
-              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
-              shape = RoundedCornerShape(16.dp),
-              modifier = Modifier.fillMaxWidth(),
-            ) {
-              Column(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.Rounded.Inventory2,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(40.dp),
-                )
-                Text(
-                  text = "No matching products",
-                  style = MaterialTheme.typography.titleMedium,
-                  fontWeight = FontWeight.Bold,
-                )
-                Text(
-                  text = "Adjust filters or tap + Add Product to register a new SKU.",
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedButton(
-                  onClick = {
-                    searchQuery = ""
-                    selectedTab = ProductStatusTab.ALL
-                    selectedCategory = "All Categories"
-                  },
-                ) {
-                  Text("Reset Filters")
-                }
-              }
-            }
-          }
-        } else {
-          items(
-            filteredProducts,
-            key = { it.id.ifBlank { it.productCode } },
-            contentType = { "product_card" },
-          ) { prod ->
+      } else {
+        items(
+          filteredProducts,
+          key = { it.id.ifBlank { it.productCode } },
+          contentType = { "product_card" },
+        ) { prod ->
+          Box(modifier = Modifier.padding(horizontal = 12.dp)) {
             ProductCatalogCard(
               product = prod,
               onEditClick = { onEditProductClick(prod) },
@@ -776,8 +804,8 @@ fun ProductsScreen(
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+          .padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
       ) {
         Text(
           text = "Sort Products By",
@@ -804,7 +832,7 @@ fun ProductsScreen(
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 7.dp),
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -823,7 +851,7 @@ fun ProductsScreen(
             }
           }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
       }
     }
   }
@@ -874,8 +902,8 @@ private fun ProductKpiCard(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(12.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp),
+        .padding(10.dp),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1013,8 +1041,8 @@ private fun ProductCatalogCard(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+        .padding(11.dp),
+      verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1147,38 +1175,37 @@ private fun ProductCatalogCard(
                 DropdownMenu(
                   expanded = menuExpanded,
                   onDismissRequest = { menuExpanded = false },
+                  modifier = Modifier
+                    .widthIn(min = 190.dp, max = 250.dp)
+                    .heightIn(max = 240.dp),
                 ) {
-                  DropdownMenuItem(
-                    text = { Text("Edit Product & Pricing") },
-                    leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+                  CompactDropdownMenuItem(
+                    text = "Edit Product & Pricing",
+                    leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) },
                     onClick = {
                       menuExpanded = false
                       onEditClick()
                     },
                   )
-                  DropdownMenuItem(
-                    text = { Text("Quick Restock (+20 $unitShort)") },
-                    leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                  CompactDropdownMenuItem(
+                    text = "Quick Restock (+20 $unitShort)",
+                    leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp)) },
                     onClick = {
                       menuExpanded = false
                       onQuickRestock()
                     },
                   )
-                  DropdownMenuItem(
-                    text = { Text("Adjust Stock Quantity") },
-                    leadingIcon = { Icon(Icons.Rounded.Tune, contentDescription = null) },
+                  CompactDropdownMenuItem(
+                    text = "Adjust Stock Quantity",
+                    leadingIcon = { Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(16.dp)) },
                     onClick = {
                       menuExpanded = false
                       onOpenStockAdjust()
                     },
                   )
-                  DropdownMenuItem(
-                    text = {
-                      Text(
-                        if (product.status == ProductStatus.ACTIVE) "Mark as Inactive" else "Mark as Active"
-                      )
-                    },
-                    leadingIcon = { Icon(Icons.Rounded.Storefront, contentDescription = null) },
+                  CompactDropdownMenuItem(
+                    text = if (product.status == ProductStatus.ACTIVE) "Mark as Inactive" else "Mark as Active",
+                    leadingIcon = { Icon(Icons.Rounded.Storefront, contentDescription = null, modifier = Modifier.size(16.dp)) },
                     onClick = {
                       menuExpanded = false
                       onToggleStatus()
@@ -1244,7 +1271,7 @@ private fun ProductCatalogCard(
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
         ) {

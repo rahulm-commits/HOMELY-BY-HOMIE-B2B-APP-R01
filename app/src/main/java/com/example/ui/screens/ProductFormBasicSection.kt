@@ -62,8 +62,8 @@ internal fun ProductBasicInfoSectionCard(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(14.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+        .padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       ProductFormSectionHeader(
         icon = Icons.Rounded.Inventory,

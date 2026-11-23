@@ -17,15 +17,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -43,6 +47,8 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.Warehouse
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Factory
 import androidx.compose.material.icons.rounded.Home
@@ -52,15 +58,12 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Warehouse
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -73,6 +76,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -80,6 +84,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.annotation.DrawableRes
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
@@ -170,6 +175,64 @@ fun rememberThumbnailImageRequest(
   }
 }
 
+@Composable
+fun CompactDropdownMenuItem(
+  text: String,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  selected: Boolean = false,
+  textColor: Color = Color.Unspecified,
+  leadingIcon: (@Composable () -> Unit)? = null,
+  trailingIcon: (@Composable () -> Unit)? = null,
+  contentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+) {
+  val resolvedTextColor = when {
+    textColor != Color.Unspecified -> textColor
+    selected -> MaterialTheme.colorScheme.primary
+    else -> MaterialTheme.colorScheme.onSurface
+  }
+  Row(
+    modifier = modifier
+      .fillMaxWidth()
+      .defaultMinSize(minHeight = 34.dp)
+      .background(
+        if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent
+      )
+      .clickable(onClick = onClick)
+      .padding(contentPadding),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    if (leadingIcon != null) {
+      Box(
+        modifier = Modifier.size(18.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        leadingIcon()
+      }
+    }
+    Text(
+      text = text,
+      style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+      fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+      color = resolvedTextColor,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f),
+    )
+    if (trailingIcon != null) {
+      trailingIcon()
+    } else if (selected) {
+      Icon(
+        imageVector = Icons.Rounded.Check,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(15.dp),
+      )
+    }
+  }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StandardRouteDropdown(
@@ -190,45 +253,73 @@ fun StandardRouteDropdown(
     onExpandedChange = { expanded = !expanded },
     modifier = modifier.fillMaxWidth(),
   ) {
-    OutlinedTextField(
-      value = displayText,
-      onValueChange = {},
-      readOnly = true,
-      singleLine = true,
-      label = { Text("Route") },
-      trailingIcon = {
-        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-      },
-      colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-        focusedContainerColor = MaterialTheme.colorScheme.surface,
-        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
-        focusedBorderColor = MaterialTheme.colorScheme.primary,
-      ),
-      textStyle = MaterialTheme.typography.bodyMedium,
+    Surface(
+      color = MaterialTheme.colorScheme.surface,
       shape = RoundedCornerShape(10.dp),
+      border = BorderStroke(
+        width = 1.dp,
+        color = if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+      ),
       modifier = Modifier
         .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
         .fillMaxWidth()
+        .height(40.dp)
+        .clip(RoundedCornerShape(10.dp))
         .testTag(fieldTestTag),
-    )
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        Icon(
+          imageVector = Icons.AutoMirrored.Rounded.AltRoute,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(16.dp),
+        )
+        Text(
+          text = "Route:",
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          fontWeight = FontWeight.Medium,
+        )
+        Text(
+          text = displayText,
+          style = MaterialTheme.typography.bodyMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurface,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.weight(1f),
+        )
+        Icon(
+          imageVector = Icons.Rounded.ArrowDropDown,
+          contentDescription = "Select route",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier
+            .size(20.dp)
+            .rotate(if (expanded) 180f else 0f),
+        )
+      }
+    }
     ExposedDropdownMenu(
       expanded = expanded,
       onDismissRequest = { expanded = false },
+      modifier = Modifier
+        .heightIn(max = 260.dp)
+        .widthIn(max = 320.dp),
     ) {
       routeOptions.forEach { route ->
-        DropdownMenuItem(
-          text = {
-            Text(
-              text = if (route == RoutesCatalog.ALL) "All Routes" else route,
-              style = MaterialTheme.typography.bodyMedium,
-            )
-          },
+        CompactDropdownMenuItem(
+          text = if (route == RoutesCatalog.ALL) "All Routes" else route,
+          selected = selectedRoute == route,
           onClick = {
             onRouteSelected(route)
             expanded = false
           },
-          contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
         )
       }
     }
@@ -418,7 +509,7 @@ fun HomelyBottomBar(
           .fillMaxWidth()
           .padding(horizontal = 12.dp),
       ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
           Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -444,10 +535,10 @@ fun HomelyBottomBar(
               )
             }
           }
-          Spacer(modifier = Modifier.height(6.dp))
+          Spacer(modifier = Modifier.height(4.dp))
           Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
             AppDestination.expandedMenuItems.forEach { item ->
               val selected = currentDestination == item
@@ -457,18 +548,18 @@ fun HomelyBottomBar(
                 } else {
                   MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                   .weight(1f)
                   .minimumInteractiveComponentSize()
-                  .clip(RoundedCornerShape(14.dp))
+                  .clip(RoundedCornerShape(12.dp))
                   .clickable { onSelectDestination(item) }
                   .testTag(item.testTag),
               ) {
                 Column(
                   horizontalAlignment = Alignment.CenterHorizontally,
                   verticalArrangement = Arrangement.Center,
-                  modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                  modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
                 ) {
                   Icon(
                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
@@ -478,9 +569,9 @@ fun HomelyBottomBar(
                     } else {
                       MaterialTheme.colorScheme.onSurface
                     },
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(21.dp),
                   )
-                  Spacer(modifier = Modifier.height(4.dp))
+                  Spacer(modifier = Modifier.height(3.dp))
                   Text(
                     text = item.title,
                     style = MaterialTheme.typography.labelMedium,
@@ -512,7 +603,7 @@ fun HomelyBottomBar(
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
           horizontalArrangement = Arrangement.SpaceEvenly,
           verticalAlignment = Alignment.CenterVertically,
         ) {

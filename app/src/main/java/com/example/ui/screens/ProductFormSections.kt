@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddAPhoto
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Inventory
@@ -32,10 +34,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -67,6 +68,7 @@ import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.ProductVariant
+import com.example.ui.components.CompactDropdownMenuItem
 import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
 import java.io.File
@@ -168,26 +170,63 @@ internal fun ProductDropdownField(
     onExpandedChange = { expanded = !expanded },
     modifier = modifier.fillMaxWidth(),
   ) {
-    OutlinedTextField(
-      value = selectedValue,
-      onValueChange = {},
-      readOnly = true,
-      singleLine = true,
-      label = { Text(label) },
-      trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-      shape = RoundedCornerShape(12.dp),
+    Surface(
+      color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+      shape = RoundedCornerShape(10.dp),
+      border = BorderStroke(
+        width = 1.dp,
+        color = if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+      ),
       modifier = Modifier
         .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
         .fillMaxWidth()
+        .height(46.dp)
+        .clip(RoundedCornerShape(10.dp))
         .let { if (fieldTestTag.isNotEmpty()) it.testTag(fieldTestTag) else it },
-    )
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(horizontal = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+          Text(
+            text = selectedValue,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+        Icon(
+          imageVector = Icons.Rounded.ArrowDropDown,
+          contentDescription = "Select $label",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier
+            .size(20.dp)
+            .rotate(if (expanded) 180f else 0f),
+        )
+      }
+    }
     ExposedDropdownMenu(
       expanded = expanded,
       onDismissRequest = { expanded = false },
+      modifier = Modifier.heightIn(max = 260.dp),
     ) {
       options.forEach { option ->
-        DropdownMenuItem(
-          text = { Text(option, style = MaterialTheme.typography.bodyMedium) },
+        CompactDropdownMenuItem(
+          text = option,
+          selected = selectedValue == option,
           onClick = {
             onOptionSelected(option)
             expanded = false
@@ -214,8 +253,8 @@ internal fun ProductPhotoProofCard(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(12.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+        .padding(10.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),

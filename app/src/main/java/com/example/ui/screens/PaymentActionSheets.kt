@@ -173,16 +173,16 @@ fun RecordPaymentModalSheet(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 16.dp)
-        .padding(bottom = 24.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+        .padding(horizontal = 14.dp)
+        .padding(bottom = 14.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Column(
         modifier = Modifier
           .fillMaxWidth()
           .weight(1f, fill = false)
           .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
       // Sheet Header
       Row(

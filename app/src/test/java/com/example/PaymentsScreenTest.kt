@@ -175,7 +175,7 @@ class PaymentsScreenTest {
     assertEquals(PaymentDirection.COLLECT, recordedTx?.direction)
 
     // Switch to Supplier Payouts mode
-    list.performScrollToNode(androidx.compose.ui.test.hasTestTag("payment_mode_suppliers"))
+    list.performScrollToNode(androidx.compose.ui.test.hasText("Shop Payments"))
     composeTestRule.onNodeWithTag("payment_mode_suppliers").performClick()
     composeTestRule.onNodeWithText("Supplier Payouts").assertIsDisplayed()
     list.performScrollToNode(androidx.compose.ui.test.hasTestTag("supplier_bill_card_SUP-001"))

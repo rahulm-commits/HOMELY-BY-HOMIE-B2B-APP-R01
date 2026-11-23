@@ -15,9 +15,13 @@ import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.StockItem
 import com.example.ui.screens.PackingScreen
+import com.example.ui.screens.buildPackingExcelBytes
 import com.example.ui.screens.buildPackingSnapshot
 import com.example.ui.screens.parseOrderLineItems
 import com.example.ui.theme.HomelyTheme
+import java.io.ByteArrayInputStream
+import java.util.zip.ZipInputStream
+import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -183,7 +187,7 @@ class PackingScreenTest {
   }
 
   @Test
-  fun packingScreen_rendersRouteFilterSectionsAndSwitchesTabs() {
+  fun packingScreen_rendersVehicleDetailsOverallCountsAndShopOrders() {
     composeTestRule.setContent {
       HomelyTheme {
         PackingScreen(
@@ -204,32 +208,86 @@ class PackingScreenTest {
     val list = composeTestRule.onNodeWithTag("packing_lazy_list")
     composeTestRule.onNodeWithTag("packing_route_filter").assertIsDisplayed()
     composeTestRule.onNodeWithTag("packing_operational_banner").assertIsDisplayed()
-    list.performScrollToNode(hasTestTag("assigned_unassigned_section"))
-    composeTestRule.onNodeWithTag("assigned_unassigned_section").assertIsDisplayed()
-    list.performScrollToNode(hasTestTag("production_target_by_size_card"))
-    composeTestRule.onNodeWithTag("production_target_by_size_card").assertIsDisplayed()
-    composeTestRule.onNodeWithText("Today's Production Target").assertIsDisplayed()
-    list.performScrollToNode(hasTestTag("packing_section_banana_chips"))
-    composeTestRule.onNodeWithTag("packing_section_banana_chips").assertIsDisplayed()
 
-    // Switch to Shop Slips tab and verify Assigned & Unassigned sections render + LIFO banner
-    list.performScrollToNode(hasTestTag("packing_tab_shop_slips"))
-    composeTestRule.onNodeWithTag("packing_tab_shop_slips").performClick()
-    composeTestRule.waitForIdle()
-    list.performScrollToNode(hasTestTag("packing_lifo_banner"))
-    composeTestRule.onNodeWithTag("packing_lifo_banner").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("toggle_reverse_load_button").assertIsDisplayed()
-    list.performScrollToNode(hasText("Assigned Route Packing"))
-    composeTestRule.onNodeWithText("Assigned Route Packing").assertIsDisplayed()
-    list.performScrollToNode(hasText("Unassigned Packing Queue"))
-    composeTestRule.onNodeWithText("Unassigned Packing Queue").assertIsDisplayed()
+    // Overall count of different packets card
+    list.performScrollToNode(hasTestTag("packing_overall_counts_card"))
+    composeTestRule.onNodeWithTag("packing_overall_counts_card").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Overall Packet Count").assertIsDisplayed()
 
-    // Switch to A4 Manifest tab
-    list.performScrollToNode(hasTestTag("packing_tab_a4_manifest"))
-    composeTestRule.onNodeWithTag("packing_tab_a4_manifest").performClick()
+    // Shop-by-shop order details below overall counts
+    list.performScrollToNode(hasTestTag("packing_shop_card_ord_r1"))
+    composeTestRule.onNodeWithTag("packing_shop_card_ord_r1").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Lakshmi General Store").assertIsDisplayed()
+
+    list.performScrollToNode(hasTestTag("packing_shop_card_ord_r2"))
+    composeTestRule.onNodeWithTag("packing_shop_card_ord_r2").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Malabar Supermart").assertIsDisplayed()
+
+    // Toggle packed status and filter by Packed
+    composeTestRule.onNodeWithTag("packing_toggle_packed_ord_r2").performClick()
     composeTestRule.waitForIdle()
-    list.performScrollToNode(hasTestTag("a4_manifest_document"))
-    composeTestRule.onNodeWithTag("a4_manifest_document").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_filter_packed").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("packing_shop_card_ord_r2").assertIsDisplayed()
+
+    // Bottom Excel export buttons remain visible
+    composeTestRule.onNodeWithTag("packing_primary_print_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_save_excel_button").assertIsDisplayed()
+  }
+
+  @Test
+  fun packingExcelExporter_generatesValidXlsxWithVehicleOverallCountsAndShopOrders() {
+    val snapshot = buildPackingSnapshot(
+      selectedRouteId = RoutesCatalog.R01_KANNUR_BANGALORE,
+      shops = sampleShops,
+      orders = sampleOrders,
+      routes = sampleRoutes,
+      stocks = sampleStocks,
+      reverseLoadOrder = false,
+    )
+    val bytes = buildPackingExcelBytes(snapshot, RoutesCatalog.R01_KANNUR_BANGALORE)
+    assertTrue(bytes.isNotEmpty())
+
+    val entries = mutableMapOf<String, String>()
+    ZipInputStream(ByteArrayInputStream(bytes)).use { zis ->
+      var entry = zis.nextEntry
+      while (entry != null) {
+        entries[entry.name] = zis.readBytes().toString(Charsets.UTF_8)
+        zis.closeEntry()
+        entry = zis.nextEntry
+      }
+    }
+
+    assertTrue(entries.containsKey("[Content_Types].xml"))
+    assertTrue(entries.containsKey("_rels/.rels"))
+    assertTrue(entries.containsKey("xl/workbook.xml"))
+    assertTrue(entries.containsKey("xl/_rels/workbook.xml.rels"))
+    assertTrue(entries.containsKey("xl/styles.xml"))
+    assertTrue(entries.containsKey("xl/sharedStrings.xml"))
+    assertTrue(entries.containsKey("xl/worksheets/sheet1.xml"))
+    assertTrue(entries.containsKey("xl/worksheets/sheet2.xml"))
+
+    val xmlFactory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+    entries.forEach { (name, xml) ->
+      assertTrue("$name must start with <?xml declaration", xml.startsWith("<?xml"))
+      xmlFactory.newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray(Charsets.UTF_8)))
+    }
+
+    val sharedStrings = entries.getValue("xl/sharedStrings.xml")
+    assertTrue(sharedStrings.contains("VEHICLE DETAILS"))
+    assertTrue(sharedStrings.contains("Tata Ace (KL-13-AB-1122)"))
+    assertTrue(sharedStrings.contains("OVERALL PACKET COUNT"))
+    assertTrue(sharedStrings.contains("Banana Chips"))
+    assertTrue(sharedStrings.contains("Lakshmi General Store"))
+    assertTrue(sharedStrings.contains("ORD-101"))
+
+    val sheet1 = entries.getValue("xl/worksheets/sheet1.xml")
+    assertTrue(sheet1.contains("SUM("))
+    assertTrue(sheet1.contains("<mergeCells"))
+    assertTrue(sheet1.contains("<v>305</v>"))
+
+    val sheet2 = entries.getValue("xl/worksheets/sheet2.xml")
+    assertTrue(sheet2.contains("<v>200</v>"))
   }
 
   @Test
