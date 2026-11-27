@@ -1,13 +1,20 @@
 package com.example
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextReplacement
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
@@ -223,7 +230,11 @@ class PackingScreenTest {
     composeTestRule.onNodeWithTag("packing_shop_card_ord_r2").assertIsDisplayed()
     composeTestRule.onNodeWithText("Malabar Supermart").assertIsDisplayed()
 
-    // Toggle packed status and filter by Packed
+    // Toggle packed in sequence (ord_r1 then ord_r2) and filter by Packed
+    list.performScrollToNode(hasTestTag("packing_toggle_packed_ord_r1"))
+    composeTestRule.onNodeWithTag("packing_toggle_packed_ord_r1").performClick()
+    composeTestRule.waitForIdle()
+    list.performScrollToNode(hasTestTag("packing_toggle_packed_ord_r2"))
     composeTestRule.onNodeWithTag("packing_toggle_packed_ord_r2").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("packing_filter_packed").performClick()
@@ -359,5 +370,216 @@ class PackingScreenTest {
       reverseLoadOrder = false,
     )
     assertEquals(listOf(1, 2, 3, 4, 5, 6), roadSnapshot.shopSlips.map { it.deliveryStopNumber })
+  }
+
+  @Test
+  fun packingScreen_markPackingComplete_andRemoveFromPackedInPackedSection() {
+    composeTestRule.setContent {
+      HomelyTheme {
+        val packedOverrides = remember { mutableStateMapOf<String, Boolean>() }
+        PackingScreen(
+          shops = sampleShops,
+          orders = sampleOrders,
+          routes = sampleRoutes,
+          stocks = sampleStocks,
+          onUpdateStock = { _, _, _ -> },
+          onOpenSyncServers = {},
+          onNavigateToRoutes = {},
+          onNavigateToOrders = {},
+          onShowFeedback = {},
+          packedOrderOverrides = packedOverrides.toMap(),
+          onUpdatePackedStatus = { orderId, _, isPacked ->
+            packedOverrides[orderId] = isPacked
+          },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    val list = composeTestRule.onNodeWithTag("packing_lazy_list")
+    list.performScrollToNode(hasTestTag("packing_complete_button_ord_r1"))
+    composeTestRule.onNodeWithTag("packing_complete_button_ord_r1").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_complete_button_ord_r1").performClick()
+    composeTestRule.waitForIdle()
+
+    // Switch to Packed section and verify "Remove from Packed" asks for confirmation
+    composeTestRule.onNodeWithTag("packing_filter_packed").performClick()
+    composeTestRule.waitForIdle()
+    list.performScrollToNode(hasTestTag("packing_remove_packed_ord_r1"))
+    composeTestRule.onNodeWithTag("packing_remove_packed_ord_r1").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_remove_packed_ord_r1").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("packing_remove_confirm_dialog").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_cancel_remove_packed_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithText("Packed (1)").assertIsDisplayed()
+
+    composeTestRule.onNodeWithTag("packing_remove_packed_ord_r1").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("packing_confirm_remove_packed_button").performClick()
+    composeTestRule.waitForIdle()
+
+    // After confirming removal from Packed, Packed filter has 0 items and Pending filter shows ord_r1 again
+    composeTestRule.onNodeWithTag("packing_filter_packed").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Packed (0)").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_filter_pending").performClick()
+    composeTestRule.waitForIdle()
+    list.performScrollToNode(hasTestTag("packing_shop_card_ord_r1"))
+    composeTestRule.onNodeWithTag("packing_shop_card_ord_r1").assertIsDisplayed()
+  }
+
+  @Test
+  fun packingScreen_sequentialOrder_andMarkPendingStockHoldAllowsNextOrderToProceed() {
+    composeTestRule.setContent {
+      HomelyTheme {
+        val packedOverrides = remember { mutableStateMapOf<String, Boolean>() }
+        val stockPendingReasons = remember { mutableStateMapOf<String, String>() }
+        PackingScreen(
+          shops = sampleShops,
+          orders = sampleOrders,
+          routes = sampleRoutes,
+          stocks = sampleStocks,
+          onUpdateStock = { _, _, _ -> },
+          onOpenSyncServers = {},
+          onNavigateToRoutes = {},
+          onNavigateToOrders = {},
+          onShowFeedback = {},
+          packedOrderOverrides = packedOverrides.toMap(),
+          onUpdatePackedStatus = { orderId, _, isPacked ->
+            packedOverrides[orderId] = isPacked
+            stockPendingReasons.remove(orderId)
+          },
+          stockPendingReasons = stockPendingReasons.toMap(),
+          onMarkOrderStockPending = { orderId, _, reason ->
+            packedOverrides[orderId] = false
+            stockPendingReasons[orderId] = reason
+          },
+          onClearOrderStockPending = { orderId, _ ->
+            stockPendingReasons.remove(orderId)
+          },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    val list = composeTestRule.onNodeWithTag("packing_lazy_list")
+
+    // Second order must be locked until first order is packed or marked pending for stock
+    list.performScrollToNode(hasTestTag("packing_complete_button_ord_r2"))
+    composeTestRule.onNodeWithTag("packing_complete_button_ord_r2").assertIsNotEnabled()
+
+    // First order is active in sequence: mark pending due to unavailable BC100 stock and proceed next
+    list.performScrollToNode(hasTestTag("packing_hold_next_button_ord_r1"))
+    composeTestRule.onNodeWithTag("packing_hold_next_button_ord_r1").assertIsEnabled()
+    composeTestRule.onNodeWithTag("packing_hold_next_button_ord_r1").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("packing_stock_pending_dialog").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_stock_chip_BC100").performClick()
+    composeTestRule.onNodeWithTag("packing_stock_pending_reason_input").performTextReplacement("Waiting 100g batch")
+    composeTestRule.onNodeWithTag("packing_confirm_stock_pending_button").performClick()
+    composeTestRule.waitForIdle()
+
+    // Second order is now unlocked and can be marked Packing Complete
+    list.performScrollToNode(hasTestTag("packing_complete_button_ord_r2"))
+    composeTestRule.onNodeWithTag("packing_complete_button_ord_r2").assertIsEnabled()
+    composeTestRule.onNodeWithTag("packing_complete_button_ord_r2").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithText("Packed (1)").assertIsDisplayed()
+  }
+
+  @Test
+  fun buildPackingSnapshot_enforcesSequenceAndUnlocksNextWhenMarkedStockPending() {
+    val initial = buildPackingSnapshot(
+      selectedRouteId = RoutesCatalog.ALL,
+      shops = sampleShops,
+      orders = sampleOrders,
+      routes = sampleRoutes,
+      stocks = sampleStocks,
+      reverseLoadOrder = false,
+    )
+    assertEquals(true, initial.shopSlips[0].isNextInSequence)
+    assertEquals(false, initial.shopSlips[0].isSequenceLocked)
+    assertEquals(false, initial.shopSlips[1].isNextInSequence)
+    assertEquals(true, initial.shopSlips[1].isSequenceLocked)
+    assertEquals(1, initial.shopSlips[1].blockingPackOrderNumber)
+
+    val afterHold = buildPackingSnapshot(
+      selectedRouteId = RoutesCatalog.ALL,
+      shops = sampleShops,
+      orders = sampleOrders,
+      routes = sampleRoutes,
+      stocks = sampleStocks,
+      reverseLoadOrder = false,
+      stockPendingReasons = mapOf(initial.shopSlips[0].order.id to "BC100 unavailable"),
+    )
+    assertEquals(true, afterHold.shopSlips[0].isStockPending)
+    assertEquals(false, afterHold.shopSlips[0].isSequenceLocked)
+    assertEquals(true, afterHold.shopSlips[1].isNextInSequence)
+    assertEquals(false, afterHold.shopSlips[1].isSequenceLocked)
+    assertEquals(true, afterHold.shopSlips[2].isSequenceLocked)
+    assertEquals(1, afterHold.stockPendingCount)
+  }
+
+  @Test
+  fun packingScreen_quickEditOrderSheet_updatesQuantitiesNoteAndPackingComplete() {
+    var updatedSummary = ""
+    var updatedNote = ""
+
+    composeTestRule.setContent {
+      HomelyTheme {
+        var ordersState by remember { mutableStateOf(sampleOrders) }
+        val packedOverrides = remember { mutableStateMapOf<String, Boolean>() }
+        PackingScreen(
+          shops = sampleShops,
+          orders = ordersState,
+          routes = sampleRoutes,
+          stocks = sampleStocks,
+          onUpdateStock = { _, _, _ -> },
+          onOpenSyncServers = {},
+          onNavigateToRoutes = {},
+          onNavigateToOrders = {},
+          onShowFeedback = {},
+          packedOrderOverrides = packedOverrides.toMap(),
+          onUpdatePackedStatus = { orderId, _, isPacked ->
+            packedOverrides[orderId] = isPacked
+          },
+          onUpdateOrder = { order, items, note, onSaved ->
+            val summary = items.joinToString(", ") { (prod, qty) -> "${prod.code} x$qty" }
+            val count = items.sumOf { it.second }
+            val total = items.sumOf { (prod, qty) -> prod.defaultPrice * qty }
+            updatedSummary = summary
+            updatedNote = note
+            ordersState = ordersState.map {
+              if (it.id == order.id) {
+                it.copy(itemsSummary = summary, itemCount = count, totalAmount = total, note = note)
+              } else {
+                it
+              }
+            }
+            onSaved()
+          },
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    val list = composeTestRule.onNodeWithTag("packing_lazy_list")
+    list.performScrollToNode(hasTestTag("packing_edit_order_ord_r1"))
+    composeTestRule.onNodeWithTag("packing_edit_order_ord_r1").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("packing_quick_edit_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("packing_edit_plus5_BC100").performClick()
+    composeTestRule.onNodeWithTag("packing_edit_note_input").performTextReplacement("Load in top crate")
+    composeTestRule.onNodeWithTag("packing_edit_status_complete").performClick()
+    composeTestRule.onNodeWithTag("packing_edit_save_button").performClick()
+    composeTestRule.waitForIdle()
+
+    assertTrue(updatedSummary.contains("BC100 x205"))
+    assertEquals("Load in top crate", updatedNote)
+    composeTestRule.onNodeWithText("Packed (1)").assertIsDisplayed()
   }
 }

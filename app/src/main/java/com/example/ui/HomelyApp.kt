@@ -51,6 +51,7 @@ import com.example.data.repository.LocalTestRepository
 import com.example.data.repository.HomelyRepository
 import com.example.data.repository.SyncCoordinatorRepository
 import com.example.ui.auth.AuthScreen
+import com.example.ui.auth.onGoogleSignInClicked
 import com.example.ui.auth.signOutUser
 import com.example.ui.components.AppDestination
 import com.example.ui.components.HomelyBottomBar
@@ -102,6 +103,12 @@ fun HomelyApp(auth: FirebaseAuth = Firebase.auth) {
   val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
   var isTestModeBypass by rememberSaveable { mutableStateOf(false) }
   val user = currentUser
+
+  LaunchedEffect(user) {
+    if (user != null) {
+      isTestModeBypass = false
+    }
+  }
 
   if (user == null && !isTestModeBypass) {
     AuthScreen(
@@ -187,14 +194,18 @@ private fun AuthenticatedAppShell(
   val pendingPayments by viewModel.pendingPayments.collectAsStateWithLifecycle()
   val pendingSupplierBills by viewModel.pendingSupplierBills.collectAsStateWithLifecycle()
   val pendingSuppliers by viewModel.pendingSuppliers.collectAsStateWithLifecycle()
+  val pendingRoutes by viewModel.pendingRoutes.collectAsStateWithLifecycle()
   val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
   val laptopHealth by viewModel.laptopHealth.collectAsStateWithLifecycle()
+  val packedOrderOverrides by viewModel.packedOrderOverrides.collectAsStateWithLifecycle()
+  val stockPendingReasons by viewModel.stockPendingReasons.collectAsStateWithLifecycle()
 
-  val requireGlobal = serverSettings.globalSyncEnabled && !isLocalTestMode
+  val requireGlobal = serverSettings.globalSyncEnabled
   val requireLaptop = serverSettings.laptopServerEnabled && serverSettings.laptopServerUrl.isNotBlank()
   val pendingUploadCount = remember(
     pendingShops,
     pendingOrders,
+    pendingRoutes,
     pendingStockUpdates,
     pendingProducts,
     pendingPayments,
@@ -205,6 +216,7 @@ private fun AuthenticatedAppShell(
   ) {
     pendingShops.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
       pendingOrders.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
+      pendingRoutes.count { !it.isFullySynced(requireGlobal, requireLaptop) } +
       pendingStockUpdates.count { requireGlobal && !it.globalSynced } +
       pendingProducts.count { !it.isFullySynced(requireGlobal) } +
       pendingPayments.count { !it.isFullySynced(requireGlobal) } +
@@ -251,6 +263,27 @@ private fun AuthenticatedAppShell(
   var currentTab by rememberSaveable { mutableStateOf(AppDestination.HOME) }
   var isMoreExpanded by remember { mutableStateOf(false) }
   var paymentInitialDirection by rememberSaveable { mutableStateOf(PaymentDirection.COLLECT) }
+  var isSigningIn by remember { mutableStateOf(false) }
+
+  val triggerGoogleSignIn: () -> Unit = {
+    if (!isSigningIn) {
+      isSigningIn = true
+      onGoogleSignInClicked(
+        context = context,
+        credentialManager = credentialManager,
+        onAuthSuccess = {
+          isSigningIn = false
+          onExitTestMode()
+        },
+        onAuthError = { msg ->
+          isSigningIn = false
+          scope.launch { snackbarHostState.showSnackbar(msg) }
+        },
+        scope = scope,
+        onAuthCancelled = { isSigningIn = false },
+      )
+    }
+  }
 
   val shopsList = (shopsState as? UiState.Success)?.data.orEmpty()
   val ordersList = (ordersState as? UiState.Success)?.data.orEmpty()
@@ -305,11 +338,13 @@ private fun AuthenticatedAppShell(
                   meta = metaState,
                   userDisplayName = userDisplayName,
                   isLocalTestMode = isLocalTestMode,
+                  isSigningIn = isSigningIn,
                   pendingQueueCount = pendingUploadCount,
                   laptopServerEnabled = serverSettings.laptopServerEnabled,
                   onOpenSyncServers = {
                     navController.navigate(ROUTE_SYNC_SERVERS)
                   },
+                  onSignInWithGoogle = triggerGoogleSignIn,
                   onSignOut = {
                     if (isLocalTestMode) {
                       onExitTestMode()
@@ -334,6 +369,17 @@ private fun AuthenticatedAppShell(
                     paymentInitialDirection = direction
                     currentTab = AppDestination.PAYMENTS
                     isMoreExpanded = false
+                  },
+                  products = productsList,
+                  onUpdateProductStock = { productId, newQty, name ->
+                    viewModel.updateProductStock(productId, newQty, name)
+                  },
+                  onNavigateToProducts = {
+                    currentTab = AppDestination.PRODUCTS
+                    isMoreExpanded = false
+                  },
+                  onAddProductClick = {
+                    navController.navigate("add_edit_product")
                   },
                 )
 
@@ -369,6 +415,9 @@ private fun AuthenticatedAppShell(
                   onDeleteOrderClick = { order ->
                     viewModel.deleteOrder(order)
                   },
+                  onCancelOrderClick = { order ->
+                    viewModel.cancelOrder(order)
+                  },
                   onMarkInquiryStatus = { shopId, status, label ->
                     viewModel.updateShopInquiryStatus(shopId, status, label)
                   },
@@ -391,32 +440,56 @@ private fun AuthenticatedAppShell(
                   },
                 )
 
-                AppDestination.PACKING -> PackingScreen(
-                  shops = shopsList,
-                  orders = ordersList,
-                  routes = routesList,
-                  stocks = stocksList,
-                  onUpdateStock = { stockId, newQty, name ->
-                    viewModel.updateStockQuantity(stockId, newQty, name)
-                  },
-                  onOpenSyncServers = {
-                    navController.navigate(ROUTE_SYNC_SERVERS)
-                  },
-                  onNavigateToRoutes = {
-                    currentTab = AppDestination.ROUTES
-                    isMoreExpanded = false
-                  },
-                  onNavigateToOrders = {
-                    currentTab = AppDestination.ORDERS
-                    isMoreExpanded = false
-                  },
-                  onShowFeedback = { msg ->
-                    scope.launch { snackbarHostState.showSnackbar(msg) }
-                  },
-                  onSaveRoute = { route, msg ->
-                    viewModel.saveRoute(route, msg)
-                  },
-                )
+                AppDestination.PACKING -> {
+                  val liveCatalogProducts = remember(productsList) {
+                    ProductCatalogHelper.toCatalogProducts(productsList)
+                  }
+                  PackingScreen(
+                    shops = shopsList,
+                    orders = ordersList,
+                    routes = routesList,
+                    stocks = stocksList,
+                    onUpdateStock = { stockId, newQty, name ->
+                      viewModel.updateStockQuantity(stockId, newQty, name)
+                    },
+                    onOpenSyncServers = {
+                      navController.navigate(ROUTE_SYNC_SERVERS)
+                    },
+                    onNavigateToRoutes = {
+                      currentTab = AppDestination.ROUTES
+                      isMoreExpanded = false
+                    },
+                    onNavigateToOrders = {
+                      currentTab = AppDestination.ORDERS
+                      isMoreExpanded = false
+                    },
+                    onShowFeedback = { msg ->
+                      scope.launch { snackbarHostState.showSnackbar(msg) }
+                    },
+                    onSaveRoute = { route, msg ->
+                      viewModel.saveRoute(route, msg)
+                    },
+                    catalogProducts = liveCatalogProducts,
+                    products = productsList,
+                    packedOrderOverrides = packedOrderOverrides,
+                    onUpdatePackedStatus = { orderId, shopName, isPacked ->
+                      viewModel.setOrderPacked(orderId, shopName, isPacked)
+                    },
+                    onUpdateOrder = { order, items, note, onSaved ->
+                      viewModel.updateOrder(order, items, note, onSaved)
+                    },
+                    onOpenFullOrderEditor = { order ->
+                      navController.navigate("place_order/${order.shopId}?orderId=${order.id}")
+                    },
+                    stockPendingReasons = stockPendingReasons,
+                    onMarkOrderStockPending = { orderId, shopName, reason ->
+                      viewModel.markOrderStockPending(orderId, shopName, reason)
+                    },
+                    onClearOrderStockPending = { orderId, shopName ->
+                      viewModel.clearOrderStockPending(orderId, shopName)
+                    },
+                  )
+                }
 
                 AppDestination.TRANSPORT -> TransportScreen(
                   shops = shopsList,
@@ -681,10 +754,13 @@ private fun AuthenticatedAppShell(
         pendingPayments = pendingPayments,
         pendingSupplierBills = pendingSupplierBills,
         pendingSuppliers = pendingSuppliers,
+        pendingRoutes = pendingRoutes,
         isLocalTestMode = isLocalTestMode,
+        isSigningIn = isSigningIn,
         isOnline = isNetworkAvailable(context),
         isSyncing = isSyncing,
         laptopHealth = laptopHealth,
+        onSignInWithGoogle = triggerGoogleSignIn,
         onSaveSettings = { g, l, url, token, autoDel ->
           viewModel.saveServerSettings(g, l, url, token, autoDel)
         },
@@ -709,6 +785,7 @@ private fun AuthenticatedAppShell(
         onDeletePendingPayment = { localId -> viewModel.deletePendingPayment(localId) },
         onDeletePendingSupplierBill = { localId -> viewModel.deletePendingSupplierBill(localId) },
         onDeletePendingSupplier = { localId -> viewModel.deletePendingSupplier(localId) },
+        onDeletePendingRoute = { routeId -> viewModel.deletePendingRoute(routeId) },
         onBack = { navController.popBackStack() },
       )
     }

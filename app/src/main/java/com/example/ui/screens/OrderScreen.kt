@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.AddShoppingCart
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -114,6 +115,7 @@ fun OrderScreen(
   onMarkInquiryStatus: (shopId: String, newStatus: String, feedback: String) -> Unit,
   onEditOrderClick: (OrderRecord) -> Unit = {},
   onDeleteOrderClick: (OrderRecord) -> Unit = {},
+  onCancelOrderClick: (OrderRecord) -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -159,6 +161,7 @@ fun OrderScreen(
   }
 
   var orderPendingDelete by remember { mutableStateOf<OrderRecord?>(null) }
+  var orderPendingCancel by remember { mutableStateOf<OrderRecord?>(null) }
   val totalRemainingOnAll = remember(activeShops) {
     activeShops.count { it.inquiryStatus == InquiryStatus.PENDING_INQUIRY }
   }
@@ -302,6 +305,7 @@ fun OrderScreen(
           orders = filteredOrders,
           onEditOrder = onEditOrderClick,
           onRequestDeleteOrder = { orderPendingDelete = it },
+          onRequestCancelOrder = { orderPendingCancel = it },
         )
       }
       OrderSectionTab.UNATTENDED -> {
@@ -367,6 +371,45 @@ fun OrderScreen(
           modifier = Modifier.testTag("cancel_delete_order_button"),
         ) {
           Text("Cancel")
+        }
+      },
+    )
+  }
+
+  orderPendingCancel?.let { targetOrder ->
+    AlertDialog(
+      onDismissRequest = { orderPendingCancel = null },
+      title = {
+        Text(
+          text = "Cancel Order?",
+          fontWeight = FontWeight.Bold,
+        )
+      },
+      text = {
+        Text(
+          text = "Cancel ${targetOrder.orderCode} for ${targetOrder.shopName}? Ordered quantities will be added back to stock.",
+        )
+      },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            onCancelOrderClick(targetOrder)
+            orderPendingCancel = null
+          },
+          colors = ButtonDefaults.textButtonColors(
+            contentColor = MaterialTheme.colorScheme.error,
+          ),
+          modifier = Modifier.testTag("confirm_cancel_order_button"),
+        ) {
+          Text("Cancel Order", fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = { orderPendingCancel = null },
+          modifier = Modifier.testTag("dismiss_cancel_order_button"),
+        ) {
+          Text("Keep Order")
         }
       },
     )
@@ -884,6 +927,7 @@ private fun LazyListScope.confirmedOrdersListItems(
   orders: List<OrderRecord>,
   onEditOrder: (OrderRecord) -> Unit,
   onRequestDeleteOrder: (OrderRecord) -> Unit,
+  onRequestCancelOrder: (OrderRecord) -> Unit,
 ) {
   if (orders.isEmpty()) {
     item {
@@ -1015,10 +1059,29 @@ private fun LazyListScope.confirmedOrdersListItems(
                 modifier = Modifier.weight(1f),
               )
               Spacer(modifier = Modifier.width(8.dp))
+              val (badgeBg, badgeFg, badgeIcon, badgeLabel) = when (order.status) {
+                OrderStatus.REJECTED -> Triple(
+                  MaterialTheme.colorScheme.errorContainer,
+                  MaterialTheme.colorScheme.error,
+                  Icons.Rounded.Cancel,
+                ) to "Cancelled"
+                OrderStatus.PENDING -> Triple(
+                  MaterialTheme.semanticColors.warningContainer,
+                  MaterialTheme.semanticColors.warning,
+                  Icons.Rounded.Schedule,
+                ) to "Pending"
+                else -> Triple(
+                  MaterialTheme.semanticColors.successContainer,
+                  MaterialTheme.semanticColors.success,
+                  Icons.Rounded.CheckCircle,
+                ) to order.status.replaceFirstChar { it.uppercase() }
+              }.let { (triple, label) ->
+                OrderBadgeStyle(triple.first, triple.second, triple.third, label)
+              }
               Surface(
-                color = MaterialTheme.semanticColors.successContainer,
+                color = badgeBg,
                 shape = RoundedCornerShape(999.dp),
-                border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.35f)),
+                border = BorderStroke(1.dp, badgeFg.copy(alpha = 0.35f)),
               ) {
                 Row(
                   modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -1026,16 +1089,16 @@ private fun LazyListScope.confirmedOrdersListItems(
                   horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                   Icon(
-                    imageVector = Icons.Rounded.CheckCircle,
+                    imageVector = badgeIcon,
                     contentDescription = null,
-                    tint = MaterialTheme.semanticColors.success,
+                    tint = badgeFg,
                     modifier = Modifier.size(13.dp),
                   )
                   Text(
-                    text = order.status.replaceFirstChar { it.uppercase() },
+                    text = badgeLabel,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.semanticColors.success,
+                    color = badgeFg,
                   )
                 }
               }
@@ -1096,9 +1159,46 @@ private fun LazyListScope.confirmedOrdersListItems(
                 color = MaterialTheme.colorScheme.primary,
               )
             }
+            if (canEditOrder) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+              ) {
+                OutlinedButton(
+                  onClick = { onRequestCancelOrder(order) },
+                  shape = RoundedCornerShape(10.dp),
+                  border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
+                  colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                  ),
+                  modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("cancel_order_${order.orderCode}"),
+                ) {
+                  Icon(
+                    imageVector = Icons.Rounded.Cancel,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                  )
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text(
+                    text = "Cancel Order",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                  )
+                }
+              }
+            }
           }
         }
       }
     }
   }
 }
+
+private data class OrderBadgeStyle(
+  val bg: Color,
+  val fg: Color,
+  val icon: androidx.compose.ui.graphics.vector.ImageVector,
+  val label: String,
+)

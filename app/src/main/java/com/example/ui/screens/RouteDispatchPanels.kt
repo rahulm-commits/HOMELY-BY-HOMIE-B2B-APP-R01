@@ -1864,11 +1864,12 @@ fun EditRouteBottomSheet(
         Button(
           onClick = {
             val safeName = routeName.trim().ifBlank { "Route $nextRouteNumber" }
+            val slug = safeName.uppercase().replace(Regex("[^A-Z0-9]+"), "-").trim('-').take(20)
             val generatedId = initialRoute?.id ?: buildString {
               append("R")
               append(nextRouteNumber.toString().padStart(2, '0'))
               append("-")
-              append(safeName.uppercase().replace(Regex("[^A-Z0-9]+"), "-").trim('-').take(20))
+              append(slug.ifBlank { "ROUTE-$nextRouteNumber" })
             }
             val formattedVehicle = formatVehicleSummary(
               modelName = vehicleModel,

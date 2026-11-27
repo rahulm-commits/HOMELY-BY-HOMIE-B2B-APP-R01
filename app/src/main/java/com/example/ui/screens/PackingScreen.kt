@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.LocalShipping
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Print
+import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Scale
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Storefront
@@ -74,6 +76,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -81,10 +92,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OrderRecord
+import com.example.data.model.OrderStatus
+import com.example.data.model.Product
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
+import com.example.data.model.SnackCatalog
+import com.example.data.model.StockAlertHelper
 import com.example.data.model.StockItem
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.StandardRouteDropdown
@@ -98,6 +114,7 @@ import java.util.Locale
 private enum class PackingStatusFilter(val label: String) {
   ALL("All"),
   PENDING("Pending"),
+  STOCK_HOLD("Stock Hold"),
   PACKED("Packed"),
 }
 
@@ -114,6 +131,16 @@ fun PackingScreen(
   onNavigateToOrders: () -> Unit,
   onShowFeedback: (String) -> Unit,
   onSaveRoute: (DeliveryRoute, String) -> Unit = { _, _ -> },
+  catalogProducts: List<CatalogProduct> = SnackCatalog.products,
+  packedOrderOverrides: Map<String, Boolean>? = null,
+  onUpdatePackedStatus: ((orderId: String, shopName: String, isPacked: Boolean) -> Unit)? = null,
+  onMarkAllPackingComplete: ((List<OrderRecord>) -> Unit)? = null,
+  onUpdateOrder: ((order: OrderRecord, items: List<Pair<CatalogProduct, Int>>, note: String, onSaved: () -> Unit) -> Unit)? = null,
+  onOpenFullOrderEditor: ((OrderRecord) -> Unit)? = null,
+  stockPendingReasons: Map<String, String>? = null,
+  onMarkOrderStockPending: ((orderId: String, shopName: String, reason: String) -> Unit)? = null,
+  onClearOrderStockPending: ((orderId: String, shopName: String) -> Unit)? = null,
+  products: List<Product> = emptyList(),
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -123,9 +150,52 @@ fun PackingScreen(
   var reverseLoadOrder by rememberSaveable { mutableStateOf(false) }
   var showReorderStopsSheet by remember { mutableStateOf(false) }
   var showEditVehicleSheet by remember { mutableStateOf(false) }
+  var editingOrderId by remember { mutableStateOf<String?>(null) }
+  var confirmRemovePackedOrderId by remember { mutableStateOf<String?>(null) }
+  var stockPendingDialogOrderId by remember { mutableStateOf<String?>(null) }
 
   val loadedOverrides = remember { mutableStateMapOf<String, Int>() }
-  val packedOrderOverrides = remember { mutableStateMapOf<String, Boolean>() }
+  val localPackedOverrides = remember { mutableStateMapOf<String, Boolean>() }
+  val localStockPendingReasons = remember { mutableStateMapOf<String, String>() }
+  val effectivePackedOverrides = remember(packedOrderOverrides, localPackedOverrides.toMap()) {
+    packedOrderOverrides ?: localPackedOverrides.toMap()
+  }
+  val effectiveStockPendingReasons = remember(stockPendingReasons, localStockPendingReasons.toMap()) {
+    stockPendingReasons ?: localStockPendingReasons.toMap()
+  }
+
+  val setOrderPackedState: (OrderRecord, Boolean) -> Unit = { order, nextPacked ->
+    if (onUpdatePackedStatus != null) {
+      onUpdatePackedStatus(order.id, order.shopName, nextPacked)
+    } else {
+      localPackedOverrides[order.id] = nextPacked
+      localStockPendingReasons.remove(order.id)
+      onShowFeedback(
+        if (nextPacked) "${order.shopName} marked Packing Complete"
+        else "Removed ${order.shopName} from Packed"
+      )
+    }
+  }
+
+  val markOrderStockPendingState: (OrderRecord, String) -> Unit = { order, reason ->
+    val cleanReason = reason.trim().ifBlank { "Stock unavailable" }
+    if (onMarkOrderStockPending != null) {
+      onMarkOrderStockPending(order.id, order.shopName, cleanReason)
+    } else {
+      localPackedOverrides[order.id] = false
+      localStockPendingReasons[order.id] = cleanReason
+      onShowFeedback("${order.shopName} marked pending ($cleanReason) • Next order unlocked")
+    }
+  }
+
+  val clearOrderStockPendingState: (OrderRecord) -> Unit = { order ->
+    if (onClearOrderStockPending != null) {
+      onClearOrderStockPending(order.id, order.shopName)
+    } else {
+      localStockPendingReasons.remove(order.id)
+      onShowFeedback("${order.shopName} returned to packing sequence")
+    }
+  }
 
   val snapshot = remember(
     selectedRouteId,
@@ -134,9 +204,12 @@ fun PackingScreen(
     routes,
     stocks,
     loadedOverrides.toMap(),
-    packedOrderOverrides.toMap(),
+    effectivePackedOverrides,
+    effectiveStockPendingReasons,
     searchQuery,
     reverseLoadOrder,
+    catalogProducts,
+    products,
   ) {
     buildPackingSnapshot(
       selectedRouteId = selectedRouteId,
@@ -145,9 +218,12 @@ fun PackingScreen(
       routes = routes,
       stocks = stocks,
       loadedOverrides = loadedOverrides,
-      packedOrderOverrides = packedOrderOverrides,
+      packedOrderOverrides = effectivePackedOverrides,
       searchQuery = searchQuery,
       reverseLoadOrder = reverseLoadOrder,
+      catalogProducts = catalogProducts,
+      stockPendingReasons = effectiveStockPendingReasons,
+      products = products,
     )
   }
 
@@ -177,6 +253,7 @@ fun PackingScreen(
       val matchesStatus = when (statusFilter) {
         PackingStatusFilter.ALL -> true
         PackingStatusFilter.PENDING -> !slip.isPacked
+        PackingStatusFilter.STOCK_HOLD -> !slip.isPacked && slip.isStockPending
         PackingStatusFilter.PACKED -> slip.isPacked
       }
       val matchesQuery = q.isEmpty() ||
@@ -195,6 +272,10 @@ fun PackingScreen(
 
   val pendingCount = remember(snapshot.shopSlips) { snapshot.shopSlips.count { !it.isPacked } }
   val packedCount = remember(snapshot.shopSlips) { snapshot.shopSlips.count { it.isPacked } }
+  val stockPendingCount = remember(snapshot.shopSlips) { snapshot.shopSlips.count { it.isStockPending } }
+  val nextInSequenceSlip = remember(snapshot.shopSlips) {
+    snapshot.shopSlips.firstOrNull { it.isNextInSequence }
+  }
 
   val todayHeader = remember {
     SimpleDateFormat("EEE, dd MMM", Locale.US).format(Date())
@@ -354,10 +435,18 @@ fun PackingScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
               ) {
-                PackingStatusFilter.entries.forEach { filter ->
+                val visibleFilters = remember(stockPendingCount, statusFilter) {
+                  PackingStatusFilter.entries.filter { filter ->
+                    filter != PackingStatusFilter.STOCK_HOLD ||
+                      stockPendingCount > 0 ||
+                      statusFilter == PackingStatusFilter.STOCK_HOLD
+                  }
+                }
+                visibleFilters.forEach { filter ->
                   val count = when (filter) {
                     PackingStatusFilter.ALL -> snapshot.shopSlips.size
                     PackingStatusFilter.PENDING -> pendingCount
+                    PackingStatusFilter.STOCK_HOLD -> stockPendingCount
                     PackingStatusFilter.PACKED -> packedCount
                   }
                   val selected = statusFilter == filter
@@ -365,7 +454,11 @@ fun PackingScreen(
                     selected = selected,
                     onClick = { statusFilter = filter },
                     colors = FilterChipDefaults.filterChipColors(
-                      selectedContainerColor = MaterialTheme.colorScheme.primary,
+                      selectedContainerColor = if (filter == PackingStatusFilter.STOCK_HOLD) {
+                        MaterialTheme.semanticColors.warning
+                      } else {
+                        MaterialTheme.colorScheme.primary
+                      },
                       selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                       containerColor = MaterialTheme.colorScheme.surface,
                       labelColor = MaterialTheme.colorScheme.onSurface,
@@ -374,7 +467,11 @@ fun PackingScreen(
                       enabled = true,
                       selected = selected,
                       borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                      selectedBorderColor = MaterialTheme.colorScheme.primary,
+                      selectedBorderColor = if (filter == PackingStatusFilter.STOCK_HOLD) {
+                        MaterialTheme.semanticColors.warning
+                      } else {
+                        MaterialTheme.colorScheme.primary
+                      },
                     ),
                     label = {
                       Text(
@@ -499,6 +596,133 @@ fun PackingScreen(
         }
       }
 
+      // 5.5 Sequential Packing Guidance / Packed Section Hint
+      if (statusFilter != PackingStatusFilter.PACKED && nextInSequenceSlip != null) {
+        item(key = "packing_sequential_queue_strip") {
+          Surface(
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 12.dp)
+              .testTag("packing_sequential_banner"),
+          ) {
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+              ) {
+                Text(
+                  text = "Next in Sequence: ${nextInSequenceSlip.packageLabel} • ${nextInSequenceSlip.order.shopName}",
+                  style = MaterialTheme.typography.labelLarge,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                  text = if (stockPendingCount > 0) {
+                    "Complete in sequence or mark pending if stock is short • $stockPendingCount on stock hold"
+                  } else {
+                    "Packing Complete follows sequence order. Use Pending & Next if stock is unavailable."
+                  },
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              if (stockPendingCount > 0 && statusFilter != PackingStatusFilter.STOCK_HOLD) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Surface(
+                  color = MaterialTheme.semanticColors.warningContainer,
+                  shape = RoundedCornerShape(999.dp),
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable { statusFilter = PackingStatusFilter.STOCK_HOLD }
+                    .testTag("packing_banner_stock_hold_chip"),
+                ) {
+                  Text(
+                    text = "$stockPendingCount Hold",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.semanticColors.warning,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                  )
+                }
+              }
+            }
+          }
+        }
+      } else if (statusFilter != PackingStatusFilter.PACKED && stockPendingCount > 0) {
+        item(key = "packing_stock_hold_summary_strip") {
+          Surface(
+            color = MaterialTheme.semanticColors.warningContainer.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.semanticColors.warning.copy(alpha = 0.35f)),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 12.dp),
+          ) {
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.WarningAmber,
+                contentDescription = null,
+                tint = MaterialTheme.semanticColors.warning,
+                modifier = Modifier.size(18.dp),
+              )
+              Text(
+                text = "Available orders packed! $stockPendingCount order(s) remain on stock hold until material arrives.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+              )
+            }
+          }
+        }
+      } else if (statusFilter == PackingStatusFilter.PACKED && visibleSlips.isNotEmpty()) {
+        item(key = "packing_packed_section_hint") {
+          Surface(
+            color = MaterialTheme.semanticColors.successContainer.copy(alpha = 0.5f),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.semanticColors.success.copy(alpha = 0.28f)),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 12.dp),
+          ) {
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Rounded.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.semanticColors.success,
+                modifier = Modifier.size(18.dp),
+              )
+              Text(
+                text = "Packed Section (${visibleSlips.size}) • Mistakenly added? Tap \"Remove from Packed\" to confirm removal.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+              )
+            }
+          }
+        }
+      }
+
       // 6. Shop Order Cards
       if (visibleSlips.isEmpty()) {
         item(key = "empty_packing_card", contentType = "empty_state") {
@@ -527,10 +751,25 @@ fun PackingScreen(
             SimpleShopPackingOrderCard(
               displayIndex = idx + 1,
               slip = slip,
-              onTogglePacked = {
-                val next = !slip.isPacked
-                packedOrderOverrides[slip.order.id] = next
-                onShowFeedback(if (next) "${slip.order.shopName} marked Packed" else "${slip.order.shopName} marked Pending")
+              onMarkPacked = {
+                setOrderPackedState(slip.order, true)
+              },
+              onRequestRemoveFromPacked = {
+                confirmRemovePackedOrderId = slip.order.id
+              },
+              onRequestStockHoldNext = {
+                stockPendingDialogOrderId = slip.order.id
+              },
+              onClearStockHold = {
+                clearOrderStockPendingState(slip.order)
+              },
+              onSequenceLockedTap = {
+                val blockingPkg = slip.blockingPackOrderNumber ?: 1
+                val blockingShop = slip.blockingShopName ?: "earlier order"
+                onShowFeedback("Sequence locked: Complete or hold Pkg #$blockingPkg ($blockingShop) first")
+              },
+              onEditClick = {
+                editingOrderId = slip.order.id
               },
             )
           }
@@ -674,6 +913,113 @@ fun PackingScreen(
       onSaveRoute = { savedRoute ->
         onSaveRoute(savedRoute, "Updated vehicle details for ${savedRoute.name}")
         showEditVehicleSheet = false
+      },
+    )
+  }
+
+  val activeEditSlip = remember(editingOrderId, snapshot.shopSlips) {
+    editingOrderId?.let { id -> snapshot.shopSlips.firstOrNull { it.order.id == id } }
+  }
+  if (activeEditSlip != null) {
+    QuickEditPackingOrderSheet(
+      slip = activeEditSlip,
+      catalogProducts = catalogProducts,
+      stocks = stocks,
+      onDismiss = { editingOrderId = null },
+      onSaveOrderAndPacking = { updatedItems, updatedNote, nextPacked, stockHoldReason ->
+        val applyStatusAfterSave = {
+          when {
+            stockHoldReason != null -> markOrderStockPendingState(activeEditSlip.order, stockHoldReason)
+            nextPacked != activeEditSlip.isPacked -> setOrderPackedState(activeEditSlip.order, nextPacked)
+            activeEditSlip.isStockPending -> clearOrderStockPendingState(activeEditSlip.order)
+          }
+          editingOrderId = null
+        }
+        if (onUpdateOrder != null) {
+          onUpdateOrder(activeEditSlip.order, updatedItems, updatedNote) {
+            applyStatusAfterSave()
+          }
+        } else {
+          applyStatusAfterSave()
+        }
+      },
+      onTogglePackedOnly = { nextPacked, stockHoldReason ->
+        when {
+          stockHoldReason != null -> markOrderStockPendingState(activeEditSlip.order, stockHoldReason)
+          nextPacked != activeEditSlip.isPacked -> setOrderPackedState(activeEditSlip.order, nextPacked)
+          activeEditSlip.isStockPending -> clearOrderStockPendingState(activeEditSlip.order)
+        }
+        editingOrderId = null
+      },
+      onOpenFullEditor = onOpenFullOrderEditor?.let { openFull ->
+        {
+          editingOrderId = null
+          openFull(activeEditSlip.order)
+        }
+      },
+    )
+  }
+
+  val confirmRemoveSlip = remember(confirmRemovePackedOrderId, snapshot.shopSlips) {
+    confirmRemovePackedOrderId?.let { id ->
+      snapshot.shopSlips.firstOrNull { it.order.id == id && it.isPacked }
+    }
+  }
+  if (confirmRemoveSlip != null) {
+    AlertDialog(
+      onDismissRequest = { confirmRemovePackedOrderId = null },
+      title = {
+        Text(
+          text = "Remove from Packed?",
+          fontWeight = FontWeight.Bold,
+        )
+      },
+      text = {
+        Text(
+          text = "Move ${confirmRemoveSlip.order.shopName} (${confirmRemoveSlip.order.orderCode} • ${confirmRemoveSlip.packageLabel}) back to pending packing?",
+        )
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            setOrderPackedState(confirmRemoveSlip.order, false)
+            confirmRemovePackedOrderId = null
+          },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+            contentColor = MaterialTheme.colorScheme.onError,
+          ),
+          modifier = Modifier.testTag("packing_confirm_remove_packed_button"),
+        ) {
+          Text("Remove from Packed")
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = { confirmRemovePackedOrderId = null },
+          modifier = Modifier.testTag("packing_cancel_remove_packed_button"),
+        ) {
+          Text("Keep Packed")
+        }
+      },
+      modifier = Modifier.testTag("packing_remove_confirm_dialog"),
+    )
+  }
+
+  val stockPendingDialogSlip = remember(stockPendingDialogOrderId, snapshot.shopSlips) {
+    stockPendingDialogOrderId?.let { id ->
+      snapshot.shopSlips.firstOrNull { it.order.id == id }
+    }
+  }
+  if (stockPendingDialogSlip != null) {
+    MarkStockPendingDialog(
+      slip = stockPendingDialogSlip,
+      stocks = stocks,
+      products = products,
+      onDismiss = { stockPendingDialogOrderId = null },
+      onConfirm = { reason ->
+        markOrderStockPendingState(stockPendingDialogSlip.order, reason)
+        stockPendingDialogOrderId = null
       },
     )
   }
@@ -837,21 +1183,32 @@ private fun OverallPacketCountCard(
 private fun SimpleShopPackingOrderCard(
   displayIndex: Int,
   slip: ShopPackingSlip,
-  onTogglePacked: () -> Unit,
+  onMarkPacked: () -> Unit,
+  onRequestRemoveFromPacked: () -> Unit,
+  onRequestStockHoldNext: () -> Unit,
+  onClearStockHold: () -> Unit,
+  onSequenceLockedTap: () -> Unit,
+  onEditClick: () -> Unit,
 ) {
   val totalUnits = slip.items.sumOf { it.quantity }.takeIf { it > 0 } ?: slip.order.itemCount
   val routeNameShort = slip.route?.name?.substringBefore(":") ?: "Unassigned"
+  val isEditable = slip.order.status != OrderStatus.DELIVERED &&
+    slip.order.status != OrderStatus.REJECTED
 
   Card(
     shape = RoundedCornerShape(14.dp),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    elevation = CardDefaults.cardElevation(defaultElevation = if (slip.isNextInSequence) 3.dp else 2.dp),
     border = BorderStroke(
-      width = if (slip.isPacked) 1.3.dp else 1.dp,
-      color = if (slip.isPacked) {
-        MaterialTheme.semanticColors.success.copy(alpha = 0.55f)
-      } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+      width = when {
+        slip.isPacked || slip.isNextInSequence || slip.isStockPending -> 1.4.dp
+        else -> 1.dp
+      },
+      color = when {
+        slip.isPacked -> MaterialTheme.semanticColors.success.copy(alpha = 0.55f)
+        slip.isStockPending -> MaterialTheme.semanticColors.warning.copy(alpha = 0.65f)
+        slip.isNextInSequence -> MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
       },
     ),
     modifier = Modifier
@@ -879,16 +1236,24 @@ private fun SimpleShopPackingOrderCard(
               .size(28.dp)
               .clip(CircleShape)
               .background(
-                if (slip.isPacked) MaterialTheme.semanticColors.success
-                else MaterialTheme.colorScheme.primary,
+                when {
+                  slip.isPacked -> MaterialTheme.semanticColors.success
+                  slip.isStockPending -> MaterialTheme.semanticColors.warning
+                  slip.isSequenceLocked -> MaterialTheme.colorScheme.surfaceVariant
+                  else -> MaterialTheme.colorScheme.primary
+                },
               ),
             contentAlignment = Alignment.Center,
           ) {
             Text(
-              text = if (slip.deliveryStopNumber > 0) "${slip.deliveryStopNumber}" else "$displayIndex",
+              text = "${slip.packOrderNumber}",
               style = MaterialTheme.typography.labelMedium,
               fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onPrimary,
+              color = if (slip.isSequenceLocked) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+              } else {
+                MaterialTheme.colorScheme.onPrimary
+              },
             )
           }
 
@@ -901,8 +1266,9 @@ private fun SimpleShopPackingOrderCard(
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
+            val stopPart = if (slip.deliveryStopNumber > 0) "Stop #${slip.deliveryStopNumber} • " else ""
             Text(
-              text = "${slip.order.orderCode} • $routeNameShort • ${slip.order.orderDate}",
+              text = "${slip.packageLabel} • $stopPart${slip.order.orderCode} • $routeNameShort",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               maxLines = 1,
@@ -930,12 +1296,42 @@ private fun SimpleShopPackingOrderCard(
             )
           }
 
+          val pillColor = when {
+            slip.isPacked -> MaterialTheme.semanticColors.successContainer
+            slip.isStockPending -> MaterialTheme.semanticColors.warningContainer
+            slip.isNextInSequence -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant
+          }
+          val pillInk = when {
+            slip.isPacked -> MaterialTheme.semanticColors.success
+            slip.isStockPending -> MaterialTheme.semanticColors.warning
+            slip.isNextInSequence -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+          }
+          val pillIcon = when {
+            slip.isPacked -> Icons.Rounded.Check
+            slip.isStockPending -> Icons.Rounded.WarningAmber
+            slip.isSequenceLocked -> Icons.Rounded.Lock
+            else -> Icons.Rounded.HourglassTop
+          }
+          val pillLabel = when {
+            slip.isPacked -> "Packed"
+            slip.isStockPending -> "Stock Hold"
+            slip.isNextInSequence -> "Next"
+            else -> "Locked"
+          }
           Surface(
-            color = if (slip.isPacked) MaterialTheme.semanticColors.successContainer else MaterialTheme.colorScheme.surfaceVariant,
+            color = pillColor,
             shape = RoundedCornerShape(999.dp),
             modifier = Modifier
               .clip(RoundedCornerShape(999.dp))
-              .clickable(onClick = onTogglePacked)
+              .clickable {
+                when {
+                  slip.isPacked -> onRequestRemoveFromPacked()
+                  slip.isSequenceLocked -> onSequenceLockedTap()
+                  else -> onMarkPacked()
+                }
+              }
               .testTag("packing_toggle_packed_${slip.order.id}"),
           ) {
             Row(
@@ -944,28 +1340,109 @@ private fun SimpleShopPackingOrderCard(
               horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
               Icon(
-                imageVector = if (slip.isPacked) Icons.Rounded.Check else Icons.Rounded.HourglassTop,
-                contentDescription = if (slip.isPacked) "Packed" else "Pending",
-                tint = if (slip.isPacked) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.onSurfaceVariant,
+                imageVector = pillIcon,
+                contentDescription = pillLabel,
+                tint = pillInk,
                 modifier = Modifier.size(13.dp),
               )
               Text(
-                text = if (slip.isPacked) "Packed" else "Pending",
+                text = pillLabel,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = if (slip.isPacked) MaterialTheme.semanticColors.success else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = pillInk,
               )
             }
           }
         }
       }
 
-      // Clean Packet & Quantity Rows for this Shop
+      // Sequence / Stock Hold Status Strip
+      if (slip.isNextInSequence) {
+        Surface(
+          color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+          shape = RoundedCornerShape(8.dp),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Schedule,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(14.dp),
+            )
+            Text(
+              text = "Active in Sequence (${slip.packageLabel}) • Complete or hold for stock to unlock next",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.primary,
+            )
+          }
+        }
+      } else if (slip.isStockPending) {
+        Surface(
+          color = MaterialTheme.semanticColors.warningContainer.copy(alpha = 0.6f),
+          shape = RoundedCornerShape(8.dp),
+          border = BorderStroke(1.dp, MaterialTheme.semanticColors.warning.copy(alpha = 0.3f)),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.WarningAmber,
+              contentDescription = null,
+              tint = MaterialTheme.semanticColors.warning,
+              modifier = Modifier.size(15.dp),
+            )
+            Text(
+              text = "Pending Stock: ${slip.stockPendingReason} • Next orders unlocked",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurface,
+            )
+          }
+        }
+      } else if (slip.isSequenceLocked) {
+        Surface(
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+          shape = RoundedCornerShape(8.dp),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Lock,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(14.dp),
+            )
+            Text(
+              text = "Locked in sequence • Pack or hold Pkg #${slip.blockingPackOrderNumber ?: 1} (${slip.blockingShopName ?: "earlier order"}) first",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
+      }
+
+      // Clean Packet & Quantity Rows for this Shop (tapping opens quick edit)
       Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
         shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(10.dp))
+          .clickable(onClick = onEditClick),
       ) {
         Column(
           modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
@@ -1030,8 +1507,306 @@ private fun SimpleShopPackingOrderCard(
           overflow = TextOverflow.Ellipsis,
         )
       }
+
+      // Card Action Bar
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        if (slip.isPacked) {
+          OutlinedButton(
+            onClick = onRequestRemoveFromPacked,
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+            colors = ButtonDefaults.outlinedButtonColors(
+              contentColor = MaterialTheme.colorScheme.error,
+            ),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier
+              .weight(1f)
+              .minimumInteractiveComponentSize()
+              .testTag("packing_remove_packed_${slip.order.id}"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.RemoveCircleOutline,
+              contentDescription = null,
+              modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+              text = "Remove from Packed",
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
+        } else if (slip.isNextInSequence) {
+          Button(
+            onClick = onMarkPacked,
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.semanticColors.success,
+              contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier
+              .weight(1f)
+              .minimumInteractiveComponentSize()
+              .testTag("packing_complete_button_${slip.order.id}"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.CheckCircle,
+              contentDescription = null,
+              modifier = Modifier.size(15.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "Packing Complete",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
+
+          OutlinedButton(
+            onClick = onRequestStockHoldNext,
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, MaterialTheme.semanticColors.warning.copy(alpha = 0.65f)),
+            colors = ButtonDefaults.outlinedButtonColors(
+              contentColor = MaterialTheme.semanticColors.warning,
+            ),
+            contentPadding = PaddingValues(horizontal = 9.dp, vertical = 6.dp),
+            modifier = Modifier
+              .minimumInteractiveComponentSize()
+              .testTag("packing_hold_next_button_${slip.order.id}"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.WarningAmber,
+              contentDescription = null,
+              modifier = Modifier.size(14.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "Pending & Next",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+            )
+          }
+        } else if (slip.isStockPending) {
+          Button(
+            onClick = onMarkPacked,
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.semanticColors.success,
+              contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier
+              .weight(1f)
+              .minimumInteractiveComponentSize()
+              .testTag("packing_complete_button_${slip.order.id}"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.CheckCircle,
+              contentDescription = null,
+              modifier = Modifier.size(15.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "Packing Complete",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
+
+          OutlinedButton(
+            onClick = onClearStockHold,
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 9.dp, vertical = 6.dp),
+            modifier = Modifier
+              .minimumInteractiveComponentSize()
+              .testTag("packing_resume_stock_button_${slip.order.id}"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Replay,
+              contentDescription = "Return to queue",
+              modifier = Modifier.size(14.dp),
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+              text = "Queue",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+            )
+          }
+        } else {
+          Button(
+            onClick = onSequenceLockedTap,
+            enabled = false,
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier
+              .weight(1f)
+              .minimumInteractiveComponentSize()
+              .testTag("packing_complete_button_${slip.order.id}"),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Lock,
+              contentDescription = null,
+              modifier = Modifier.size(15.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "Packing Complete",
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+          }
+        }
+
+        OutlinedButton(
+          onClick = onEditClick,
+          shape = RoundedCornerShape(10.dp),
+          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+          modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .testTag("packing_edit_order_${slip.order.id}"),
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.Edit,
+            contentDescription = if (isEditable) "Edit order items" else "Edit packing status",
+            modifier = Modifier.size(15.dp),
+          )
+          Spacer(modifier = Modifier.width(4.dp))
+          Text(
+            text = "Edit",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+          )
+        }
+      }
     }
   }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MarkStockPendingDialog(
+  slip: ShopPackingSlip,
+  stocks: List<StockItem>,
+  products: List<Product> = emptyList(),
+  onDismiss: () -> Unit,
+  onConfirm: (reason: String) -> Unit,
+) {
+  val stockByCode = remember(stocks, products) {
+    StockAlertHelper.resolveWarehouseStockMap(products, stocks)
+  }
+  val selectedCodes = remember(slip.order.id) { mutableStateMapOf<String, Boolean>() }
+  var reasonText by remember(slip.order.id) { mutableStateOf("") }
+
+  val resolvedReason = remember(reasonText, selectedCodes.toMap(), slip.items) {
+    val picked = slip.items
+      .filter { selectedCodes[it.productCode] == true }
+      .map { "${it.productName} (${it.packSize})" }
+    val custom = reasonText.trim()
+    when {
+      picked.isNotEmpty() && custom.isNotEmpty() -> "${picked.joinToString(", ")} — $custom"
+      picked.isNotEmpty() -> "${picked.joinToString(", ")} unavailable"
+      custom.isNotEmpty() -> custom
+      else -> "Stock unavailable"
+    }
+  }
+
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = {
+      Text(
+        text = "Mark Pending & Proceed Next",
+        fontWeight = FontWeight.Bold,
+      )
+    },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+          text = "${slip.order.shopName} (${slip.packageLabel}) will stay pending so the next order unlocks and dispatches on time.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (slip.items.isNotEmpty()) {
+          Text(
+            text = "Tap unavailable material(s):",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+          )
+          FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            slip.items.forEach { item ->
+              val stockQty = stockByCode[item.productCode.uppercase()]
+              val isShort = stockQty != null && stockQty < item.quantity
+              val selected = selectedCodes[item.productCode] == true
+              FilterChip(
+                selected = selected,
+                onClick = { selectedCodes[item.productCode] = !selected },
+                label = {
+                  Text(
+                    text = if (isShort) {
+                      "${item.productCode} (Stock $stockQty/${item.quantity})"
+                    } else {
+                      "${item.productCode} (${item.quantity} pk)"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                  )
+                },
+                modifier = Modifier.testTag("packing_stock_chip_${item.productCode}"),
+              )
+            }
+          }
+        }
+        OutlinedTextField(
+          value = reasonText,
+          onValueChange = { reasonText = it },
+          label = { Text("Reason / Missing Material") },
+          placeholder = { Text("e.g., Banana Chips 100g out of stock") },
+          singleLine = true,
+          shape = RoundedCornerShape(10.dp),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("packing_stock_pending_reason_input"),
+        )
+      }
+    },
+    confirmButton = {
+      Button(
+        onClick = { onConfirm(resolvedReason) },
+        colors = ButtonDefaults.buttonColors(
+          containerColor = MaterialTheme.semanticColors.warning,
+          contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
+        modifier = Modifier.testTag("packing_confirm_stock_pending_button"),
+      ) {
+        Text("Mark Pending & Next")
+      }
+    },
+    dismissButton = {
+      TextButton(
+        onClick = onDismiss,
+        modifier = Modifier.testTag("packing_cancel_stock_pending_button"),
+      ) {
+        Text("Cancel")
+      }
+    },
+    modifier = Modifier.testTag("packing_stock_pending_dialog"),
+  )
 }
 
 @Composable

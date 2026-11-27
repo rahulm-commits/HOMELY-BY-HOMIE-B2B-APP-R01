@@ -39,12 +39,15 @@ import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.LocalShipping
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,7 +82,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.InquiryStatus
@@ -89,10 +91,17 @@ import com.example.data.model.OrderStatus
 import com.example.data.model.PaymentDirection
 import com.example.data.model.PaymentLedgerHelper
 import com.example.data.model.PaymentTransaction
+import com.example.data.model.Product
+import com.example.data.model.ProductStatus
 import com.example.data.model.Shop
 import com.example.data.model.ShopStatus
+import com.example.data.model.StockAlertHelper
 import com.example.data.model.StockItem
 import com.example.data.model.SupplierBill
+import com.example.data.model.UnifiedStockAlert
+import com.example.data.model.UnifiedStockSource
+import com.example.ui.components.InlineQuickDeltaPill
+import com.example.ui.components.QuickStockAdjustDialog
 import com.example.ui.components.formatInr
 import com.example.ui.components.isNetworkAvailable
 import com.example.ui.theme.semanticColors
@@ -130,9 +139,11 @@ fun HomeScreen(
   meta: OperationsMeta?,
   userDisplayName: String,
   isLocalTestMode: Boolean = false,
+  isSigningIn: Boolean = false,
   pendingQueueCount: Int = 0,
   laptopServerEnabled: Boolean = false,
   onOpenSyncServers: () -> Unit = {},
+  onSignInWithGoogle: () -> Unit = {},
   onSignOut: () -> Unit,
   onUpdateStock: (stockId: String, newQty: Int, productName: String) -> Unit,
   onNavigateToShops: () -> Unit,
@@ -140,6 +151,10 @@ fun HomeScreen(
   payments: List<PaymentTransaction> = emptyList(),
   supplierBills: List<SupplierBill> = emptyList(),
   onNavigateToPayments: (String) -> Unit = {},
+  products: List<Product> = emptyList(),
+  onUpdateProductStock: (productId: String, newQty: Int, productName: String) -> Unit = { _, _, _ -> },
+  onNavigateToProducts: () -> Unit = {},
+  onAddProductClick: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -148,7 +163,36 @@ fun HomeScreen(
   val pagerState = rememberPagerState(initialPage = 0, pageCount = { periods.size })
 
   var isOnline by remember { mutableStateOf(isNetworkAvailable(context)) }
-  var editingStock by remember { mutableStateOf<StockItem?>(null) }
+  var editingAlert by remember { mutableStateOf<UnifiedStockAlert?>(null) }
+  var showOnlyLowStockAlerts by remember { mutableStateOf(false) }
+  var stockSearchQuery by remember { mutableStateOf("") }
+
+  val unifiedStockAlerts = remember(products, stocks) {
+    StockAlertHelper.buildUnifiedAlerts(products = products, stocks = stocks)
+  }
+  val lowStockAlertsCount = remember(unifiedStockAlerts) {
+    unifiedStockAlerts.count { it.isLow }
+  }
+  val visibleStockAlerts = remember(unifiedStockAlerts, showOnlyLowStockAlerts, stockSearchQuery) {
+    val q = stockSearchQuery.trim().lowercase()
+    unifiedStockAlerts.filter { alert ->
+      val matchesFilter = !showOnlyLowStockAlerts || alert.isLow
+      val matchesSearch = q.isEmpty() ||
+        alert.name.lowercase().contains(q) ||
+        alert.code.lowercase().contains(q) ||
+        alert.secondaryCode.lowercase().contains(q) ||
+        alert.category.lowercase().contains(q)
+      matchesFilter && matchesSearch
+    }
+  }
+
+  val applyQuickStockChange: (UnifiedStockAlert, Int) -> Unit = { alert, targetQty ->
+    val safeQty = targetQty.coerceAtLeast(0)
+    when (alert.source) {
+      UnifiedStockSource.PRODUCT -> onUpdateProductStock(alert.targetId, safeQty, alert.name)
+      UnifiedStockSource.STOCK_ITEM -> onUpdateStock(alert.targetId, safeQty, alert.name)
+    }
+  }
 
   DisposableEffect(context) {
     val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -315,6 +359,73 @@ fun HomeScreen(
             }
 
             HomeLiveClockStrip()
+
+            if (isLocalTestMode) {
+              Surface(
+                color = MaterialTheme.semanticColors.warningContainer.copy(alpha = 0.72f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.semanticColors.warning.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth(),
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  Column(
+                    modifier = Modifier
+                      .weight(1f)
+                      .padding(end = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                  ) {
+                    Text(
+                      text = if (pendingSyncCount > 0) {
+                        "$pendingSyncCount record(s) queued on phone"
+                      } else {
+                        "Test Mode (No Login)"
+                      },
+                      style = MaterialTheme.typography.labelLarge,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                      text = if (laptopServerEnabled) {
+                        "Laptop LAN sync active • Sign in for Cloud"
+                      } else {
+                        "Sign in with Google to sync to Cloud, or use Laptop LAN"
+                      },
+                      style = MaterialTheme.typography.bodySmall,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      maxLines = 2,
+                      overflow = TextOverflow.Ellipsis,
+                    )
+                  }
+                  Button(
+                    onClick = onSignInWithGoogle,
+                    enabled = !isSigningIn,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("home_google_sign_in_button"),
+                  ) {
+                    if (isSigningIn) {
+                      CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                      )
+                    } else {
+                      Text(
+                        text = "Sign in",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                      )
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -574,145 +685,381 @@ fun HomeScreen(
       }
     }
 
-    // 4. Stock Alert Section
+    // 4. Unified Stock Alert Section (All Products + Stock Items, including newly added products)
     item(key = "home_stock_alerts_header", contentType = "home_stock_header") {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-          Icon(
-            imageVector = Icons.Rounded.WarningAmber,
-            contentDescription = null,
-            tint = MaterialTheme.semanticColors.danger,
-            modifier = Modifier.size(20.dp),
-          )
-          Text(
-            text = "Store Stock Alerts",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-          )
-        }
-        val lowCount = remember(stocks) { stocks.count { it.quantity <= it.minThreshold } }
-        if (lowCount > 0) {
-          Surface(
-            color = MaterialTheme.semanticColors.dangerContainer,
-            shape = RoundedCornerShape(8.dp),
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.weight(1f),
           ) {
+            Icon(
+              imageVector = Icons.Rounded.WarningAmber,
+              contentDescription = null,
+              tint = if (lowStockAlertsCount > 0) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
+              modifier = Modifier.size(20.dp),
+            )
             Text(
-              text = "$lowCount Low Stock",
-              style = MaterialTheme.typography.labelMedium,
-              color = MaterialTheme.semanticColors.danger,
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+              text = "Store Stock Alerts",
+              style = MaterialTheme.typography.titleLarge,
+              color = MaterialTheme.colorScheme.onBackground,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
             )
           }
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            if (lowStockAlertsCount > 0) {
+              Surface(
+                color = MaterialTheme.semanticColors.dangerContainer,
+                shape = RoundedCornerShape(8.dp),
+              ) {
+                Text(
+                  text = "$lowStockAlertsCount Low Stock",
+                  style = MaterialTheme.typography.labelMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.semanticColors.danger,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+              }
+            } else {
+              Surface(
+                color = MaterialTheme.semanticColors.successContainer,
+                shape = RoundedCornerShape(8.dp),
+              ) {
+                Text(
+                  text = "All Healthy",
+                  style = MaterialTheme.typography.labelMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.semanticColors.success,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+              }
+            }
+          }
+        }
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          FilterChip(
+            selected = !showOnlyLowStockAlerts,
+            onClick = { showOnlyLowStockAlerts = false },
+            label = { Text("All (${unifiedStockAlerts.size})") },
+            colors = FilterChipDefaults.filterChipColors(
+              selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+              selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ),
+            modifier = Modifier.testTag("home_stock_filter_all"),
+          )
+          FilterChip(
+            selected = showOnlyLowStockAlerts,
+            onClick = { showOnlyLowStockAlerts = true },
+            label = { Text("Low Alerts ($lowStockAlertsCount)") },
+            colors = FilterChipDefaults.filterChipColors(
+              selectedContainerColor = MaterialTheme.semanticColors.dangerContainer,
+              selectedLabelColor = MaterialTheme.semanticColors.danger,
+            ),
+            modifier = Modifier.testTag("home_stock_filter_low"),
+          )
+          Spacer(modifier = Modifier.weight(1f))
+          TextButton(
+            onClick = if (products.isNotEmpty()) onNavigateToProducts else onAddProductClick,
+            modifier = Modifier.testTag("home_stock_catalog_button"),
+          ) {
+            Text(if (products.isNotEmpty()) "Catalog" else "+ Product")
+          }
+        }
+
+        if (unifiedStockAlerts.size > 4) {
+          OutlinedTextField(
+            value = stockSearchQuery,
+            onValueChange = { stockSearchQuery = it },
+            placeholder = { Text("Quick search product, SKU, or category...") },
+            leadingIcon = {
+              Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+              )
+            },
+            trailingIcon = if (stockSearchQuery.isNotBlank()) {
+              {
+                TextButton(onClick = { stockSearchQuery = "" }) {
+                  Text("Clear")
+                }
+              }
+            } else {
+              null
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("home_stock_search_input"),
+          )
         }
       }
     }
 
-    items(stocks, key = { it.id }, contentType = { "home_stock_item" }) { stock ->
-      val isLow = stock.quantity <= stock.minThreshold
-      Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-          containerColor = if (isLow) MaterialTheme.semanticColors.dangerContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface,
-        ),
-        border = BorderStroke(
-          1.dp,
-          if (isLow) MaterialTheme.semanticColors.danger.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
-        modifier = Modifier.fillMaxWidth(),
-      ) {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(10.dp),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
+    if (visibleStockAlerts.isEmpty()) {
+      item(key = "home_stock_alerts_empty", contentType = "home_stock_empty") {
+        Card(
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+          modifier = Modifier.fillMaxWidth(),
         ) {
           Row(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
           ) {
-            Box(
-              modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (isLow) MaterialTheme.semanticColors.dangerContainer else MaterialTheme.semanticColors.successContainer),
-              contentAlignment = Alignment.Center,
-            ) {
-              Icon(
-                imageVector = Icons.Rounded.Inventory,
-                contentDescription = null,
-                tint = if (isLow) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
-                modifier = Modifier.size(22.dp),
-              )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-              ) {
-                Text(
-                  text = stock.productCode,
-                  style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                  text = "• ${stock.packSize}",
-                  style = MaterialTheme.typography.labelMedium,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-              }
-              Text(
-                text = stock.productName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-              )
-              Text(
-                text = if (isLow) {
-                  "Available: ${stock.quantity} pkts (Min ${stock.minThreshold})"
-                } else {
-                  "Healthy: ${stock.quantity} pkts in store"
+            Text(
+              text = if (showOnlyLowStockAlerts) {
+                "No low-stock alerts right now. All tracked products are above threshold."
+              } else {
+                "No matching products found."
+              },
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.weight(1f),
+            )
+            if (showOnlyLowStockAlerts || stockSearchQuery.isNotBlank()) {
+              TextButton(
+                onClick = {
+                  showOnlyLowStockAlerts = false
+                  stockSearchQuery = ""
                 },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isLow) MaterialTheme.semanticColors.danger else MaterialTheme.semanticColors.success,
-              )
+              ) {
+                Text("Show All")
+              }
             }
           }
+        }
+      }
+    } else {
+      items(visibleStockAlerts, key = { it.key }, contentType = { "home_stock_item" }) { alert ->
+        val isLow = alert.isLow
+        val isInactive = alert.status == ProductStatus.INACTIVE
+        val containerColor = when {
+          isLow -> MaterialTheme.semanticColors.dangerContainer.copy(alpha = 0.48f)
+          isInactive -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+          else -> MaterialTheme.colorScheme.surface
+        }
+        val borderColor = when {
+          isLow -> MaterialTheme.semanticColors.danger.copy(alpha = 0.45f)
+          else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+        }
+        val statusIconBg = when {
+          isLow -> MaterialTheme.semanticColors.dangerContainer
+          isInactive -> MaterialTheme.colorScheme.surfaceVariant
+          else -> MaterialTheme.semanticColors.successContainer
+        }
+        val statusIconTint = when {
+          isLow -> MaterialTheme.semanticColors.danger
+          isInactive -> MaterialTheme.colorScheme.onSurfaceVariant
+          else -> MaterialTheme.semanticColors.success
+        }
 
-          OutlinedButton(
-            onClick = { editingStock = stock },
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-            modifier = Modifier.testTag("update_stock_${stock.productCode}"),
+        Card(
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = containerColor),
+          border = BorderStroke(1.dp, borderColor),
+          elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
-            Icon(
-              imageVector = Icons.Rounded.Edit,
-              contentDescription = null,
-              modifier = Modifier.size(16.dp),
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Update", style = MaterialTheme.typography.labelLarge)
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+              ) {
+                Box(
+                  modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(statusIconBg),
+                  contentAlignment = Alignment.Center,
+                ) {
+                  Icon(
+                    imageVector = if (isLow) Icons.Rounded.WarningAmber else Icons.Rounded.Inventory,
+                    contentDescription = null,
+                    tint = statusIconTint,
+                    modifier = Modifier.size(22.dp),
+                  )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                  ) {
+                    Text(
+                      text = alert.code,
+                      style = MaterialTheme.typography.labelSmall,
+                      color = MaterialTheme.colorScheme.primary,
+                      fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                      text = "• ${alert.packSize}",
+                      style = MaterialTheme.typography.labelMedium,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      maxLines = 1,
+                      overflow = TextOverflow.Ellipsis,
+                    )
+                    if (alert.isRecentlyAdded) {
+                      Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(6.dp),
+                      ) {
+                        Text(
+                          text = "NEW",
+                          style = MaterialTheme.typography.labelSmall,
+                          color = MaterialTheme.colorScheme.onTertiaryContainer,
+                          fontWeight = FontWeight.Bold,
+                          modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                        )
+                      }
+                    }
+                  }
+                  Text(
+                    text = alert.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                  Text(
+                    text = when {
+                      isInactive -> "Inactive • ${alert.quantity} ${alert.unitLabel} (Min ${alert.minThreshold})"
+                      alert.isCritical && alert.quantity == 0 -> "Out of stock! (Min ${alert.minThreshold} ${alert.unitLabel})"
+                      isLow -> "Low Stock: ${alert.quantity} ${alert.unitLabel} (Min ${alert.minThreshold})"
+                      else -> "Healthy: ${alert.quantity} ${alert.unitLabel} (Min ${alert.minThreshold})"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (isLow) FontWeight.SemiBold else FontWeight.Normal,
+                    color = statusIconTint,
+                  )
+                }
+              }
+
+              OutlinedButton(
+                onClick = { editingAlert = alert },
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 11.dp, vertical = 6.dp),
+                modifier = Modifier
+                  .minimumInteractiveComponentSize()
+                  .testTag("update_stock_${alert.code}"),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Edit,
+                  contentDescription = null,
+                  modifier = Modifier.size(15.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Update", style = MaterialTheme.typography.labelLarge)
+              }
+            }
+
+            // One-tap inline stock quick adjust bar
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              InlineQuickDeltaPill(
+                label = "-10",
+                isAdd = false,
+                enabled = alert.quantity > 0,
+                onClick = { applyQuickStockChange(alert, (alert.quantity - 10).coerceAtLeast(0)) },
+                modifier = Modifier.testTag("home_quick_minus10_${alert.code}"),
+              )
+              InlineQuickDeltaPill(
+                label = "-1",
+                isAdd = false,
+                enabled = alert.quantity > 0,
+                onClick = { applyQuickStockChange(alert, (alert.quantity - 1).coerceAtLeast(0)) },
+                modifier = Modifier.testTag("home_quick_minus1_${alert.code}"),
+              )
+              Surface(
+                color = if (isLow) {
+                  MaterialTheme.semanticColors.danger
+                } else {
+                  MaterialTheme.colorScheme.surfaceVariant
+                },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                  .weight(1f)
+                  .minimumInteractiveComponentSize()
+                  .clip(RoundedCornerShape(10.dp))
+                  .clickable { editingAlert = alert },
+              ) {
+                Box(
+                  contentAlignment = Alignment.Center,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                ) {
+                  Text(
+                    text = "${alert.quantity} ${alert.unitLabel}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isLow) Color.White else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              }
+              InlineQuickDeltaPill(
+                label = "+1",
+                isAdd = true,
+                onClick = { applyQuickStockChange(alert, alert.quantity + 1) },
+                modifier = Modifier.testTag("home_quick_plus1_${alert.code}"),
+              )
+              InlineQuickDeltaPill(
+                label = "+10",
+                isAdd = true,
+                onClick = { applyQuickStockChange(alert, alert.quantity + 10) },
+                modifier = Modifier.testTag("home_quick_plus10_${alert.code}"),
+              )
+            }
           }
         }
       }
     }
   }
 
-  editingStock?.let { targetStock ->
-    StockUpdateDialog(
-      stock = targetStock,
-      onDismiss = { editingStock = null },
+  editingAlert?.let { targetAlert ->
+    QuickStockAdjustDialog(
+      productName = targetAlert.name,
+      productCode = targetAlert.code,
+      packSize = targetAlert.packSize,
+      currentQuantity = targetAlert.quantity,
+      minThreshold = targetAlert.minThreshold,
+      unitLabel = targetAlert.unitLabel,
+      onDismiss = { editingAlert = null },
       onConfirm = { newQty ->
-        onUpdateStock(targetStock.id, newQty, targetStock.productName)
-        editingStock = null
+        applyQuickStockChange(targetAlert, newQty)
+        editingAlert = null
       },
     )
   }
@@ -1106,82 +1453,7 @@ private fun WorkMetricTile(
   }
 }
 
-@Composable
-private fun StockUpdateDialog(
-  stock: StockItem,
-  onDismiss: () -> Unit,
-  onConfirm: (Int) -> Unit,
-) {
-  var qtyText by remember(stock.id) { mutableStateOf(stock.quantity.toString()) }
-  val parsedQty = qtyText.toIntOrNull() ?: stock.quantity
 
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    title = {
-      Text(
-        text = "Update Stock • ${stock.productCode}",
-        style = MaterialTheme.typography.titleLarge,
-      )
-    },
-    text = {
-      Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-          text = "${stock.productName} (${stock.packSize})",
-          style = MaterialTheme.typography.bodyLarge,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          IconButton(
-            onClick = { qtyText = (parsedQty - 10).coerceAtLeast(0).toString() },
-            modifier = Modifier
-              .size(48.dp)
-              .clip(CircleShape)
-              .background(MaterialTheme.colorScheme.surfaceVariant),
-          ) {
-            Icon(Icons.Rounded.Remove, contentDescription = "Decrease stock")
-          }
-          OutlinedTextField(
-            value = qtyText,
-            onValueChange = { input -> qtyText = input.filter { it.isDigit() } },
-            label = { Text("Packets") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.weight(1f),
-          )
-          IconButton(
-            onClick = { qtyText = (parsedQty + 10).toString() },
-            modifier = Modifier
-              .size(48.dp)
-              .clip(CircleShape)
-              .background(MaterialTheme.colorScheme.primaryContainer),
-          ) {
-            Icon(
-              Icons.Rounded.Add,
-              contentDescription = "Increase stock",
-              tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-          }
-        }
-      }
-    },
-    confirmButton = {
-      Button(onClick = { onConfirm(parsedQty.coerceAtLeast(0)) }) {
-        Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(6.dp))
-        Text("Save Stock")
-      }
-    },
-    dismissButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Cancel")
-      }
-    },
-  )
-}
 
 private fun computePeriodMetrics(
   period: ReportPeriod,

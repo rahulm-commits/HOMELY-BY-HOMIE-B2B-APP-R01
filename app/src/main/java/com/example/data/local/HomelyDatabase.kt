@@ -25,8 +25,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     PendingSupplierBillEntity::class,
     CachedSupplierEntity::class,
     PendingSupplierEntity::class,
+    PendingRouteEntity::class,
   ],
-  version = 8,
+  version = 9,
   exportSchema = false,
 )
 abstract class HomelyDatabase : RoomDatabase() {
@@ -393,6 +394,36 @@ abstract class HomelyDatabase : RoomDatabase() {
       }
     }
 
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          """
+          CREATE TABLE IF NOT EXISTS `pending_routes` (
+            `routeId` TEXT NOT NULL,
+            `isUpdate` INTEGER NOT NULL,
+            `userId` TEXT NOT NULL,
+            `name` TEXT NOT NULL,
+            `vehicle` TEXT NOT NULL,
+            `maxCrates` INTEGER NOT NULL,
+            `driverName` TEXT NOT NULL,
+            `driverPhone` TEXT NOT NULL,
+            `dispatchWindow` TEXT NOT NULL,
+            `stagingBay` TEXT NOT NULL,
+            `colorIndex` INTEGER NOT NULL,
+            `isActive` INTEGER NOT NULL,
+            `stopOrderIdsCsv` TEXT NOT NULL,
+            `globalSynced` INTEGER NOT NULL,
+            `localServerSynced` INTEGER NOT NULL,
+            `lastError` TEXT NOT NULL,
+            `createdAtMillis` INTEGER NOT NULL,
+            `updatedAtMillis` INTEGER NOT NULL,
+            PRIMARY KEY(`routeId`)
+          )
+          """.trimIndent()
+        )
+      }
+    }
+
     fun getInstance(context: Context): HomelyDatabase {
       return INSTANCE ?: synchronized(this) {
         INSTANCE ?: Room.databaseBuilder(
@@ -408,6 +439,7 @@ abstract class HomelyDatabase : RoomDatabase() {
             MIGRATION_5_6,
             MIGRATION_6_7,
             MIGRATION_7_8,
+            MIGRATION_8_9,
           )
           .build()
           .also { INSTANCE = it }

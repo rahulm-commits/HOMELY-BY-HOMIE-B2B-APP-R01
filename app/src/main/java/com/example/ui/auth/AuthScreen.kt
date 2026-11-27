@@ -2,6 +2,7 @@ package com.example.ui.auth
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -57,6 +58,8 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.example.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
@@ -66,10 +69,17 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+  is Activity -> this
+  is ContextWrapper -> baseContext.findActivity()
+  else -> null
+}
 
 fun attemptAutoSignIn(
   context: Context,
@@ -77,16 +87,16 @@ fun attemptAutoSignIn(
   onAuthSuccess: () -> Unit,
   onUnauthenticated: () -> Unit,
   scope: CoroutineScope,
-) {
+): Job {
   if (Firebase.auth.currentUser != null) {
     onAuthSuccess()
-    return
+    return Job().apply { complete() }
   }
   val clientId = try {
     context.getString(R.string.default_web_client_id)
   } catch (_: Exception) {
     onUnauthenticated()
-    return
+    return Job().apply { complete() }
   }
 
   val googleIdOption = GetGoogleIdOption.Builder()
@@ -99,9 +109,10 @@ fun attemptAutoSignIn(
     .addCredentialOption(googleIdOption)
     .build()
 
-  scope.launch {
+  return scope.launch {
     try {
-      val result = credentialManager.getCredential(context, request)
+      val activityContext = context.findActivity() ?: context
+      val result = credentialManager.getCredential(activityContext, request)
       val credential = result.credential
       if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
         val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
@@ -139,7 +150,7 @@ fun onGoogleSignInClicked(
 
   scope.launch {
     try {
-      val activityContext = (context as? Activity) ?: context
+      val activityContext = context.findActivity() ?: context
       val result = credentialManager.getCredential(activityContext, request)
       val credential = result.credential
       if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
@@ -153,6 +164,15 @@ fun onGoogleSignInClicked(
     } catch (e: GetCredentialCancellationException) {
       Log.w("Auth", "Google Sign-In flow cancelled or dismissed: ${e.message}", e)
       onAuthCancelled()
+    } catch (e: NoCredentialException) {
+      Log.w("Auth", "No Google account available for Credential Manager: ${e.message}", e)
+      onAuthError("No Google account found on this device. Add a Google account in device Settings or use Skip Login.")
+    } catch (e: GetCredentialException) {
+      Log.e("Auth", "Google Sign-In credential error: ${e.type} - ${e.errorMessage}", e)
+      val detail = e.errorMessage?.toString()?.takeIf { it.isNotBlank() }
+        ?: e.localizedMessage
+        ?: "Google Sign-In failed (${e.type})"
+      onAuthError(detail)
     } catch (e: Exception) {
       Log.e("Auth", "Google Sign-In failed", e)
       onAuthError(e.localizedMessage ?: "Google Sign-In failed")
@@ -189,9 +209,10 @@ fun AuthScreen(
   val credentialManager = remember(context) { CredentialManager.create(context) }
   var isLoading by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
+  var autoSignInJob by remember { mutableStateOf<Job?>(null) }
 
   LaunchedEffect(Unit) {
-    attemptAutoSignIn(
+    autoSignInJob = attemptAutoSignIn(
       context = context,
       credentialManager = credentialManager,
       onAuthSuccess = onAuthSuccess,
@@ -310,6 +331,7 @@ fun AuthScreen(
 
       Button(
         onClick = {
+          autoSignInJob?.cancel()
           errorMessage = null
           isLoading = true
           onGoogleSignInClicked(

@@ -376,8 +376,19 @@ class RoomOfflineFirestoreCacheTest {
       return Result.success(Unit)
     }
 
+    val routesStore = ConcurrentHashMap<String, DeliveryRoute>()
     override suspend fun fetchSuppliersOnce(userId: String): Result<List<Supplier>> =
       Result.success(suppliersStore.values.toList())
+
+    override suspend fun upsertRoute(route: DeliveryRoute, isUpdate: Boolean): Result<String> {
+      routesStore[route.id] = route
+      val merged = (RoutesCatalog.starterRoutes.associateBy { it.id } + routesStore).values.toList()
+      routesFlow.value = merged
+      return Result.success(route.id)
+    }
+
+    override suspend fun fetchRoutesOnce(userId: String): Result<List<DeliveryRoute>> =
+      Result.success(routesStore.values.toList())
   }
 
   private lateinit var fakeCloud: FakeCloudBackend

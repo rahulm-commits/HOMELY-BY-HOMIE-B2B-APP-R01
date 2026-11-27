@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Storefront
@@ -68,6 +69,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,7 +87,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -94,6 +95,8 @@ import com.example.data.model.Product
 import com.example.data.model.ProductCatalogHelper
 import com.example.data.model.ProductStatus
 import com.example.ui.components.CompactDropdownMenuItem
+import com.example.ui.components.InlineQuickDeltaPill
+import com.example.ui.components.QuickStockAdjustDialog
 import com.example.ui.components.StandardCompactSearchBar
 import com.example.ui.components.rememberThumbnailImageRequest
 import com.example.ui.theme.semanticColors
@@ -736,6 +739,9 @@ fun ProductsScreen(
               onQuickRestock = {
                 onUpdateProductStock(prod.id, prod.stockQuantity + 20, prod.name)
               },
+              onQuickStockChange = { targetQty ->
+                onUpdateProductStock(prod.id, targetQty.coerceAtLeast(0), prod.name)
+              },
               onOpenStockAdjust = { stockDialogProduct = prod },
             )
           }
@@ -869,8 +875,14 @@ fun ProductsScreen(
 
   val adjustingProduct = stockDialogProduct
   if (adjustingProduct != null) {
-    StockAdjustmentDialog(
-      product = adjustingProduct,
+    QuickStockAdjustDialog(
+      productName = adjustingProduct.name,
+      productCode = adjustingProduct.productCode,
+      packSize = adjustingProduct.packSize.ifBlank { adjustingProduct.baseUnit }.ifBlank { "Standard" },
+      currentQuantity = adjustingProduct.stockQuantity,
+      minThreshold = adjustingProduct.minThreshold,
+      unitLabel = ProductCatalogHelper.unitShortLabel(adjustingProduct.sellingUnit),
+      inputTestTag = "stock_adjust_input",
       onConfirm = { newQty ->
         onUpdateProductStock(adjustingProduct.id, newQty, adjustingProduct.name)
         stockDialogProduct = null
@@ -969,6 +981,7 @@ private fun ProductCatalogCard(
   onEditClick: () -> Unit,
   onToggleStatus: () -> Unit,
   onQuickRestock: () -> Unit,
+  onQuickStockChange: (Int) -> Unit,
   onOpenStockAdjust: () -> Unit,
 ) {
   var menuExpanded by remember { mutableStateOf(false) }
@@ -1262,106 +1275,177 @@ private fun ProductCatalogCard(
         }
       }
 
-      // Wholesale Price & Stock Strip
+      // Wholesale Price & One-Tap Stock Strip
       Surface(
         color = footerContainerColor,
         shape = RoundedCornerShape(10.dp),
         modifier = Modifier.fillMaxWidth(),
       ) {
-        Row(
+        Column(
           modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 8.dp),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
+          verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          Column {
-            val topLabel = when {
-              variants.isNotEmpty() -> "WHOLESALE SLAB"
-              product.mrp > 0.0 -> "WHOLESALE (MRP ₹${product.mrp.toInt()})"
-              else -> "WHOLESALE PRICE"
-            }
-            Text(
-              text = topLabel,
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-              verticalAlignment = Alignment.Bottom,
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Column(modifier = Modifier.weight(1f)) {
+              val topLabel = when {
+                variants.isNotEmpty() -> "WHOLESALE SLAB"
+                product.mrp > 0.0 -> "WHOLESALE (MRP ₹${product.mrp.toInt()})"
+                else -> "WHOLESALE PRICE"
+              }
               Text(
-                text = ProductCatalogHelper.formatPriceDisplay(product),
-                style = MaterialTheme.typography.titleMedium,
-                color = if (isLow) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-              )
-              Text(
-                text = "/ ${product.sellingUnit.substringBefore(" /").lowercase()}",
-                style = MaterialTheme.typography.bodySmall,
+                text = topLabel,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+              ) {
+                Text(
+                  text = ProductCatalogHelper.formatPriceDisplay(product),
+                  style = MaterialTheme.typography.titleMedium,
+                  color = if (isLow) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
+                  fontWeight = FontWeight.Bold,
+                )
+                Text(
+                  text = "/ ${product.sellingUnit.substringBefore(" /").lowercase()}",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+            }
+
+            Column(
+              horizontalAlignment = Alignment.End,
+              modifier = Modifier
+                .minimumInteractiveComponentSize()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onOpenStockAdjust)
+                .testTag("product_stock_badge_${product.productCode}"),
+            ) {
+              val chipColor = when {
+                isLow -> MaterialTheme.semanticColors.danger
+                isInactive -> MaterialTheme.colorScheme.surfaceContainerHighest
+                else -> MaterialTheme.semanticColors.successContainer
+              }
+              val chipTextColor = when {
+                isLow -> Color.White
+                isInactive -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> MaterialTheme.semanticColors.success
+              }
+              Surface(
+                color = chipColor,
+                shape = CircleShape,
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                  Icon(
+                    imageVector = when {
+                      isLow -> Icons.Rounded.WarningAmber
+                      isInactive -> Icons.Rounded.Schedule
+                      else -> Icons.Rounded.CheckCircle
+                    },
+                    contentDescription = null,
+                    tint = chipTextColor,
+                    modifier = Modifier.size(13.dp),
+                  )
+                  Text(
+                    text = when {
+                      isInactive && product.stockQuantity == 0 -> "Restocking Soon"
+                      isLow -> "${product.stockQuantity} $unitShort left"
+                      else -> "${product.stockQuantity} $unitShort"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = chipTextColor,
+                    fontWeight = FontWeight.Bold,
+                  )
+                }
+              }
+              Spacer(modifier = Modifier.height(3.dp))
+              Text(
+                text = when {
+                  isCritical -> "Critical (Min ${product.minThreshold})"
+                  isLow -> "Min Reorder: ${product.minThreshold} $unitShort"
+                  isInactive -> "Inactive in catalogue"
+                  product.stockQuantity >= 120 -> "Healthy • Tap to edit"
+                  else -> "Optimal • Tap to edit"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isLow) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
           }
 
-          Column(
-            horizontalAlignment = Alignment.End,
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .clickable(onClick = onOpenStockAdjust),
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
           ) {
-            val chipColor = when {
-              isLow -> MaterialTheme.semanticColors.danger
-              isInactive -> MaterialTheme.colorScheme.surfaceContainerHighest
-              else -> MaterialTheme.semanticColors.successContainer
-            }
-            val chipTextColor = when {
-              isLow -> Color.White
-              isInactive -> MaterialTheme.colorScheme.onSurfaceVariant
-              else -> MaterialTheme.semanticColors.success
-            }
+            InlineQuickDeltaPill(
+              label = "-10",
+              isAdd = false,
+              enabled = product.stockQuantity > 0,
+              onClick = { onQuickStockChange((product.stockQuantity - 10).coerceAtLeast(0)) },
+              modifier = Modifier.testTag("product_quick_minus10_${product.productCode}"),
+            )
+            InlineQuickDeltaPill(
+              label = "-1",
+              isAdd = false,
+              enabled = product.stockQuantity > 0,
+              onClick = { onQuickStockChange((product.stockQuantity - 1).coerceAtLeast(0)) },
+              modifier = Modifier.testTag("product_quick_minus1_${product.productCode}"),
+            )
             Surface(
-              color = chipColor,
-              shape = CircleShape,
+              color = MaterialTheme.colorScheme.surface,
+              shape = RoundedCornerShape(10.dp),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
+              modifier = Modifier
+                .weight(1f)
+                .minimumInteractiveComponentSize()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(onClick = onOpenStockAdjust),
             ) {
               Row(
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
               ) {
                 Icon(
-                  imageVector = when {
-                    isLow -> Icons.Rounded.WarningAmber
-                    isInactive -> Icons.Rounded.Schedule
-                    else -> Icons.Rounded.CheckCircle
-                  },
+                  imageVector = Icons.Rounded.Tune,
                   contentDescription = null,
-                  tint = chipTextColor,
-                  modifier = Modifier.size(13.dp),
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(14.dp),
                 )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                  text = when {
-                    isInactive && product.stockQuantity == 0 -> "Restocking Soon"
-                    isLow -> "${product.stockQuantity} $unitShort left"
-                    else -> "${product.stockQuantity} $unitShort"
-                  },
-                  style = MaterialTheme.typography.labelSmall,
-                  color = chipTextColor,
+                  text = "${product.stockQuantity} $unitShort",
+                  style = MaterialTheme.typography.labelLarge,
                   fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1,
                 )
               }
             }
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-              text = when {
-                isCritical -> "Critical (Min ${product.minThreshold})"
-                isLow -> "Min Reorder: ${product.minThreshold} $unitShort"
-                isInactive -> "Inactive in catalogue"
-                product.stockQuantity >= 120 -> "Healthy Stock"
-                else -> "Optimal Stock"
-              },
-              style = MaterialTheme.typography.labelSmall,
-              color = if (isLow) MaterialTheme.semanticColors.danger else MaterialTheme.colorScheme.onSurfaceVariant,
+            InlineQuickDeltaPill(
+              label = "+1",
+              isAdd = true,
+              onClick = { onQuickStockChange(product.stockQuantity + 1) },
+              modifier = Modifier.testTag("product_quick_plus1_${product.productCode}"),
+            )
+            InlineQuickDeltaPill(
+              label = "+10",
+              isAdd = true,
+              onClick = { onQuickStockChange(product.stockQuantity + 10) },
+              modifier = Modifier.testTag("product_quick_plus10_${product.productCode}"),
             )
           }
         }
@@ -1441,47 +1525,4 @@ private fun BarcodeQuickLookupDialog(
   )
 }
 
-@Composable
-private fun StockAdjustmentDialog(
-  product: Product,
-  onConfirm: (Int) -> Unit,
-  onDismiss: () -> Unit,
-) {
-  var qtyInput by remember(product.id) { mutableStateOf(product.stockQuantity.toString()) }
-  val parsed = qtyInput.toIntOrNull()
 
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    title = { Text("Update Stock Level") },
-    text = {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-          text = "${product.name} (${product.productCode})",
-          style = MaterialTheme.typography.bodyMedium,
-          fontWeight = FontWeight.SemiBold,
-        )
-        OutlinedTextField(
-          value = qtyInput,
-          onValueChange = { next -> qtyInput = next.filter { it.isDigit() } },
-          label = { Text("Available Stock (${product.sellingUnit})") },
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-          singleLine = true,
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("stock_adjust_input"),
-        )
-      }
-    },
-    confirmButton = {
-      Button(
-        onClick = { if (parsed != null) onConfirm(parsed) },
-        enabled = parsed != null && parsed >= 0,
-      ) {
-        Text("Save Stock")
-      }
-    },
-    dismissButton = {
-      TextButton(onClick = onDismiss) { Text("Cancel") }
-    },
-  )
-}

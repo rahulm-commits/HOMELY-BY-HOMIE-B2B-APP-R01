@@ -193,6 +193,8 @@ class ShopListScreenTest {
       override suspend fun fetchPaymentsOnce(userId: String) = Result.success(emptyList<PaymentTransaction>())
       override suspend fun fetchSupplierBillsOnce(userId: String) = Result.success(emptyList<SupplierBill>())
       override suspend fun fetchSuppliersOnce(userId: String) = Result.success(emptyList<Supplier>())
+      override suspend fun upsertRoute(route: DeliveryRoute, isUpdate: Boolean) = Result.success(route.id)
+      override suspend fun fetchRoutesOnce(userId: String) = Result.success(emptyList<DeliveryRoute>())
     }
 
     val coordinator = SyncCoordinatorRepository(

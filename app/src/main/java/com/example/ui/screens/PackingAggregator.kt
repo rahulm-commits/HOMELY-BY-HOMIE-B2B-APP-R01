@@ -4,9 +4,11 @@ import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
+import com.example.data.model.Product
 import com.example.data.model.RoutesCatalog
 import com.example.data.model.Shop
 import com.example.data.model.SnackCatalog
+import com.example.data.model.StockAlertHelper
 import com.example.data.model.StockItem
 import kotlin.math.ceil
 import kotlin.math.min
@@ -70,6 +72,12 @@ data class ShopPackingSlip(
   val crateLabel: String,
   val isPacked: Boolean,
   val isInProgress: Boolean,
+  val isStockPending: Boolean = false,
+  val stockPendingReason: String = "",
+  val isNextInSequence: Boolean = false,
+  val isSequenceLocked: Boolean = false,
+  val blockingPackOrderNumber: Int? = null,
+  val blockingShopName: String? = null,
 )
 
 data class PackingDashboardSnapshot(
@@ -92,6 +100,7 @@ data class PackingDashboardSnapshot(
   val shopsPackedCount: Int,
   val totalShopsCount: Int,
   val shortageItems: List<PackingSkuLine>,
+  val stockPendingCount: Int = 0,
 )
 
 private val LINE_ITEM_REGEX = Regex("""([A-Za-z0-9_-]+)\s*[xX×]\s*(\d+)""")
@@ -103,8 +112,18 @@ private val CATALOG_ORDER: Map<String, Int> by lazy {
   SnackCatalog.products.mapIndexed { idx, p -> p.code.uppercase() to idx }.toMap()
 }
 
-fun parseOrderLineItems(itemsSummary: String): List<ParsedOrderLineItem> {
+fun parseOrderLineItems(
+  itemsSummary: String,
+  catalogProducts: List<CatalogProduct> = SnackCatalog.products,
+): List<ParsedOrderLineItem> {
   if (itemsSummary.isBlank()) return emptyList()
+  val lookup = if (catalogProducts === SnackCatalog.products) {
+    CATALOG_BY_CODE
+  } else {
+    catalogProducts.associateBy { it.code.uppercase() } + CATALOG_BY_CODE.filterKeys { code ->
+      catalogProducts.none { it.code.equals(code, ignoreCase = true) }
+    }
+  }
   return itemsSummary.split(",").mapNotNull { rawToken ->
     val token = rawToken.trim()
     if (token.isEmpty()) return@mapNotNull null
@@ -113,7 +132,7 @@ fun parseOrderLineItems(itemsSummary: String): List<ParsedOrderLineItem> {
       val code = match.groupValues[1].trim().uppercase()
       val qty = match.groupValues[2].toIntOrNull() ?: 0
       if (qty <= 0) return@mapNotNull null
-      val product = CATALOG_BY_CODE[code]
+      val product = lookup[code]
       if (product != null) {
         ParsedOrderLineItem(
           productCode = product.code,
@@ -161,11 +180,14 @@ fun buildPackingSnapshot(
   packedOrderOverrides: Map<String, Boolean> = emptyMap(),
   searchQuery: String = "",
   reverseLoadOrder: Boolean = true,
+  catalogProducts: List<CatalogProduct> = SnackCatalog.products,
+  stockPendingReasons: Map<String, String> = emptyMap(),
+  products: List<Product> = emptyList(),
 ): PackingDashboardSnapshot {
   val routeMap = routes.associateBy { it.id }
   val routeIndexMap = routes.mapIndexed { idx, r -> r.id to idx }.toMap()
   val shopMap = shops.associateBy { it.id }
-  val stockByCode = stocks.associateBy { it.productCode.uppercase() }
+  val warehouseStockByCode = StockAlertHelper.resolveWarehouseStockMap(products, stocks)
 
   // Pre-compute canonical 1..N delivery stop numbering for every route based on Route stopOrderIds
   val routeStopMetaByRouteAndShop = mutableMapOf<Pair<String, String>, Pair<Int, Int>>()
@@ -259,13 +281,45 @@ fun buildPackingSnapshot(
     )
   )
 
-  val shopSlips = sortedSeeds.mapIndexed { idx, seed ->
+  data class SlipDraft(
+    val seed: RawSlipSeed,
+    val packOrderNumber: Int,
+    val parsedItems: List<ParsedOrderLineItem>,
+    val isPacked: Boolean,
+    val isStockPending: Boolean,
+    val stockPendingReason: String,
+  )
+
+  val drafts = sortedSeeds.mapIndexed { idx, seed ->
     val order = seed.order
     val packOrderNumber = idx + 1
-    val parsedItems = parseOrderLineItems(order.itemsSummary)
+    val parsedItems = parseOrderLineItems(order.itemsSummary, catalogProducts)
     val defaultPacked = order.status == OrderStatus.DELIVERED
     val isPacked = packedOrderOverrides[order.id] ?: defaultPacked
-    val isInProgress = !isPacked && order.status == OrderStatus.CONFIRMED
+    val stockReason = if (isPacked) "" else stockPendingReasons[order.id].orEmpty().trim()
+    val isStockPending = !isPacked && stockReason.isNotEmpty()
+    SlipDraft(
+      seed = seed,
+      packOrderNumber = packOrderNumber,
+      parsedItems = parsedItems,
+      isPacked = isPacked,
+      isStockPending = isStockPending,
+      stockPendingReason = stockReason,
+    )
+  }
+
+  val firstBlockingIdx = drafts.indexOfFirst { !it.isPacked && !it.isStockPending }
+  val blockingDraft = drafts.getOrNull(firstBlockingIdx)
+
+  val shopSlips = drafts.mapIndexed { idx, draft ->
+    val seed = draft.seed
+    val order = seed.order
+    val packOrderNumber = draft.packOrderNumber
+    val isPacked = draft.isPacked
+    val isStockPending = draft.isStockPending
+    val isNextInSequence = !isPacked && !isStockPending && idx == firstBlockingIdx
+    val isSequenceLocked = !isPacked && !isStockPending && firstBlockingIdx != -1 && idx > firstBlockingIdx
+    val isInProgress = !isPacked && !isStockPending && order.status == OrderStatus.CONFIRMED
     val crateNumber = 100 + packOrderNumber
     ShopPackingSlip(
       stopNumber = if (seed.deliveryStopNumber > 0) seed.deliveryStopNumber else packOrderNumber,
@@ -277,10 +331,16 @@ fun buildPackingSnapshot(
       shop = seed.shop,
       route = seed.assignedRoute,
       isAssignedToRoute = seed.assignedRoute != null,
-      items = parsedItems,
+      items = draft.parsedItems,
       crateLabel = "#CR-$crateNumber",
       isPacked = isPacked,
       isInProgress = isInProgress,
+      isStockPending = isStockPending,
+      stockPendingReason = draft.stockPendingReason,
+      isNextInSequence = isNextInSequence,
+      isSequenceLocked = isSequenceLocked,
+      blockingPackOrderNumber = if (isSequenceLocked) blockingDraft?.packOrderNumber else null,
+      blockingShopName = if (isSequenceLocked) blockingDraft?.seed?.order?.shopName else null,
     )
   }
 
@@ -299,7 +359,7 @@ fun buildPackingSnapshot(
   val catalogOrder = CATALOG_ORDER
 
   routeFilteredOrders.forEach { order ->
-    val lineItems = parseOrderLineItems(order.itemsSummary)
+    val lineItems = parseOrderLineItems(order.itemsSummary, catalogProducts)
     if (lineItems.isEmpty() && order.itemCount > 0) {
       val fallbackKey = "MISC"
       val acc = accMap.getOrPut(fallbackKey) {
@@ -332,7 +392,7 @@ fun buildPackingSnapshot(
   val allSkuLines = accMap.values
     .sortedBy { catalogOrder[it.productCode.uppercase()] ?: 999 }
     .map { acc ->
-      val stockQty = stockByCode[acc.productCode.uppercase()]?.quantity ?: 0
+      val stockQty = warehouseStockByCode[acc.productCode.uppercase()] ?: 0
       val defaultLoaded = when {
         routeFilteredOrders.all { it.status == OrderStatus.DELIVERED } -> acc.orderedPacks
         stockQty > 0 -> min(acc.orderedPacks, stockQty)
@@ -406,6 +466,7 @@ fun buildPackingSnapshot(
   val payloadPercent = ((payloadWeightKg / maxPayloadKg) * 100.0).roundToInt().coerceIn(0, 100)
   val stagedCratesCount = if (totalLoadedPacks <= 0) 0 else ceil(totalLoadedPacks / 30.0).toInt()
   val shopsPackedCount = shopSlips.count { it.isPacked }
+  val stockPendingCount = shopSlips.count { it.isStockPending }
   val shortageItems = allSkuLines.filter { it.shortagePacks > 0 }
 
   return PackingDashboardSnapshot(
@@ -414,11 +475,11 @@ fun buildPackingSnapshot(
     reverseLoadOrder = reverseLoadOrder,
     assignedOrdersCount = assignedAllOrders.size,
     assignedPacksCount = assignedAllOrders.sumOf { ord ->
-      parseOrderLineItems(ord.itemsSummary).sumOf { it.quantity }.takeIf { it > 0 } ?: ord.itemCount
+      parseOrderLineItems(ord.itemsSummary, catalogProducts).sumOf { it.quantity }.takeIf { it > 0 } ?: ord.itemCount
     },
     unassignedOrdersCount = unassignedAllOrders.size,
     unassignedPacksCount = unassignedAllOrders.sumOf { ord ->
-      parseOrderLineItems(ord.itemsSummary).sumOf { it.quantity }.takeIf { it > 0 } ?: ord.itemCount
+      parseOrderLineItems(ord.itemsSummary, catalogProducts).sumOf { it.quantity }.takeIf { it > 0 } ?: ord.itemCount
     },
     productionBySize = productionBySize,
     categoryGroups = categoryGroups,
@@ -432,6 +493,7 @@ fun buildPackingSnapshot(
     shopsPackedCount = shopsPackedCount,
     totalShopsCount = shopSlips.size,
     shortageItems = shortageItems,
+    stockPendingCount = stockPendingCount,
   )
 }
 
@@ -461,7 +523,12 @@ fun buildSingleSlipShareText(slip: ShopPackingSlip): String = buildString {
   if (slip.order.note.isNotBlank()) {
     appendLine("Note: ${slip.order.note}")
   }
-  appendLine("Status: ${if (slip.isPacked) "PACKED" else "PENDING LOAD"}")
+  val statusLine = when {
+    slip.isPacked -> "PACKED"
+    slip.isStockPending -> "PENDING (STOCK HOLD: ${slip.stockPendingReason})"
+    else -> "PENDING LOAD"
+  }
+  appendLine("Status: $statusLine")
 }
 
 fun buildA4ManifestShareText(

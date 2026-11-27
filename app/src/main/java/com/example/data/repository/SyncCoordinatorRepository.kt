@@ -13,6 +13,7 @@ import com.example.data.local.DeliveryRouteEntity
 import com.example.data.local.PendingOrderEntity
 import com.example.data.local.PendingPaymentEntity
 import com.example.data.local.PendingProductEntity
+import com.example.data.local.PendingRouteEntity
 import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
 import com.example.data.local.PendingSupplierBillEntity
@@ -26,6 +27,7 @@ import com.example.data.model.InquiryStatus
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
 import com.example.data.model.OrderStatus
+import com.example.data.model.OrderStockDeltaHelper
 import com.example.data.model.PaymentDirection
 import com.example.data.model.PaymentLedgerHelper
 import com.example.data.model.PaymentMethod
@@ -121,6 +123,8 @@ interface RemoteCloudAdapter {
   suspend fun fetchPaymentsOnce(userId: String): Result<List<PaymentTransaction>>
   suspend fun fetchSupplierBillsOnce(userId: String): Result<List<SupplierBill>>
   suspend fun fetchSuppliersOnce(userId: String): Result<List<Supplier>>
+  suspend fun upsertRoute(route: DeliveryRoute, isUpdate: Boolean): Result<String>
+  suspend fun fetchRoutesOnce(userId: String): Result<List<DeliveryRoute>>
   suspend fun seedStarterDataIfNeeded(): Result<Unit>
 }
 
@@ -238,6 +242,12 @@ private class FirestoreCloudAdapter(
   override suspend fun fetchSuppliersOnce(userId: String): Result<List<Supplier>> =
     repo.getSuppliersOnce(userId)
 
+  override suspend fun upsertRoute(route: DeliveryRoute, isUpdate: Boolean): Result<String> =
+    repo.saveRouteWithId(route, isUpdate = isUpdate, awaitServerAck = true)
+
+  override suspend fun fetchRoutesOnce(userId: String): Result<List<DeliveryRoute>> =
+    repo.getRoutesOnce(userId)
+
   override suspend fun seedStarterDataIfNeeded(): Result<Unit> =
     repo.seedStarterDataIfNeeded()
 }
@@ -259,6 +269,26 @@ class SyncCoordinatorRepository(
 
   fun observeServerSettings(): Flow<ServerSettings> = configStore.settingsFlow
 
+  fun observePackedOrderOverrides(): Flow<Map<String, Boolean>> = configStore.packedOrderOverridesFlow
+
+  fun observeStockPendingReasons(): Flow<Map<String, String>> = configStore.stockPendingReasonsFlow
+
+  suspend fun setOrderPacked(orderId: String, isPacked: Boolean) {
+    configStore.setOrderPacked(orderId, isPacked)
+  }
+
+  suspend fun setOrdersPacked(orderIds: List<String>, isPacked: Boolean) {
+    configStore.setOrdersPacked(orderIds, isPacked)
+  }
+
+  suspend fun markOrderStockPending(orderId: String, reason: String) {
+    configStore.markOrderStockPending(orderId, reason)
+  }
+
+  suspend fun clearOrderStockPending(orderId: String) {
+    configStore.clearOrderStockPending(orderId)
+  }
+
   fun observePendingShops(): Flow<List<PendingShopEntity>> = dao.observePendingShops()
 
   fun observePendingOrders(): Flow<List<PendingOrderEntity>> = dao.observePendingOrders()
@@ -274,9 +304,11 @@ class SyncCoordinatorRepository(
 
   fun observePendingSuppliers(): Flow<List<PendingSupplierEntity>> = dao.observePendingSuppliers()
 
+  fun observePendingRoutes(): Flow<List<PendingRouteEntity>> = dao.observePendingRoutes()
+
   suspend fun isShopPending(shopId: String): Boolean {
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
     val pending = dao.getPendingShopsOnce().firstOrNull { it.localId == shopId || it.remoteShopId == shopId }
       ?: return false
@@ -291,29 +323,50 @@ class SyncCoordinatorRepository(
 
   suspend fun isProductPending(productId: String): Boolean {
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val pending = dao.getPendingProductsOnce().firstOrNull {
       it.localId == productId || it.remoteProductId == productId
     } ?: return false
     return !pending.isFullySynced(requireGlobal)
   }
 
+  suspend fun getPendingProductError(productId: String): String {
+    val pending = dao.getPendingProductsOnce().firstOrNull {
+      it.localId == productId || it.remoteProductId == productId
+    } ?: return ""
+    return pending.lastError.trim()
+  }
+
   suspend fun isPaymentPending(paymentId: String): Boolean {
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val pending = dao.getPendingPaymentsOnce().firstOrNull {
       it.localId == paymentId || it.remotePaymentId == paymentId
     } ?: return false
     return !pending.isFullySynced(requireGlobal)
   }
 
+  suspend fun getPendingPaymentError(paymentId: String): String {
+    val pending = dao.getPendingPaymentsOnce().firstOrNull {
+      it.localId == paymentId || it.remotePaymentId == paymentId
+    } ?: return ""
+    return pending.lastError.trim()
+  }
+
   suspend fun isSupplierPending(supplierId: String): Boolean {
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val pending = dao.getPendingSuppliersOnce().firstOrNull {
       it.localId == supplierId || it.remoteSupplierId == supplierId
     } ?: return false
     return !pending.isFullySynced(requireGlobal)
+  }
+
+  suspend fun getPendingSupplierError(supplierId: String): String {
+    val pending = dao.getPendingSuppliersOnce().firstOrNull {
+      it.localId == supplierId || it.remoteSupplierId == supplierId
+    } ?: return ""
+    return pending.lastError.trim()
   }
 
   override fun observeShops(userId: String): Flow<List<Shop>> {
@@ -361,7 +414,7 @@ class SyncCoordinatorRepository(
       dao.observePendingShops(),
       configStore.settingsFlow,
     ) { remoteShops, cachedEntities, pendingEntities, settings ->
-      val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+      val requireGlobal = settings.globalSyncEnabled
       val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
       val byId = LinkedHashMap<String, Shop>()
@@ -434,7 +487,7 @@ class SyncCoordinatorRepository(
       dao.observePendingOrders(),
       configStore.settingsFlow,
     ) { remoteOrders, cachedOrders, pendingOrders, settings ->
-      val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+      val requireGlobal = settings.globalSyncEnabled
       val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
       val pendingDeleteKeys = pendingOrders
@@ -551,7 +604,7 @@ class SyncCoordinatorRepository(
       dao.observePendingProducts(),
       configStore.settingsFlow,
     ) { remoteProducts, cachedEntities, pendingEntities, settings ->
-      val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+      val requireGlobal = settings.globalSyncEnabled
       val byId = LinkedHashMap<String, Product>()
 
       cachedEntities
@@ -609,7 +662,7 @@ class SyncCoordinatorRepository(
       dao.observePendingPayments(),
       configStore.settingsFlow,
     ) { remotePayments, cachedEntities, pendingEntities, settings ->
-      val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+      val requireGlobal = settings.globalSyncEnabled
       val byId = LinkedHashMap<String, PaymentTransaction>()
 
       cachedEntities
@@ -670,7 +723,7 @@ class SyncCoordinatorRepository(
       dao.observePendingSupplierBills(),
       configStore.settingsFlow,
     ) { remoteBills, cachedEntities, pendingEntities, settings ->
-      val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+      val requireGlobal = settings.globalSyncEnabled
       val byId = LinkedHashMap<String, SupplierBill>()
 
       cachedEntities
@@ -728,7 +781,7 @@ class SyncCoordinatorRepository(
       dao.observePendingSuppliers(),
       configStore.settingsFlow,
     ) { remoteSuppliers, cachedEntities, pendingEntities, settings ->
-      val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+      val requireGlobal = settings.globalSyncEnabled
       val byId = LinkedHashMap<String, Supplier>()
 
       cachedEntities
@@ -785,10 +838,88 @@ class SyncCoordinatorRepository(
     }
   }
 
-  override fun observeRoutes(): Flow<List<DeliveryRoute>> =
-    dao.observeRoutes().map { entities ->
-      if (entities.isEmpty()) RoutesCatalog.starterRoutes else entities.map { it.toDomainRoute() }
+  override fun observeRoutes(): Flow<List<DeliveryRoute>> {
+    val primaryFlow = primary.observeRoutes()
+      .onEach { remoteRoutes ->
+        if (remoteRoutes.isNotEmpty() && !isLocalTestMode) {
+          val settings = configStore.getCurrentSettings()
+          val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+          val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
+          val pendingList = dao.getPendingRoutesOnce()
+          val unsyncedIds = pendingList
+            .filter { !it.isFullySynced(requireGlobal, requireLaptop) }
+            .map { it.routeId }
+            .toSet()
+
+          val toCache = remoteRoutes
+            .filter { it.id !in unsyncedIds }
+            .map { DeliveryRouteEntity.fromDomainRoute(it) }
+          if (toCache.isNotEmpty()) {
+            dao.upsertRoutes(toCache)
+          }
+
+          val confirmedIds = remoteRoutes.map { it.id }.toSet()
+          pendingList
+            .filter { !it.globalSynced && it.routeId in confirmedIds }
+            .forEach { pending ->
+              val reconciled = pending.copy(
+                globalSynced = true,
+                lastError = if (requireLaptop && !pending.localServerSynced) pending.lastError else "",
+              )
+              if (reconciled.isFullySynced(requireGlobal, requireLaptop) && settings.autoDeleteSyncedFromPhone) {
+                dao.deletePendingRoute(reconciled.routeId)
+              } else {
+                dao.upsertPendingRoute(reconciled)
+              }
+            }
+        }
+      }
+      .catch { error ->
+        if (isPureCancellation(error)) throw error
+        emit(emptyList())
+      }
+      .onStart { emit(emptyList()) }
+
+    return combine(
+      primaryFlow,
+      dao.observeRoutes(),
+      dao.observePendingRoutes(),
+      configStore.settingsFlow,
+    ) { remoteRoutes, roomRoutes, pendingRoutes, settings ->
+      val requireGlobal = settings.globalSyncEnabled
+      val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
+
+      val byId = LinkedHashMap<String, DeliveryRoute>()
+      roomRoutes.forEach { entity ->
+        byId[entity.id] = entity.toDomainRoute()
+      }
+
+      if (!isLocalTestMode) {
+        remoteRoutes.forEach { route ->
+          byId[route.id] = route
+        }
+      } else if (byId.isEmpty()) {
+        remoteRoutes.forEach { route ->
+          byId[route.id] = route
+        }
+      }
+
+      pendingRoutes
+        .filter { belongsToActiveUser(it.userId, currentUserId) }
+        .forEach { pending ->
+          val stillPending = !pending.isFullySynced(requireGlobal, requireLaptop)
+          if (stillPending || !byId.containsKey(pending.routeId)) {
+            byId[pending.routeId] = pending.toDomainRoute()
+          }
+        }
+
+      if (byId.isEmpty()) {
+        RoutesCatalog.starterRoutes
+      } else {
+        byId.values.sortedWith(compareBy<DeliveryRoute> { it.colorIndex }.thenBy { it.id })
+      }
     }
+  }
 
   override suspend fun seedStarterDataIfNeeded(): Result<Unit> {
     seedRoutesIfNeeded()
@@ -802,25 +933,96 @@ class SyncCoordinatorRepository(
     if (dao.getRoutesOnce().isEmpty()) {
       dao.upsertRoutes(RoutesCatalog.starterRoutes.map { DeliveryRouteEntity.fromDomainRoute(it) })
     }
+    if (!isLocalTestMode && isOnlineProvider()) {
+      runCatching { primary.seedRoutesIfNeeded() }
+    }
     return Result.success(Unit)
   }
 
   override suspend fun saveRoute(route: DeliveryRoute): Result<Unit> {
+    val now = System.currentTimeMillis()
     if (dao.getRoutesOnce().isEmpty()) {
       dao.upsertRoutes(RoutesCatalog.starterRoutes.map { DeliveryRouteEntity.fromDomainRoute(it) })
     }
-    dao.upsertRoute(DeliveryRouteEntity.fromDomainRoute(route))
+    val cleanRoute = normalizeRouteForFirestore(route)
+    val existingPending = dao.getPendingRoutesOnce().firstOrNull { it.routeId == cleanRoute.id }
+    val isUpdate = existingPending?.isUpdate
+      ?: dao.getRoutesOnce().any { it.id == cleanRoute.id }
+
+    dao.upsertRoute(DeliveryRouteEntity.fromDomainRoute(cleanRoute).copy(updatedAtMillis = now))
+    val initialPending = PendingRouteEntity.fromDomainRoute(
+      route = cleanRoute,
+      userId = currentUserId,
+      isUpdate = isUpdate,
+    ).copy(
+      createdAtMillis = existingPending?.createdAtMillis ?: now,
+      updatedAtMillis = now,
+    )
+    dao.upsertPendingRoute(initialPending)
+
     if (isLocalTestMode) {
-      primary.saveRoute(route)
+      primary.saveRoute(cleanRoute)
     }
+
     val settings = configStore.getCurrentSettings()
-    if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
-      laptopClient.pushRoute(settings.laptopServerUrl, settings.laptopApiToken, route)
+    val afterSync = pushPendingRouteToServers(initialPending, settings)
+    val requireGlobal = settings.globalSyncEnabled
+    val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
+    val fullySynced = afterSync.isFullySynced(requireGlobal, requireLaptop)
+
+    if (fullySynced && settings.autoDeleteSyncedFromPhone) {
+      dao.deletePendingRoute(afterSync.routeId)
+    } else {
+      dao.upsertPendingRoute(afterSync)
     }
     return Result.success(Unit)
   }
 
+  private suspend fun pushPendingRouteToServers(
+    entity: PendingRouteEntity,
+    settings: ServerSettings,
+  ): PendingRouteEntity {
+    var globalOk = entity.globalSynced
+    var localOk = entity.localServerSynced
+    val errors = mutableListOf<String>()
+    val domainRoute = normalizeRouteForFirestore(entity.toDomainRoute())
+
+    val cloud = cloudAdapter
+    if (settings.globalSyncEnabled && isLocalTestMode && !globalOk) {
+      errors += "Cloud: Sign in with Google to sync"
+    } else if (settings.globalSyncEnabled && !isLocalTestMode && cloud != null && !globalOk) {
+      if (isOnlineProvider()) {
+        val res = cloud.upsertRoute(domainRoute, isUpdate = entity.isUpdate)
+        if (res.isSuccess) {
+          globalOk = true
+        } else {
+          errors += "Cloud: ${res.exceptionOrNull()?.localizedMessage ?: "failed"}"
+        }
+      } else {
+        errors += "Cloud: No internet"
+      }
+    }
+
+    if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank() && !localOk) {
+      val res = laptopClient.pushRoute(settings.laptopServerUrl, settings.laptopApiToken, domainRoute)
+      if (res.isSuccess) {
+        localOk = true
+      } else {
+        errors += "Laptop: ${res.exceptionOrNull()?.localizedMessage ?: "unreachable"}"
+      }
+    }
+
+    return entity.copy(
+      userId = currentUserId,
+      globalSynced = globalOk,
+      localServerSynced = localOk,
+      lastError = errors.joinToString(" | "),
+      updatedAtMillis = System.currentTimeMillis(),
+    )
+  }
+
   override suspend fun saveShop(shop: Shop): Result<String> {
+    val now = System.currentTimeMillis()
     val isUpdate = shop.id.isNotBlank()
     val targetId = if (isUpdate) {
       shop.id
@@ -835,6 +1037,7 @@ class SyncCoordinatorRepository(
         enquiryDate = shop.enquiryDate.ifBlank { today },
         callDate = shop.callDate.ifBlank { today },
         lastCallDate = shop.lastCallDate.ifBlank { today },
+        updatedAt = Timestamp(Date(now)),
       )
     )
 
@@ -844,8 +1047,11 @@ class SyncCoordinatorRepository(
       localId = targetId,
       userId = currentUserId,
       isUpdate = isUpdate,
-    )
+    ).copy(updatedAtMillis = now)
     dao.upsertPendingShop(initialPending)
+    dao.upsertCachedShops(
+      listOf(CachedShopEntity.fromDomainShop(normalizedShop, source = "local").copy(updatedAtMillis = now))
+    )
 
     if (isLocalTestMode) {
       primary.saveShop(normalizedShop)
@@ -855,13 +1061,16 @@ class SyncCoordinatorRepository(
     val settings = configStore.getCurrentSettings()
     val afterSync = pushPendingShopToServers(initialPending, settings)
 
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
     val fullySynced = afterSync.isFullySynced(requireGlobal, requireLaptop)
 
     if (fullySynced) {
       dao.upsertCachedShops(
-        listOf(CachedShopEntity.fromDomainShop(afterSync.toDomainShop(pendingSync = false), source = "synced"))
+        listOf(
+          CachedShopEntity.fromDomainShop(afterSync.toDomainShop(pendingSync = false), source = "synced")
+            .copy(updatedAtMillis = now)
+        )
       )
       if (settings.autoDeleteSyncedFromPhone) {
         dao.deletePendingShop(afterSync.localId)
@@ -947,7 +1156,8 @@ class SyncCoordinatorRepository(
   ): Result<Unit> {
     val now = System.currentTimeMillis()
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val pushGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
     // 1. Update in-memory test repository if active
@@ -989,7 +1199,10 @@ class SyncCoordinatorRepository(
     var globalOk = pending?.globalSynced ?: false
     val errors = mutableListOf<String>()
     val cloud = cloudAdapter
-    if (requireGlobal && cloud != null) {
+    if (requireGlobal && isLocalTestMode) {
+      globalOk = false
+      errors += "Cloud: Sign in with Google to sync"
+    } else if (pushGlobal && cloud != null) {
       globalOk = false
       if (isOnlineProvider()) {
         val directRes = pushGlobalDirect(cloud)
@@ -1121,7 +1334,7 @@ class SyncCoordinatorRepository(
     val settings = configStore.getCurrentSettings()
     val afterSync = pushPendingOrderToServers(entity, settings)
 
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
     val fullySynced = afterSync.isFullySynced(requireGlobal, requireLaptop)
 
@@ -1145,6 +1358,10 @@ class SyncCoordinatorRepository(
       dao.upsertPendingOrder(afterSync)
     }
 
+    // Automatically deduct ordered quantities from inventory & product catalog
+    val deductDeltas = OrderStockDeltaHelper.fromCartItems(validItems).mapValues { -it.value }
+    applyOrderStockDelta(deductDeltas)
+
     return Result.success(orderId)
   }
 
@@ -1155,7 +1372,8 @@ class SyncCoordinatorRepository(
   ): Result<Unit> {
     val now = System.currentTimeMillis()
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val pushGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
     val pending = dao.getPendingOrdersOnce().firstOrNull { it.localId == orderId || it.orderCode == orderId }
@@ -1181,6 +1399,14 @@ class SyncCoordinatorRepository(
       return Result.success(Unit)
     }
 
+    val shouldRestoreStock = baseOrder != null &&
+      newStatus == OrderStatus.REJECTED &&
+      baseOrder.status != OrderStatus.REJECTED &&
+      baseOrder.status != OrderStatus.DELIVERED
+    val shouldDeductAgain = baseOrder != null &&
+      baseOrder.status == OrderStatus.REJECTED &&
+      (newStatus == OrderStatus.CONFIRMED || newStatus == OrderStatus.PENDING)
+
     if (isLocalTestMode) {
       primary.updateOrderStatus(resolvedOrderId, newStatus, note)
     }
@@ -1203,7 +1429,9 @@ class SyncCoordinatorRepository(
     var globalOk = false
     val errors = mutableListOf<String>()
     val cloud = cloudAdapter
-    if (requireGlobal && cloud != null) {
+    if (requireGlobal && isLocalTestMode) {
+      errors += "Cloud: Sign in with Google to sync"
+    } else if (pushGlobal && cloud != null) {
       if (isOnlineProvider()) {
         val res = cloud.updateOrderStatus(resolvedOrderId, newStatus, note)
         if (res.isSuccess) {
@@ -1262,7 +1490,7 @@ class SyncCoordinatorRepository(
         note = normalizedNote ?: pending.note,
         globalSynced = if (requireGlobal) globalOk else pending.globalSynced,
         localServerSynced = if (requireLaptop) localOk else pending.localServerSynced,
-        lastError = if (globalOk && (!requireLaptop || localOk)) "" else errorMsg,
+        lastError = if ((!requireGlobal || globalOk) && (!requireLaptop || localOk)) "" else errorMsg,
       )
       if (updatedPending.isFullySynced(requireGlobal, requireLaptop) && settings.autoDeleteSyncedFromPhone) {
         dao.deletePendingOrder(updatedPending.localId)
@@ -1294,6 +1522,14 @@ class SyncCoordinatorRepository(
       )
     }
 
+    if (shouldRestoreStock && baseOrder != null) {
+      applyOrderStockDelta(OrderStockDeltaHelper.parseQuantitiesByCode(baseOrder.itemsSummary))
+    } else if (shouldDeductAgain && baseOrder != null) {
+      applyOrderStockDelta(
+        OrderStockDeltaHelper.parseQuantitiesByCode(baseOrder.itemsSummary).mapValues { -it.value }
+      )
+    }
+
     return Result.success(Unit)
   }
 
@@ -1309,7 +1545,7 @@ class SyncCoordinatorRepository(
 
     val now = System.currentTimeMillis()
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
     val pending = dao.getPendingOrdersOnce().firstOrNull { it.localId == orderId || it.orderCode == orderId }
@@ -1326,6 +1562,8 @@ class SyncCoordinatorRepository(
     if (baseOrder.status == OrderStatus.DELIVERED || baseOrder.status == OrderStatus.REJECTED) {
       return Result.failure(IllegalStateException("Delivered or rejected orders cannot be edited."))
     }
+
+    val deltas = OrderStockDeltaHelper.computeDeltaBetweenOrders(baseOrder.itemsSummary, validItems)
 
     val resolvedOrderId = baseOrder.id.ifBlank { orderId }
     val totalAmount = validItems.sumOf { (prod, qty) -> prod.defaultPrice * qty }
@@ -1388,16 +1626,23 @@ class SyncCoordinatorRepository(
       dao.upsertPendingOrder(afterSync)
     }
 
+    if (deltas.isNotEmpty()) {
+      applyOrderStockDelta(deltas)
+    }
+
     return Result.success(Unit)
   }
 
   override suspend fun deleteOrder(orderId: String): Result<Unit> {
     val now = System.currentTimeMillis()
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
     val pending = dao.getPendingOrdersOnce().firstOrNull { it.localId == orderId || it.orderCode == orderId }
+    if (pending?.pendingDelete == true) {
+      return Result.success(Unit)
+    }
     val cached = dao.observeCachedOrders().first().firstOrNull { it.id == orderId || it.orderCode == orderId }
     val baseOrder = pending?.toDomainOrder(pendingSync = true)
       ?: cached?.toDomainOrder()
@@ -1406,6 +1651,10 @@ class SyncCoordinatorRepository(
           primary.observeOrders(currentUserId).first().firstOrNull { it.id == orderId || it.orderCode == orderId }
         }
       }.getOrNull()
+
+    val shouldRestoreStock = baseOrder != null &&
+      baseOrder.status != OrderStatus.REJECTED &&
+      baseOrder.status != OrderStatus.DELIVERED
 
     val targetId = baseOrder?.id?.takeIf { it.isNotBlank() } ?: orderId
     val targetCode = baseOrder?.orderCode.orEmpty().ifBlank { targetId }
@@ -1422,6 +1671,9 @@ class SyncCoordinatorRepository(
     // If this order was created locally offline and never pushed anywhere yet, simply drop it locally
     if (pending != null && !pending.isUpdate && !pending.globalSynced && !pending.localServerSynced) {
       dao.deletePendingOrder(pending.localId)
+      if (shouldRestoreStock && baseOrder != null) {
+        applyOrderStockDelta(OrderStockDeltaHelper.parseQuantitiesByCode(baseOrder.itemsSummary))
+      }
       return Result.success(Unit)
     }
 
@@ -1455,7 +1707,76 @@ class SyncCoordinatorRepository(
       }
     }
 
+    if (shouldRestoreStock && baseOrder != null) {
+      applyOrderStockDelta(OrderStockDeltaHelper.parseQuantitiesByCode(baseOrder.itemsSummary))
+    }
+
     return Result.success(Unit)
+  }
+
+  private suspend fun applyOrderStockDelta(qtyDeltaByCode: Map<String, Int>) {
+    if (qtyDeltaByCode.isEmpty()) return
+
+    val stockById = LinkedHashMap<String, StockItem>()
+    dao.getCachedStocksOnce(currentUserId).forEach { entity ->
+      val s = entity.toDomainStock()
+      stockById[s.id.ifBlank { s.productCode }] = s
+    }
+    runCatching {
+      withTimeoutOrNull(800L) { primary.observeStocks(currentUserId).first() }
+    }.getOrNull().orEmpty().forEach { s ->
+      val key = s.id.ifBlank { s.productCode }
+      val existing = stockById[key]
+      if (existing == null || s.updatedAtMillis() >= existing.updatedAtMillis()) {
+        stockById[key] = s
+      }
+    }
+    dao.getPendingStockUpdatesOnce()
+      .filter { belongsToActiveUser(it.userId, currentUserId) }
+      .forEach { pending ->
+        val existing = stockById[pending.stockId]
+        if (existing != null && (!pending.globalSynced || pending.updatedAtMillis >= existing.updatedAtMillis())) {
+          stockById[pending.stockId] = existing.copy(
+            quantity = pending.newQuantity,
+            updatedAt = Timestamp(Date(pending.updatedAtMillis)),
+          )
+        }
+      }
+    OrderStockDeltaHelper.computeStockItemTargets(stockById.values.toList(), qtyDeltaByCode)
+      .forEach { (stockId, newQty) ->
+        updateStockQuantity(stockId, newQty)
+      }
+
+    val prodById = LinkedHashMap<String, Product>()
+    dao.getCachedProductsOnce()
+      .filter { belongsToActiveUser(it.userId, currentUserId) }
+      .forEach { entity ->
+        val p = entity.toDomainProduct()
+        prodById[p.id.ifBlank { p.productCode }] = p
+      }
+    runCatching {
+      withTimeoutOrNull(800L) { primary.observeProducts(currentUserId).first() }
+    }.getOrNull().orEmpty().forEach { p ->
+      val key = p.id.ifBlank { p.productCode }
+      val existing = prodById[key]
+      if (existing == null || p.updatedAtMillis() >= existing.updatedAtMillis()) {
+        prodById[key] = p
+      }
+    }
+    dao.getPendingProductsOnce()
+      .filter { belongsToActiveUser(it.userId, currentUserId) }
+      .forEach { pending ->
+        val p = pending.toDomainProduct(pendingSync = true)
+        val key = p.id.ifBlank { p.productCode }
+        val existing = prodById[key]
+        if (existing == null || !pending.globalSynced || pending.updatedAtMillis >= existing.updatedAtMillis()) {
+          prodById[key] = p
+        }
+      }
+    OrderStockDeltaHelper.computeProductStockTargets(prodById.values.toList(), qtyDeltaByCode)
+      .forEach { (productId, newQty) ->
+        updateProductStock(productId, newQty)
+      }
   }
 
   override suspend fun updateStockQuantity(stockId: String, newQuantity: Int): Result<Unit> {
@@ -1486,11 +1807,25 @@ class SyncCoordinatorRepository(
       }
     }
 
+    val settings = configStore.getCurrentSettings()
     if (isLocalTestMode) {
-      return primary.updateStockQuantity(stockId, safeQty)
+      primary.updateStockQuantity(stockId, safeQty)
+      if (settings.globalSyncEnabled) {
+        dao.upsertPendingStockUpdate(
+          PendingStockUpdateEntity(
+            stockId = stockId,
+            userId = currentUserId,
+            productName = productName.ifBlank { stockId },
+            newQuantity = safeQty,
+            globalSynced = false,
+            lastError = "Sign in with Google for Cloud sync",
+            updatedAtMillis = now,
+          )
+        )
+      }
+      return Result.success(Unit)
     }
 
-    val settings = configStore.getCurrentSettings()
     val cloud = cloudAdapter
     val shouldPushCloud = settings.globalSyncEnabled && cloud != null
     if (shouldPushCloud && isOnlineProvider()) {
@@ -1561,7 +1896,7 @@ class SyncCoordinatorRepository(
 
     val settings = configStore.getCurrentSettings()
     val afterSync = pushPendingProductToServer(initialPending, settings)
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     if (afterSync.isFullySynced(requireGlobal)) {
       dao.upsertCachedProducts(
         listOf(CachedProductEntity.fromDomainProduct(afterSync.toDomainProduct(pendingSync = false), fallbackUserId = currentUserId))
@@ -1608,7 +1943,8 @@ class SyncCoordinatorRepository(
   ): Result<Unit> {
     val now = System.currentTimeMillis()
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val pushGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
 
     if (isLocalTestMode) {
       pushPrimaryInTestMode()
@@ -1628,7 +1964,7 @@ class SyncCoordinatorRepository(
 
     if (baseProduct == null) {
       val cloud = cloudAdapter
-      return if (requireGlobal && cloud != null && isOnlineProvider()) {
+      return if (pushGlobal && cloud != null && isOnlineProvider()) {
         pushGlobalDirect(cloud)
       } else if (isLocalTestMode) {
         pushPrimaryInTestMode()
@@ -1651,7 +1987,10 @@ class SyncCoordinatorRepository(
     var globalOk = pending?.globalSynced ?: false
     var errorMsg = ""
     val cloud = cloudAdapter
-    if (requireGlobal && cloud != null) {
+    if (requireGlobal && isLocalTestMode) {
+      globalOk = false
+      errorMsg = "Cloud: Sign in with Google to sync"
+    } else if (pushGlobal && cloud != null) {
       globalOk = false
       if (isOnlineProvider()) {
         val directRes = pushGlobalDirect(cloud)
@@ -1723,28 +2062,33 @@ class SyncCoordinatorRepository(
 
   suspend fun syncAllPending(): SyncRunResult = syncMutex.withLock {
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val pushGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
-    if (!requireGlobal && !requireLaptop) {
-      val msg = if (isLocalTestMode) {
-        "Enable Laptop Server or Sign in with Google for Cloud sync"
-      } else {
-        "Enable Global Cloud or Laptop Local Server to sync"
-      }
-      configStore.recordSyncOutcome(msg)
-      val remaining = dao.getPendingShopsOnce().count { !it.isFullySynced(requireGlobal, requireLaptop) } +
-        dao.getPendingOrdersOnce().count { !it.isFullySynced(requireGlobal, requireLaptop) } +
+    if (!pushGlobal && !requireLaptop) {
+      val remaining = dao.getPendingShopsOnce().count { !it.isFullySynced(requireGlobal, requireLocalServer = false) } +
+        dao.getPendingOrdersOnce().count { !it.isFullySynced(requireGlobal, requireLocalServer = false) } +
+        dao.getPendingRoutesOnce().count { !it.isFullySynced(requireGlobal, requireLocalServer = false) } +
         dao.getPendingStockUpdatesOnce().count { requireGlobal && !it.globalSynced } +
         dao.getPendingProductsOnce().count { !it.isFullySynced(requireGlobal) } +
         dao.getPendingPaymentsOnce().count { !it.isFullySynced(requireGlobal) } +
         dao.getPendingSupplierBillsOnce().count { !it.isFullySynced(requireGlobal) } +
         dao.getPendingSuppliersOnce().count { !it.isFullySynced(requireGlobal) }
+      val msg = when {
+        isLocalTestMode && remaining > 0 ->
+          "$remaining record(s) queued on phone • Sign in with Google for Cloud sync or enable Laptop Server"
+        isLocalTestMode ->
+          "Enable Laptop Server or Sign in with Google for Cloud sync"
+        else ->
+          "Enable Global Cloud or Laptop Local Server to sync"
+      }
+      configStore.recordSyncOutcome(msg)
       return@withLock SyncRunResult(0, remaining, 0, msg)
     }
 
     val cloud = cloudAdapter
-    if (requireGlobal && cloud != null && isOnlineProvider()) {
+    if (pushGlobal && cloud != null && isOnlineProvider()) {
       runCatching { cloud.seedStarterDataIfNeeded() }
     }
 
@@ -1754,7 +2098,7 @@ class SyncCoordinatorRepository(
     // 1. Sync pending shops
     val pendingShops = dao.getPendingShopsOnce()
     for (shopEntity in pendingShops) {
-      val needsSync = (requireGlobal && !shopEntity.globalSynced) ||
+      val needsSync = (pushGlobal && !shopEntity.globalSynced) ||
         (requireLaptop && !shopEntity.localServerSynced)
       if (!needsSync && shopEntity.isFullySynced(requireGlobal, requireLaptop)) {
         if (settings.autoDeleteSyncedFromPhone) {
@@ -1765,6 +2109,8 @@ class SyncCoordinatorRepository(
       }
       val updated = pushPendingShopToServers(shopEntity, settings)
       val done = updated.isFullySynced(requireGlobal, requireLaptop)
+      val newlySynced = (!shopEntity.globalSynced && updated.globalSynced) ||
+        (!shopEntity.localServerSynced && updated.localServerSynced)
       if (done) {
         syncedItems++
         dao.upsertCachedShops(
@@ -1777,14 +2123,46 @@ class SyncCoordinatorRepository(
           dao.upsertPendingShop(updated)
         }
       } else {
+        if (newlySynced) syncedItems++
         dao.upsertPendingShop(updated)
+      }
+    }
+
+    // 1b. Sync pending route edits & additions
+    val pendingRoutes = dao.getPendingRoutesOnce()
+    for (routeEntity in pendingRoutes) {
+      val needsSync = (pushGlobal && !routeEntity.globalSynced) ||
+        (requireLaptop && !routeEntity.localServerSynced)
+      if (!needsSync && routeEntity.isFullySynced(requireGlobal, requireLaptop)) {
+        if (settings.autoDeleteSyncedFromPhone) {
+          dao.deletePendingRoute(routeEntity.routeId)
+          autoDeleted++
+        }
+        continue
+      }
+      val updated = pushPendingRouteToServers(routeEntity, settings)
+      val done = updated.isFullySynced(requireGlobal, requireLaptop)
+      val newlySynced = (!routeEntity.globalSynced && updated.globalSynced) ||
+        (!routeEntity.localServerSynced && updated.localServerSynced)
+      if (done) {
+        syncedItems++
+        dao.upsertRoute(DeliveryRouteEntity.fromDomainRoute(updated.toDomainRoute()))
+        if (settings.autoDeleteSyncedFromPhone) {
+          dao.deletePendingRoute(updated.routeId)
+          autoDeleted++
+        } else {
+          dao.upsertPendingRoute(updated)
+        }
+      } else {
+        if (newlySynced) syncedItems++
+        dao.upsertPendingRoute(updated)
       }
     }
 
     // 2. Sync pending orders
     val pendingOrders = dao.getPendingOrdersOnce()
     for (orderEntity in pendingOrders) {
-      val needsSync = (requireGlobal && !orderEntity.globalSynced) ||
+      val needsSync = (pushGlobal && !orderEntity.globalSynced) ||
         (requireLaptop && !orderEntity.localServerSynced)
       if (!needsSync && orderEntity.isFullySynced(requireGlobal, requireLaptop)) {
         if (orderEntity.pendingDelete) {
@@ -1799,6 +2177,8 @@ class SyncCoordinatorRepository(
       }
       val updated = pushPendingOrderToServers(orderEntity, settings)
       val done = updated.isFullySynced(requireGlobal, requireLaptop)
+      val newlySynced = (!orderEntity.globalSynced && updated.globalSynced) ||
+        (!orderEntity.localServerSynced && updated.localServerSynced)
       if (done) {
         syncedItems++
         if (updated.pendingDelete) {
@@ -1816,13 +2196,14 @@ class SyncCoordinatorRepository(
           }
         }
       } else {
+        if (newlySynced) syncedItems++
         dao.upsertPendingOrder(updated)
       }
     }
 
     // 3. Sync pending stock updates to Cloud Firestore
     val pendingStocks = dao.getPendingStockUpdatesOnce()
-    if (requireGlobal && cloud != null && pendingStocks.isNotEmpty()) {
+    if (pushGlobal && cloud != null && pendingStocks.isNotEmpty()) {
       if (isOnlineProvider()) {
         for (stockEntity in pendingStocks) {
           val res = cloud.updateStockQuantity(stockEntity.stockId, stockEntity.newQuantity)
@@ -1843,12 +2224,18 @@ class SyncCoordinatorRepository(
           dao.upsertPendingStockUpdate(stockEntity.copy(lastError = "Cloud: No internet"))
         }
       }
+    } else if (requireGlobal && isLocalTestMode && pendingStocks.isNotEmpty()) {
+      for (stockEntity in pendingStocks) {
+        if (stockEntity.lastError.isBlank()) {
+          dao.upsertPendingStockUpdate(stockEntity.copy(lastError = "Cloud: Sign in with Google to sync"))
+        }
+      }
     }
 
     // 3b. Sync pending catalog products to Cloud Firestore & Laptop Server
     val pendingProducts = dao.getPendingProductsOnce()
     for (prodEntity in pendingProducts) {
-      val needsSync = (requireGlobal && !prodEntity.globalSynced) || requireLaptop
+      val needsSync = (pushGlobal && !prodEntity.globalSynced) || requireLaptop
       if (!needsSync && prodEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingProduct(prodEntity.localId)
@@ -1871,6 +2258,7 @@ class SyncCoordinatorRepository(
           dao.upsertPendingProduct(updated)
         }
       } else {
+        if (requireLaptop && laptopOk) syncedItems++
         dao.upsertPendingProduct(updated)
       }
     }
@@ -1878,7 +2266,7 @@ class SyncCoordinatorRepository(
     // 3c. Sync pending supplier bills to Cloud Firestore & Laptop Server
     val pendingSupplierBills = dao.getPendingSupplierBillsOnce()
     for (billEntity in pendingSupplierBills) {
-      val needsSync = (requireGlobal && !billEntity.globalSynced) || requireLaptop
+      val needsSync = (pushGlobal && !billEntity.globalSynced) || requireLaptop
       if (!needsSync && billEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingSupplierBill(billEntity.localId)
@@ -1901,6 +2289,7 @@ class SyncCoordinatorRepository(
           dao.upsertPendingSupplierBill(updated)
         }
       } else {
+        if (requireLaptop && laptopOk) syncedItems++
         dao.upsertPendingSupplierBill(updated)
       }
     }
@@ -1908,7 +2297,7 @@ class SyncCoordinatorRepository(
     // 3d. Sync pending payment records to Cloud Firestore & Laptop Server
     val pendingPayments = dao.getPendingPaymentsOnce()
     for (payEntity in pendingPayments) {
-      val needsSync = (requireGlobal && !payEntity.globalSynced) || requireLaptop
+      val needsSync = (pushGlobal && !payEntity.globalSynced) || requireLaptop
       if (!needsSync && payEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingPayment(payEntity.localId)
@@ -1931,6 +2320,7 @@ class SyncCoordinatorRepository(
           dao.upsertPendingPayment(updated)
         }
       } else {
+        if (requireLaptop && laptopOk) syncedItems++
         dao.upsertPendingPayment(updated)
       }
     }
@@ -1938,7 +2328,7 @@ class SyncCoordinatorRepository(
     // 3e. Sync pending suppliers directory to Cloud Firestore & Laptop Server
     val pendingSuppliers = dao.getPendingSuppliersOnce()
     for (supEntity in pendingSuppliers) {
-      val needsSync = (requireGlobal && !supEntity.globalSynced) || requireLaptop
+      val needsSync = (pushGlobal && !supEntity.globalSynced) || requireLaptop
       if (!needsSync && supEntity.isFullySynced(requireGlobal)) {
         if (settings.autoDeleteSyncedFromPhone) {
           dao.deletePendingSupplier(supEntity.localId)
@@ -1961,6 +2351,7 @@ class SyncCoordinatorRepository(
           dao.upsertPendingSupplier(updated)
         }
       } else {
+        if (requireLaptop && laptopOk) syncedItems++
         dao.upsertPendingSupplier(updated)
       }
     }
@@ -2125,7 +2516,7 @@ class SyncCoordinatorRepository(
 
     var globalMirrorCount = 0
     var globalMirrorError: String? = null
-    if (requireGlobal && cloud != null) {
+    if (pushGlobal && cloud != null) {
       if (isOnlineProvider()) {
         val existingGlobalShops = cloud.fetchShopsOnce(currentUserId).getOrNull().orEmpty()
           .associateBy { it.id }
@@ -2239,12 +2630,27 @@ class SyncCoordinatorRepository(
             }
           }
         }
+
+        val existingGlobalRouteIds = cloud.fetchRoutesOnce(currentUserId).getOrNull().orEmpty()
+          .map { it.id }.toSet()
+        val roomRoutes = dao.getRoutesOnce()
+        for (entity in roomRoutes) {
+          val route = normalizeRouteForFirestore(entity.toDomainRoute())
+          if (!existingGlobalRouteIds.contains(route.id)) {
+            val res = cloud.upsertRoute(route, isUpdate = false)
+            if (res.isSuccess) globalMirrorCount++ else if (globalMirrorError == null) {
+              globalMirrorError = res.exceptionOrNull()?.localizedMessage
+            }
+          }
+        }
       } else {
         globalMirrorError = "No internet"
       }
     }
 
     val remainingPending = dao.getPendingShopsOnce().count {
+      !it.isFullySynced(requireGlobal, requireLaptop)
+    } + dao.getPendingRoutesOnce().count {
       !it.isFullySynced(requireGlobal, requireLaptop)
     } + dao.getPendingOrdersOnce().count {
       !it.isFullySynced(requireGlobal, requireLaptop)
@@ -2266,6 +2672,8 @@ class SyncCoordinatorRepository(
         "Synced $syncedItems queued & deleted $autoDeleted from phone"
       syncedItems > 0 && remainingPending == 0 ->
         "Synced $syncedItems queued + $laptopMirrorCount laptop / $globalMirrorCount cloud updates"
+      syncedItems > 0 && isLocalTestMode && requireGlobal ->
+        "Synced $syncedItems to Laptop • $remainingPending waiting Google Sign-In for Cloud"
       syncedItems > 0 ->
         "Synced $syncedItems records • Remaining pending: $remainingPending"
       laptopMirrorError != null && remainingPending > 0 ->
@@ -2274,6 +2682,8 @@ class SyncCoordinatorRepository(
         "Laptop sync error: $laptopMirrorError"
       globalMirrorError != null && remainingPending > 0 ->
         "Pending: $remainingPending • Cloud error: $globalMirrorError"
+      isLocalTestMode && requireGlobal && remainingPending > 0 ->
+        "$remainingPending pending on phone • Sign in with Google for Cloud sync"
       remainingPending > 0 ->
         "Waiting for server • $remainingPending pending on phone"
       totalSynced > 0 ->
@@ -2331,9 +2741,16 @@ class SyncCoordinatorRepository(
     val laptopRoutes = laptopClient.fetchRoutes(settings.laptopServerUrl, settings.laptopApiToken)
       .getOrNull().orEmpty()
     if (laptopRoutes.isNotEmpty()) {
-      dao.upsertRoutes(laptopRoutes.map { DeliveryRouteEntity.fromDomainRoute(it) })
-      if (isLocalTestMode) {
-        laptopRoutes.forEach { primary.saveRoute(it) }
+      val unsyncedRouteIds = dao.getPendingRoutesOnce()
+        .filter { !it.isFullySynced(settings.globalSyncEnabled && !isLocalTestMode, requireLocalServer = true) }
+        .map { it.routeId }
+        .toSet()
+      val safeLaptopRoutes = laptopRoutes.filter { it.id !in unsyncedRouteIds }
+      if (safeLaptopRoutes.isNotEmpty()) {
+        dao.upsertRoutes(safeLaptopRoutes.map { DeliveryRouteEntity.fromDomainRoute(it) })
+        if (isLocalTestMode) {
+          safeLaptopRoutes.forEach { primary.saveRoute(it) }
+        }
       }
     }
 
@@ -2439,6 +2856,13 @@ class SyncCoordinatorRepository(
         val res = cloud.upsertSupplier(normalized, isUpdate = existingSupIds.contains(targetId))
         if (res.isSuccess) pushedToGlobal++
       }
+
+      val existingRouteIds = cloud.fetchRoutesOnce(currentUserId).getOrNull()?.map { it.id }?.toSet().orEmpty()
+      for (route in laptopRoutes) {
+        val normalized = normalizeRouteForFirestore(route)
+        val res = cloud.upsertRoute(normalized, isUpdate = existingRouteIds.contains(normalized.id))
+        if (res.isSuccess) pushedToGlobal++
+      }
     }
 
     val msg = buildString {
@@ -2457,7 +2881,7 @@ class SyncCoordinatorRepository(
 
   suspend fun deleteSyncedFromPhone(): Int {
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
     var removed = 0
@@ -2503,6 +2927,12 @@ class SyncCoordinatorRepository(
         removed++
       }
     }
+    for (route in dao.getPendingRoutesOnce()) {
+      if (route.isFullySynced(requireGlobal, requireLaptop)) {
+        dao.deletePendingRoute(route.routeId)
+        removed++
+      }
+    }
     return removed
   }
 
@@ -2528,6 +2958,10 @@ class SyncCoordinatorRepository(
 
   suspend fun deletePendingSupplierById(localId: String) {
     dao.deletePendingSupplier(localId)
+  }
+
+  suspend fun deletePendingRouteById(routeId: String) {
+    dao.deletePendingRoute(routeId)
   }
 
   override suspend fun recordPayment(payment: PaymentTransaction): Result<String> {
@@ -2588,7 +3022,7 @@ class SyncCoordinatorRepository(
 
     val settings = configStore.getCurrentSettings()
     val afterSync = pushPendingPaymentToServer(initialPending, settings)
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     if (afterSync.isFullySynced(requireGlobal)) {
       dao.upsertCachedPayments(
         listOf(CachedPaymentEntity.fromDomainPayment(afterSync.toDomainPayment(pendingSync = false), fallbackUserId = currentUserId))
@@ -2658,7 +3092,7 @@ class SyncCoordinatorRepository(
 
     val settings = configStore.getCurrentSettings()
     val afterSync = pushPendingSupplierBillToServer(initialPending, settings)
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     if (afterSync.isFullySynced(requireGlobal)) {
       dao.upsertCachedSupplierBills(
         listOf(CachedSupplierBillEntity.fromDomainBill(afterSync.toDomainBill(pendingSync = false), fallbackUserId = currentUserId))
@@ -2696,6 +3130,8 @@ class SyncCoordinatorRepository(
       } else {
         errors += "Cloud: No internet"
       }
+    } else if (settings.globalSyncEnabled && isLocalTestMode && !globalOk) {
+      errors += "Cloud: Sign in with Google to sync"
     }
     if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
       val laptopRes = laptopClient.pushPayment(settings.laptopServerUrl, settings.laptopApiToken, domainPayment)
@@ -2733,6 +3169,8 @@ class SyncCoordinatorRepository(
       } else {
         errors += "Cloud: No internet"
       }
+    } else if (settings.globalSyncEnabled && isLocalTestMode && !globalOk) {
+      errors += "Cloud: Sign in with Google to sync"
     }
     if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
       val laptopRes = laptopClient.pushSupplierBill(settings.laptopServerUrl, settings.laptopApiToken, domainBill)
@@ -2770,6 +3208,8 @@ class SyncCoordinatorRepository(
       } else {
         errors += "Cloud: No internet"
       }
+    } else if (settings.globalSyncEnabled && isLocalTestMode && !globalOk) {
+      errors += "Cloud: Sign in with Google to sync"
     }
     if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
       val laptopRes = laptopClient.pushProduct(settings.laptopServerUrl, settings.laptopApiToken, domainProduct)
@@ -2809,6 +3249,8 @@ class SyncCoordinatorRepository(
       } else {
         errors += "Cloud: No internet"
       }
+    } else if (settings.globalSyncEnabled && isLocalTestMode && !globalOk) {
+      errors += "Cloud: Sign in with Google to sync"
     }
 
     if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank() && !localOk) {
@@ -2910,6 +3352,8 @@ class SyncCoordinatorRepository(
       } else {
         errors += "Cloud: No internet"
       }
+    } else if (settings.globalSyncEnabled && isLocalTestMode && !globalOk) {
+      errors += "Cloud: Sign in with Google to sync"
     }
 
     if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank() && !localOk) {
@@ -2981,6 +3425,23 @@ class SyncCoordinatorRepository(
       confirmedPriceNotes = shop.confirmedPriceNotes.trim().take(600),
       mapsLink = shop.mapsLink.trim().take(600),
       addedBy = shop.addedBy.trim().take(120),
+    )
+  }
+
+  private fun normalizeRouteForFirestore(route: DeliveryRoute): DeliveryRoute {
+    val cleanId = route.id.trim().replace(Regex("[^a-zA-Z0-9_\\-]"), "-").trim('-').take(128)
+      .ifBlank { "R-${UUID.randomUUID().toString().take(8)}" }
+    return route.copy(
+      id = cleanId,
+      name = route.name.trim().ifBlank { cleanId }.take(120),
+      vehicle = route.vehicle.trim().take(120),
+      maxCrates = route.maxCrates.coerceIn(1, 500),
+      driverName = route.driverName.trim().take(100),
+      driverPhone = route.driverPhone.trim().take(32),
+      dispatchWindow = route.dispatchWindow.trim().take(80),
+      stagingBay = route.stagingBay.trim().take(80),
+      colorIndex = route.colorIndex.coerceIn(0, 50),
+      stopOrderIds = route.stopOrderIds.map { it.trim() }.filter { it.isNotEmpty() }.take(500),
     )
   }
 
@@ -3070,7 +3531,7 @@ class SyncCoordinatorRepository(
 
     val settings = configStore.getCurrentSettings()
     val afterSync = pushPendingSupplierToServer(initialPending, settings)
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
     if (afterSync.isFullySynced(requireGlobal)) {
       dao.upsertCachedSuppliers(
         listOf(CachedSupplierEntity.fromDomainSupplier(afterSync.toDomainSupplier(pendingSync = false), fallbackUserId = currentUserId))
@@ -3089,7 +3550,8 @@ class SyncCoordinatorRepository(
   override suspend fun updateSupplierStatus(supplierId: String, newStatus: String): Result<Unit> {
     val now = System.currentTimeMillis()
     val settings = configStore.getCurrentSettings()
-    val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val pushGlobal = settings.globalSyncEnabled && !isLocalTestMode
+    val requireGlobal = settings.globalSyncEnabled
 
     if (isLocalTestMode) {
       primary.updateSupplierStatus(supplierId, newStatus)
@@ -3109,7 +3571,7 @@ class SyncCoordinatorRepository(
 
     if (baseSupplier == null) {
       val cloud = cloudAdapter
-      return if (requireGlobal && cloud != null && isOnlineProvider()) {
+      return if (pushGlobal && cloud != null && isOnlineProvider()) {
         cloud.updateSupplierStatus(supplierId, newStatus)
       } else if (isLocalTestMode) {
         primary.updateSupplierStatus(supplierId, newStatus)
@@ -3133,7 +3595,10 @@ class SyncCoordinatorRepository(
     var globalOk = pending?.globalSynced ?: false
     var errorMsg = ""
     val cloud = cloudAdapter
-    if (requireGlobal && cloud != null) {
+    if (requireGlobal && isLocalTestMode) {
+      globalOk = false
+      errorMsg = "Cloud: Sign in with Google to sync"
+    } else if (pushGlobal && cloud != null) {
       globalOk = false
       if (isOnlineProvider()) {
         val directRes = cloud.updateSupplierStatus(supplierId, newStatus)
@@ -3204,6 +3669,8 @@ class SyncCoordinatorRepository(
       } else {
         errors += "Cloud: No internet"
       }
+    } else if (settings.globalSyncEnabled && isLocalTestMode && !globalOk) {
+      errors += "Cloud: Sign in with Google to sync"
     }
     if (settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()) {
       val laptopRes = laptopClient.pushSupplier(settings.laptopServerUrl, settings.laptopApiToken, domainSupplier)

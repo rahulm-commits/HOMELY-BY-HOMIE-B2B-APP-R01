@@ -66,6 +66,18 @@ interface HomelyDao {
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun upsertRoutes(routes: List<DeliveryRouteEntity>)
 
+  @Query("SELECT * FROM pending_routes ORDER BY updatedAtMillis DESC")
+  fun observePendingRoutes(): Flow<List<PendingRouteEntity>>
+
+  @Query("SELECT * FROM pending_routes ORDER BY createdAtMillis ASC")
+  suspend fun getPendingRoutesOnce(): List<PendingRouteEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertPendingRoute(entity: PendingRouteEntity)
+
+  @Query("DELETE FROM pending_routes WHERE routeId = :routeId")
+  suspend fun deletePendingRoute(routeId: String)
+
   @Query("SELECT * FROM cached_stocks WHERE userId = :userId OR userId = '' ORDER BY (quantity - minThreshold) ASC")
   fun observeCachedStocks(userId: String): Flow<List<CachedStockEntity>>
 

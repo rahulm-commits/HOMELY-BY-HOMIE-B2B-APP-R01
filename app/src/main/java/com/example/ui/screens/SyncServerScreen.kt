@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import com.example.data.local.PendingOrderEntity
 import com.example.data.local.PendingPaymentEntity
 import com.example.data.local.PendingProductEntity
+import com.example.data.local.PendingRouteEntity
 import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
 import com.example.data.local.PendingSupplierBillEntity
@@ -98,10 +99,13 @@ fun SyncServerScreen(
   pendingPayments: List<PendingPaymentEntity> = emptyList(),
   pendingSupplierBills: List<PendingSupplierBillEntity> = emptyList(),
   pendingSuppliers: List<PendingSupplierEntity> = emptyList(),
+  pendingRoutes: List<PendingRouteEntity> = emptyList(),
   isLocalTestMode: Boolean,
+  isSigningIn: Boolean = false,
   isOnline: Boolean,
   isSyncing: Boolean,
   laptopHealth: LaptopHealthInfo?,
+  onSignInWithGoogle: () -> Unit = {},
   onSaveSettings: (
     globalSyncEnabled: Boolean,
     laptopServerEnabled: Boolean,
@@ -146,6 +150,7 @@ fun SyncServerScreen(
   onDeletePendingPayment: (localId: String) -> Unit = {},
   onDeletePendingSupplierBill: (localId: String) -> Unit = {},
   onDeletePendingSupplier: (localId: String) -> Unit = {},
+  onDeletePendingRoute: (routeId: String) -> Unit = {},
   onBack: () -> Unit,
 ) {
   BackHandler(onBack = onBack)
@@ -172,7 +177,7 @@ fun SyncServerScreen(
     autoDeleteSynced = settings.autoDeleteSyncedFromPhone
   }
 
-  val requireGlobal = settings.globalSyncEnabled && !isLocalTestMode
+  val requireGlobal = settings.globalSyncEnabled
   val requireLaptop = settings.laptopServerEnabled && settings.laptopServerUrl.isNotBlank()
 
   val syncedShopsCount = remember(pendingShops, requireGlobal, requireLaptop) {
@@ -196,10 +201,15 @@ fun SyncServerScreen(
   val syncedSuppliersCount = remember(pendingSuppliers, requireGlobal) {
     pendingSuppliers.count { it.isFullySynced(requireGlobal) }
   }
-  val totalQueueRecords = pendingShops.size + pendingOrders.size + pendingStockUpdates.size +
-    pendingProducts.size + pendingPayments.size + pendingSupplierBills.size + pendingSuppliers.size
-  val totalSyncedReadyToDelete = syncedShopsCount + syncedOrdersCount + syncedStocksCount +
-    syncedProductsCount + syncedPaymentsCount + syncedBillsCount + syncedSuppliersCount
+  val syncedRoutesCount = remember(pendingRoutes, requireGlobal, requireLaptop) {
+    pendingRoutes.count { it.isFullySynced(requireGlobal, requireLaptop) }
+  }
+  val totalQueueRecords = pendingShops.size + pendingOrders.size + pendingRoutes.size +
+    pendingStockUpdates.size + pendingProducts.size + pendingPayments.size +
+    pendingSupplierBills.size + pendingSuppliers.size
+  val totalSyncedReadyToDelete = syncedShopsCount + syncedOrdersCount + syncedRoutesCount +
+    syncedStocksCount + syncedProductsCount + syncedPaymentsCount +
+    syncedBillsCount + syncedSuppliersCount
   val totalAwaitingUpload = totalQueueRecords - totalSyncedReadyToDelete
 
   Scaffold(
@@ -452,9 +462,9 @@ fun SyncServerScreen(
                   )
                   Text(
                     text = when {
-                      isLocalTestMode -> "Paused in Test Mode — Sign in with Google on Home to sync"
-                      isOnline && globalEnabled -> "Online & Active"
                       !globalEnabled -> "Paused by user"
+                      isLocalTestMode -> "Sign in with Google required for Cloud sync (Laptop LAN works without login)"
+                      isOnline && globalEnabled -> "Online & Active"
                       else -> "No Internet — queued locally until online"
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -469,6 +479,31 @@ fun SyncServerScreen(
                   onSaveSettings(checked, laptopEnabled, laptopUrl, laptopToken, autoDeleteSynced)
                 },
               )
+            }
+            if (isLocalTestMode && globalEnabled) {
+              Button(
+                onClick = onSignInWithGoogle,
+                enabled = !isSigningIn,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(48.dp)
+                  .testTag("sync_google_sign_in_button"),
+              ) {
+                if (isSigningIn) {
+                  CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                  )
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text("Signing in...")
+                } else {
+                  Icon(Icons.Rounded.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text("Sign in with Google to Sync Cloud")
+                }
+              }
             }
           }
         }
@@ -1047,6 +1082,61 @@ fun SyncServerScreen(
                   Icon(
                     imageVector = Icons.Rounded.DeleteOutline,
                     contentDescription = "Delete synced supplier from phone",
+                    tint = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        items(pendingRoutes, key = { "route_${it.routeId}" }) { route ->
+          val fullySynced = route.isFullySynced(requireGlobal, requireLaptop)
+          Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(
+              1.dp,
+              if (fullySynced) MaterialTheme.semanticColors.success.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Row(
+              modifier = Modifier.padding(12.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                  text = "Route ${route.routeId} • ${route.name}",
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                )
+                Text(
+                  text = "${route.driverName} • ${route.vehicle}",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  TargetSyncChip("Cloud", route.globalSynced, requireGlobal)
+                  TargetSyncChip("Laptop", route.localServerSynced, requireLaptop)
+                }
+                if (route.lastError.isNotBlank() && !fullySynced) {
+                  Text(
+                    text = route.lastError,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.semanticColors.danger,
+                  )
+                }
+              }
+              if (fullySynced) {
+                IconButton(onClick = { onDeletePendingRoute(route.routeId) }) {
+                  Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "Delete synced route from phone",
                     tint = MaterialTheme.semanticColors.danger,
                   )
                 }

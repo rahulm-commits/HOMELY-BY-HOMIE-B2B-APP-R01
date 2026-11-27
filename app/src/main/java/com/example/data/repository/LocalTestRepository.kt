@@ -40,6 +40,7 @@ class LocalTestRepository : HomelyDataSource {
   private val yesterday = daysAgoString(1)
   private val threeDaysAgo = daysAgoString(3)
   private val sevenDaysAgo = daysAgoString(7)
+  private val starterTimestamp = Timestamp(Date(STARTER_EPOCH_MILLIS))
 
   private val shopsFlow = MutableStateFlow(
     listOf(
@@ -64,8 +65,8 @@ class LocalTestRepository : HomelyDataSource {
         lastOrderDate = threeDaysAgo,
         lastCallDate = yesterday,
         confirmedPriceNotes = "BC100: ₹42, JB200: ₹92",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       Shop(
         id = "local_shop_2",
@@ -87,8 +88,8 @@ class LocalTestRepository : HomelyDataSource {
         lastOrderDate = sevenDaysAgo,
         lastCallDate = threeDaysAgo,
         confirmedPriceNotes = "BC200: ₹85",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       Shop(
         id = "local_shop_3",
@@ -111,8 +112,8 @@ class LocalTestRepository : HomelyDataSource {
         lastOrderDate = today,
         lastCallDate = today,
         confirmedPriceNotes = "JB200: ₹90, MX500: ₹162",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       Shop(
         id = "local_shop_4",
@@ -133,8 +134,8 @@ class LocalTestRepository : HomelyDataSource {
         callDate = today,
         lastOrderDate = sevenDaysAgo,
         lastCallDate = yesterday,
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       Shop(
         id = "local_shop_5",
@@ -155,8 +156,8 @@ class LocalTestRepository : HomelyDataSource {
         callDate = today,
         lastOrderDate = threeDaysAgo,
         lastCallDate = today,
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       Shop(
         id = "local_shop_6",
@@ -177,8 +178,8 @@ class LocalTestRepository : HomelyDataSource {
         callDate = sevenDaysAgo,
         lastOrderDate = sevenDaysAgo,
         lastCallDate = sevenDaysAgo,
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
     )
   )
@@ -199,8 +200,8 @@ class LocalTestRepository : HomelyDataSource {
         itemsSummary = "JB200 x40, MX500 x20",
         orderDate = today,
         note = "Morning van dispatch",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       OrderRecord(
         id = "local_ord_2",
@@ -216,8 +217,8 @@ class LocalTestRepository : HomelyDataSource {
         itemsSummary = "BC100 x50, BC200 x30, JB200 x15",
         orderDate = today,
         note = "Delivered via Van #02",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       OrderRecord(
         id = "local_ord_3",
@@ -233,8 +234,8 @@ class LocalTestRepository : HomelyDataSource {
         itemsSummary = "BC200 x50",
         orderDate = today,
         note = "Awaiting packing",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       OrderRecord(
         id = "local_ord_4",
@@ -250,8 +251,8 @@ class LocalTestRepository : HomelyDataSource {
         itemsSummary = "BC500 x30, JB200 x50, TP200 x30",
         orderDate = yesterday,
         note = "Yesterday route",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       OrderRecord(
         id = "local_ord_5",
@@ -267,8 +268,8 @@ class LocalTestRepository : HomelyDataSource {
         itemsSummary = "MR200 x22",
         orderDate = threeDaysAgo,
         note = "Shop closed during delivery window",
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
     )
   )
@@ -285,6 +286,8 @@ class LocalTestRepository : HomelyDataSource {
         quantity = 24,
         minThreshold = 50,
         unitPrice = 45.0,
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       StockItem(
         id = "local_stk_2",
@@ -296,6 +299,8 @@ class LocalTestRepository : HomelyDataSource {
         quantity = 18,
         minThreshold = 40,
         unitPrice = 96.0,
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       StockItem(
         id = "local_stk_3",
@@ -307,6 +312,8 @@ class LocalTestRepository : HomelyDataSource {
         quantity = 14,
         minThreshold = 25,
         unitPrice = 170.0,
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
       StockItem(
         id = "local_stk_4",
@@ -318,6 +325,8 @@ class LocalTestRepository : HomelyDataSource {
         quantity = 85,
         minThreshold = 30,
         unitPrice = 65.0,
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       ),
     )
   )
@@ -347,8 +356,8 @@ class LocalTestRepository : HomelyDataSource {
       daysAgo = ::daysAgoString,
     ).map {
       it.copy(
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = null,
+        updatedAt = starterTimestamp,
       )
     }
   )
@@ -360,8 +369,8 @@ class LocalTestRepository : HomelyDataSource {
       yesterday = yesterday,
     ).map {
       it.copy(
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       )
     }
   )
@@ -373,8 +382,8 @@ class LocalTestRepository : HomelyDataSource {
       daysOffset = ::daysOffsetString,
     ).map {
       it.copy(
-        createdAt = Timestamp.now(),
-        updatedAt = Timestamp.now(),
+        createdAt = starterTimestamp,
+        updatedAt = starterTimestamp,
       )
     }
   )
@@ -385,7 +394,7 @@ class LocalTestRepository : HomelyDataSource {
       today = today,
       daysAgo = ::daysAgoString,
     ).mapIndexed { index, sup ->
-      val offsetMs = System.currentTimeMillis() - (index * 3L * 24L * 60L * 60L * 1000L)
+      val offsetMs = STARTER_EPOCH_MILLIS - (index * 3L * 24L * 60L * 60L * 1000L)
       val ts = Timestamp(Date(offsetMs))
       sup.copy(createdAt = ts, updatedAt = ts)
     }
@@ -628,7 +637,11 @@ class LocalTestRepository : HomelyDataSource {
   override suspend fun updateStockQuantity(stockId: String, newQuantity: Int): Result<Unit> {
     stocksFlow.update { current ->
       current.map {
-        if (it.id == stockId) it.copy(quantity = newQuantity.coerceAtLeast(0)) else it
+        if (it.id == stockId) {
+          it.copy(quantity = newQuantity.coerceAtLeast(0), updatedAt = Timestamp.now())
+        } else {
+          it
+        }
       }.sortedBy { it.quantity - it.minThreshold }
     }
     return Result.success(Unit)
@@ -790,5 +803,6 @@ class LocalTestRepository : HomelyDataSource {
 
   companion object {
     const val LOCAL_UID = "local_test_user"
+    const val STARTER_EPOCH_MILLIS = 1_700_000_000_000L
   }
 }

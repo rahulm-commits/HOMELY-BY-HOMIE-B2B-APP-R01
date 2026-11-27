@@ -1183,4 +1183,73 @@ data class CachedSupplierEntity(
   }
 }
 
+@Entity(tableName = "pending_routes")
+data class PendingRouteEntity(
+  @PrimaryKey val routeId: String,
+  val isUpdate: Boolean = true,
+  val userId: String = "",
+  val name: String,
+  val vehicle: String,
+  val maxCrates: Int,
+  val driverName: String,
+  val driverPhone: String,
+  val dispatchWindow: String,
+  val stagingBay: String,
+  val colorIndex: Int,
+  val isActive: Boolean = true,
+  val stopOrderIdsCsv: String = "",
+  val globalSynced: Boolean = false,
+  val localServerSynced: Boolean = false,
+  val lastError: String = "",
+  val createdAtMillis: Long = System.currentTimeMillis(),
+  val updatedAtMillis: Long = System.currentTimeMillis(),
+) {
+  fun isFullySynced(requireGlobal: Boolean, requireLocalServer: Boolean): Boolean {
+    val hasAtLeastOneSync = globalSynced || localServerSynced
+    if (!hasAtLeastOneSync) return false
+    val globalOk = !requireGlobal || globalSynced
+    val localOk = !requireLocalServer || localServerSynced
+    return globalOk && localOk
+  }
 
+  fun toDomainRoute(): DeliveryRoute = DeliveryRoute(
+    id = routeId,
+    name = name,
+    vehicle = vehicle,
+    maxCrates = maxCrates,
+    driverName = driverName,
+    driverPhone = driverPhone,
+    dispatchWindow = dispatchWindow,
+    stagingBay = stagingBay,
+    colorIndex = colorIndex,
+    isActive = isActive,
+    stopOrderIds = stopOrderIdsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+  )
+
+  companion object {
+    fun fromDomainRoute(
+      route: DeliveryRoute,
+      userId: String,
+      isUpdate: Boolean,
+    ): PendingRouteEntity {
+      val now = System.currentTimeMillis()
+      return PendingRouteEntity(
+        routeId = route.id,
+        isUpdate = isUpdate,
+        userId = userId,
+        name = route.name,
+        vehicle = route.vehicle,
+        maxCrates = route.maxCrates,
+        driverName = route.driverName,
+        driverPhone = route.driverPhone,
+        dispatchWindow = route.dispatchWindow,
+        stagingBay = route.stagingBay,
+        colorIndex = route.colorIndex,
+        isActive = route.isActive,
+        stopOrderIdsCsv = route.stopOrderIds.joinToString(","),
+        createdAtMillis = now,
+        updatedAtMillis = now,
+      )
+    }
+  }
+}

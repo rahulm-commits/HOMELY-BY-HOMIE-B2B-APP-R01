@@ -122,7 +122,7 @@ class HomelyRepository(
       db.collection("users")
         .document(userId)
         .collection("stocks")
-        .snapshots()
+        .snapshots(MetadataChanges.INCLUDE)
         .map { snapshot ->
           snapshot.toObjects(StockItem::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
             .sortedBy { it.quantity - it.minThreshold }
@@ -415,11 +415,202 @@ class HomelyRepository(
     }
   }
 
-  override fun observeRoutes(): Flow<List<DeliveryRoute>> = flowOf(RoutesCatalog.starterRoutes)
+  override fun observeRoutes(): Flow<List<DeliveryRoute>> = flow {
+    val uid = auth.currentUser?.uid
+    if (uid.isNullOrBlank()) {
+      emit(RoutesCatalog.starterRoutes)
+      return@flow
+    }
+    val path = "users/$uid/routes"
+    emitAll(
+      db.collection("users")
+        .document(uid)
+        .collection("routes")
+        .snapshots(MetadataChanges.INCLUDE)
+        .map { snapshot ->
+          snapshot.documents.mapNotNull(::routeFromSnapshot)
+            .sortedWith(compareBy<DeliveryRoute> { it.colorIndex }.thenBy { it.id })
+        }
+        .catch { error ->
+          val firestoreError = generateSequence(error) { it.cause }
+            .filterIsInstance<FirebaseFirestoreException>()
+            .firstOrNull()
+          if (firestoreError == null && error is CancellationException) throw error
+          val exceptionToLog = firestoreError ?: (error as? Exception)
+          if (exceptionToLog != null && auth.currentUser?.uid == uid) {
+            handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+          }
+          throw error
+        }
+    )
+  }
 
-  override suspend fun seedRoutesIfNeeded(): Result<Unit> = Result.success(Unit)
+  override suspend fun seedRoutesIfNeeded(): Result<Unit> {
+    val uid = auth.currentUser?.uid ?: return Result.success(Unit)
+    val routesCol = db.collection("users").document(uid).collection("routes")
+    return try {
+      val existing = withTimeoutOrNull(SERVER_ACK_TIMEOUT_MS) {
+        routesCol.limit(1).get().await()
+      } ?: return Result.failure(IllegalStateException("Timed out checking Cloud routes"))
+      if (existing.isEmpty) {
+        val batch = db.batch()
+        RoutesCatalog.starterRoutes.forEach { route ->
+          batch.set(routesCol.document(route.id), routePayloadMap(uid, route, includeCreatedAt = true))
+        }
+        batch.commit().await()
+      }
+      Result.success(Unit)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.WRITE, routesCol.path)
+      Result.failure(e)
+    }
+  }
 
-  override suspend fun saveRoute(route: DeliveryRoute): Result<Unit> = Result.success(Unit)
+  override suspend fun saveRoute(route: DeliveryRoute): Result<Unit> =
+    saveRouteWithId(route = route, isUpdate = route.id.isNotBlank(), awaitServerAck = false)
+      .map { Unit }
+
+  suspend fun saveRouteWithId(
+    route: DeliveryRoute,
+    isUpdate: Boolean,
+    awaitServerAck: Boolean = false,
+  ): Result<String> {
+    val uid = requireUserId()
+    val routesCol = db.collection("users").document(uid).collection("routes")
+    val safeId = route.id.trim().replace(Regex("[^a-zA-Z0-9_\\-]"), "-").trim('-').take(128)
+    val docRef = if (safeId.isNotBlank()) routesCol.document(safeId) else routesCol.document()
+    val createMap = routePayloadMap(uid, route, includeCreatedAt = true)
+    val updateMap = routePayloadMap(uid, route, includeCreatedAt = false)
+    val waitMs = if (awaitServerAck) SERVER_ACK_TIMEOUT_MS else OFFLINE_WRITE_GRACE_MS
+
+    return try {
+      val task = if (isUpdate) docRef.update(updateMap) else docRef.set(createMap)
+      val acked = withTimeoutOrNull(waitMs) {
+        task.await()
+        true
+      } ?: false
+      if (awaitServerAck && !acked) {
+        return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+      }
+      Result.success(docRef.id)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: FirebaseFirestoreException) {
+      if (isUpdate && e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
+        return try {
+          val acked = withTimeoutOrNull(waitMs) {
+            docRef.set(createMap).await()
+            true
+          } ?: false
+          if (awaitServerAck && !acked) {
+            return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+          }
+          Result.success(docRef.id)
+        } catch (nested: Exception) {
+          if (nested is CancellationException) throw nested
+          handleFirestoreError(nested, OperationType.CREATE, docRef.path)
+          Result.failure(nested)
+        }
+      }
+      if (!isUpdate && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+        val existingDoc = runCatching {
+          withTimeoutOrNull(waitMs) { docRef.get().await() }
+        }.getOrNull()
+        if (existingDoc != null && existingDoc.exists()) {
+          return try {
+            val acked = withTimeoutOrNull(waitMs) {
+              docRef.update(updateMap).await()
+              true
+            } ?: false
+            if (awaitServerAck && !acked) {
+              return Result.failure(IllegalStateException("Timed out waiting for Global Cloud server"))
+            }
+            Result.success(docRef.id)
+          } catch (nested: Exception) {
+            if (nested is CancellationException) throw nested
+            handleFirestoreError(nested, OperationType.UPDATE, docRef.path)
+            Result.failure(nested)
+          }
+        }
+      }
+      handleFirestoreError(
+        e,
+        if (isUpdate) OperationType.UPDATE else OperationType.CREATE,
+        docRef.path,
+      )
+      Result.failure(e)
+    } catch (e: Exception) {
+      handleFirestoreError(
+        e,
+        if (isUpdate) OperationType.UPDATE else OperationType.CREATE,
+        docRef.path,
+      )
+      Result.failure(e)
+    }
+  }
+
+  suspend fun getRoutesOnce(userId: String): Result<List<DeliveryRoute>> {
+    val path = "users/$userId/routes"
+    return try {
+      val snapshot = db.collection("users").document(userId).collection("routes").get().await()
+      val items = snapshot.documents.mapNotNull(::routeFromSnapshot)
+      Result.success(items)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      handleFirestoreError(e, OperationType.LIST, path)
+      Result.failure(e)
+    }
+  }
+
+  private fun routeFromSnapshot(doc: DocumentSnapshot): DeliveryRoute? {
+    if (!doc.exists()) return null
+    val name = doc.getString("name")?.trim().orEmpty()
+    if (name.isBlank()) return null
+    val stopOrderIds = (doc.get("stopOrderIds") as? List<*>)
+      ?.mapNotNull { (it as? String)?.trim()?.takeIf { s -> s.isNotEmpty() } }
+      ?: emptyList()
+    return DeliveryRoute(
+      id = doc.id,
+      name = name,
+      vehicle = doc.getString("vehicle")?.trim().orEmpty(),
+      maxCrates = (doc.get("maxCrates") as? Number)?.toInt()?.coerceIn(1, 500) ?: 35,
+      driverName = doc.getString("driverName")?.trim().orEmpty(),
+      driverPhone = doc.getString("driverPhone")?.trim().orEmpty(),
+      dispatchWindow = doc.getString("dispatchWindow")?.trim().orEmpty(),
+      stagingBay = doc.getString("stagingBay")?.trim().orEmpty(),
+      colorIndex = (doc.get("colorIndex") as? Number)?.toInt()?.coerceIn(0, 50) ?: 0,
+      isActive = doc.getBoolean("isActive") ?: doc.getBoolean("active") ?: true,
+      stopOrderIds = stopOrderIds,
+    )
+  }
+
+  private fun routePayloadMap(
+    uid: String,
+    route: DeliveryRoute,
+    includeCreatedAt: Boolean,
+  ): Map<String, Any> {
+    val map = mutableMapOf<String, Any>(
+      "name" to route.name.trim().ifBlank { "Delivery Route" }.take(120),
+      "vehicle" to route.vehicle.trim().take(120),
+      "maxCrates" to route.maxCrates.coerceIn(1, 500),
+      "driverName" to route.driverName.trim().take(100),
+      "driverPhone" to route.driverPhone.trim().take(32),
+      "dispatchWindow" to route.dispatchWindow.trim().take(80),
+      "stagingBay" to route.stagingBay.trim().take(80),
+      "colorIndex" to route.colorIndex.coerceIn(0, 50),
+      "isActive" to route.isActive,
+      "stopOrderIds" to route.stopOrderIds.map { it.trim() }.filter { it.isNotEmpty() }.take(500),
+      "updatedAt" to FieldValue.serverTimestamp(),
+    )
+    if (includeCreatedAt) {
+      map["userId"] = uid
+      map["createdAt"] = FieldValue.serverTimestamp()
+    }
+    return map
+  }
 
   override suspend fun updateShopRoute(shopId: String, newRouteId: String): Result<Unit> =
     updateShopRouteWithAck(shopId, newRouteId, awaitServerAck = false)
@@ -1575,6 +1766,19 @@ class HomelyRepository(
           }
           supBatch.commit().await()
         }
+        val existingRoutes = withTimeoutOrNull(SERVER_ACK_TIMEOUT_MS) {
+          userRef.collection("routes").limit(1).get().await()
+        }
+        if (existingRoutes != null && existingRoutes.isEmpty) {
+          val routeBatch = db.batch()
+          RoutesCatalog.starterRoutes.forEach { route ->
+            routeBatch.set(
+              userRef.collection("routes").document(route.id),
+              routePayloadMap(uid, route, includeCreatedAt = true),
+            )
+          }
+          routeBatch.commit().await()
+        }
         return Result.success(Unit)
       }
       val existingShops = withTimeoutOrNull(SERVER_ACK_TIMEOUT_MS) {
@@ -1930,6 +2134,11 @@ class HomelyRepository(
       SupplierCatalogHelper.starterSuppliers(uid, today, ::daysAgoString).forEach { sup ->
         val doc = userRef.collection("suppliers").document(sup.id)
         batch.set(doc, supplierPayloadMap(uid, sup, today))
+      }
+
+      RoutesCatalog.starterRoutes.forEach { route ->
+        val doc = userRef.collection("routes").document(route.id)
+        batch.set(doc, routePayloadMap(uid, route, includeCreatedAt = true))
       }
 
       batch.commit().await()

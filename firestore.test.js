@@ -8,7 +8,7 @@ const fs = require("node:fs");
 
 let testEnv;
 const PROJECT_ID = process.env.GCP_PROJECT || "demo-no-project";
-const DATABASE_ID = "ai-studio-android-homelyby-56f8fea5-6b10-44b9-b72f-c951929d1e51";
+const DATABASE_ID = "ai-studio-android-homelyby-4cbfe8dc-b3ba-4dfb-8466-45d0f5cddd0b";
 const ALICE_UID = "alice_123";
 const BOB_UID = "bob_456";
 
@@ -181,6 +181,24 @@ function validSupplierPayload(uid) {
   };
 }
 
+function validRoutePayload(uid) {
+  return {
+    userId: uid,
+    name: "Route 4: Kochi - Thrissur",
+    vehicle: "Tata Ace (KL-07-CD-4190)",
+    maxCrates: 35,
+    driverName: "Kiran Das",
+    driverPhone: "+91 98452 10980",
+    dispatchWindow: "06:30 AM – 10:30 AM",
+    stagingBay: "Bay #03 - Central Dock",
+    colorIndex: 3,
+    isActive: true,
+    stopOrderIds: ["seed_shop_1", "seed_shop_2"],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
 before(async () => {
   const rules = fs.readFileSync("./firestore.rules", "utf8");
   testEnv = await initializeTestEnvironment({
@@ -304,4 +322,32 @@ test("Owner can create, read, and update supplier directory item, non-owner deni
     bobDb.collection("users").doc(ALICE_UID).collection("suppliers").doc("sup_2").set(validSupplierPayload(BOB_UID))
   );
 });
+
+test("Owner can create, read, update delivery routes; rejects cross-user access and shadow fields", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore(DATABASE_ID);
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore(DATABASE_ID);
+  const routeRef = aliceDb.collection("users").doc(ALICE_UID).collection("routes").doc("R04-KOCHI-THRISSUR");
+
+  await assertSucceeds(routeRef.set(validRoutePayload(ALICE_UID)));
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("routes").get());
+  await assertSucceeds(
+    routeRef.update({
+      driverName: "Suresh Babu",
+      stopOrderIds: ["seed_shop_2", "seed_shop_1"],
+      updatedAt: new Date(),
+    })
+  );
+
+  await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("routes").get());
+  await assertFails(
+    bobDb.collection("users").doc(ALICE_UID).collection("routes").doc("R04-KOCHI-THRISSUR").set(validRoutePayload(BOB_UID))
+  );
+  await assertFails(
+    aliceDb.collection("users").doc(ALICE_UID).collection("routes").doc("R05-BAD").set({
+      ...validRoutePayload(ALICE_UID),
+      isAdmin: true,
+    })
+  );
+});
+
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.PendingOrderEntity
 import com.example.data.local.PendingPaymentEntity
 import com.example.data.local.PendingProductEntity
+import com.example.data.local.PendingRouteEntity
 import com.example.data.local.PendingShopEntity
 import com.example.data.local.PendingStockUpdateEntity
 import com.example.data.local.PendingSupplierBillEntity
@@ -14,6 +15,7 @@ import com.example.data.model.CatalogProduct
 import com.example.data.model.DeliveryRoute
 import com.example.data.model.OperationsMeta
 import com.example.data.model.OrderRecord
+import com.example.data.model.OrderStatus
 import com.example.data.model.PaymentDirection
 import com.example.data.model.PaymentTransaction
 import com.example.data.model.Product
@@ -62,6 +64,27 @@ class HomelyViewModel(
 
   private val _laptopHealth = MutableStateFlow<LaptopHealthInfo?>(null)
   val laptopHealth: StateFlow<LaptopHealthInfo?> = _laptopHealth.asStateFlow()
+
+  private val fallbackPackedOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+  private val fallbackStockPendingReasons = MutableStateFlow<Map<String, String>>(emptyMap())
+
+  val packedOrderOverrides: StateFlow<Map<String, Boolean>> =
+    (coordinator?.observePackedOrderOverrides() ?: fallbackPackedOverrides)
+      .catch { emit(emptyMap()) }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyMap(),
+      )
+
+  val stockPendingReasons: StateFlow<Map<String, String>> =
+    (coordinator?.observeStockPendingReasons() ?: fallbackStockPendingReasons)
+      .catch { emit(emptyMap()) }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyMap(),
+      )
 
   val serverSettings: StateFlow<ServerSettings> =
     (coordinator?.observeServerSettings() ?: flowOf(ServerSettings()))
@@ -128,6 +151,15 @@ class HomelyViewModel(
 
   val pendingSuppliers: StateFlow<List<PendingSupplierEntity>> =
     (coordinator?.observePendingSuppliers() ?: flowOf(emptyList()))
+      .catch { emit(emptyList()) }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyList(),
+      )
+
+  val pendingRoutes: StateFlow<List<PendingRouteEntity>> =
+    (coordinator?.observePendingRoutes() ?: flowOf(emptyList()))
       .catch { emit(emptyList()) }
       .stateIn(
         scope = viewModelScope,
@@ -407,9 +439,24 @@ class HomelyViewModel(
     viewModelScope.launch {
       val result = repository.deleteOrder(order.id)
       if (result.isSuccess) {
-        _feedback.tryEmit("Order ${order.orderCode} deleted")
+        _feedback.tryEmit("Order ${order.orderCode} deleted • Stock updated")
       } else {
         _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to delete order")
+      }
+    }
+  }
+
+  fun cancelOrder(order: OrderRecord) {
+    viewModelScope.launch {
+      val result = repository.updateOrderStatus(
+        orderId = order.id,
+        newStatus = OrderStatus.REJECTED,
+        note = order.note.ifBlank { "Cancelled by user" },
+      )
+      if (result.isSuccess) {
+        _feedback.tryEmit("Order ${order.orderCode} cancelled • Stock restored")
+      } else {
+        _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Failed to cancel order")
       }
     }
   }
@@ -422,6 +469,79 @@ class HomelyViewModel(
       } else {
         _feedback.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Could not mark order delivered")
       }
+    }
+  }
+
+  fun setOrderPacked(orderId: String, shopName: String, isPacked: Boolean) {
+    if (orderId.isBlank()) return
+    viewModelScope.launch {
+      val coord = coordinator
+      if (coord != null) {
+        coord.setOrderPacked(orderId, isPacked)
+      } else {
+        fallbackPackedOverrides.value = fallbackPackedOverrides.value.toMutableMap().apply {
+          this[orderId] = isPacked
+        }
+        fallbackStockPendingReasons.value = fallbackStockPendingReasons.value.toMutableMap().apply {
+          remove(orderId)
+        }
+      }
+      _feedback.tryEmit(
+        if (isPacked) "$shopName marked Packing Complete" else "Removed $shopName from Packed"
+      )
+    }
+  }
+
+  fun markOrderStockPending(orderId: String, shopName: String, reason: String) {
+    if (orderId.isBlank()) return
+    val cleanReason = reason.trim().ifBlank { "Stock unavailable" }
+    viewModelScope.launch {
+      val coord = coordinator
+      if (coord != null) {
+        coord.markOrderStockPending(orderId, cleanReason)
+      } else {
+        fallbackPackedOverrides.value = fallbackPackedOverrides.value.toMutableMap().apply {
+          this[orderId] = false
+        }
+        fallbackStockPendingReasons.value = fallbackStockPendingReasons.value.toMutableMap().apply {
+          this[orderId] = cleanReason
+        }
+      }
+      _feedback.tryEmit("$shopName marked pending ($cleanReason) • Next order unlocked")
+    }
+  }
+
+  fun clearOrderStockPending(orderId: String, shopName: String) {
+    if (orderId.isBlank()) return
+    viewModelScope.launch {
+      val coord = coordinator
+      if (coord != null) {
+        coord.clearOrderStockPending(orderId)
+      } else {
+        fallbackStockPendingReasons.value = fallbackStockPendingReasons.value.toMutableMap().apply {
+          remove(orderId)
+        }
+      }
+      _feedback.tryEmit("$shopName returned to packing sequence")
+    }
+  }
+
+  fun markAllPackingComplete(orders: List<OrderRecord>) {
+    val targetIds = orders.mapNotNull { it.id.takeIf { id -> id.isNotBlank() } }.distinct()
+    if (targetIds.isEmpty()) return
+    viewModelScope.launch {
+      val coord = coordinator
+      if (coord != null) {
+        coord.setOrdersPacked(targetIds, true)
+      } else {
+        fallbackPackedOverrides.value = fallbackPackedOverrides.value.toMutableMap().apply {
+          targetIds.forEach { this[it] = true }
+        }
+        fallbackStockPendingReasons.value = fallbackStockPendingReasons.value.toMutableMap().apply {
+          targetIds.forEach { remove(it) }
+        }
+      }
+      _feedback.tryEmit("Marked ${targetIds.size} order(s) Packing Complete")
     }
   }
 
@@ -442,12 +562,16 @@ class HomelyViewModel(
       if (result.isSuccess) {
         val savedId = result.getOrNull().orEmpty()
         val stillPending = coordinator?.isProductPending(savedId) ?: !isOnline
-        val msg = if (product.status == com.example.data.model.ProductStatus.DRAFT) {
-          "Draft ${product.productCode} saved on device"
-        } else if (stillPending) {
-          "Product ${product.name} saved offline • Will sync when online"
-        } else {
-          "Product ${product.name} registered & synced"
+        val lastError = if (stillPending) coordinator?.getPendingProductError(savedId).orEmpty() else ""
+        val msg = when {
+          product.status == com.example.data.model.ProductStatus.DRAFT ->
+            "Draft ${product.productCode} saved on device"
+          stillPending && lastError.isNotBlank() ->
+            "Product ${product.name} saved on phone • $lastError"
+          stillPending ->
+            "Product ${product.name} saved on phone • Will sync when connected"
+          else ->
+            "Product ${product.name} registered & synced"
         }
         _feedback.tryEmit(msg)
         onSaved()
@@ -489,15 +613,16 @@ class HomelyViewModel(
       if (result.isSuccess) {
         val savedId = result.getOrNull().orEmpty()
         val stillPending = coordinator?.isPaymentPending(savedId) ?: !isOnline
+        val lastError = if (stillPending) coordinator?.getPendingPaymentError(savedId).orEmpty() else ""
         val actionLabel = if (payment.direction == PaymentDirection.PAY_SUPPLIER) {
           "Paid ${formatInr(payment.amount)} to ${payment.partyName}"
         } else {
           "Collected ${formatInr(payment.amount)} from ${payment.partyName}"
         }
-        val msg = if (stillPending) {
-          "$actionLabel • Saved offline (will sync)"
-        } else {
-          "$actionLabel • Synced"
+        val msg = when {
+          stillPending && lastError.isNotBlank() -> "$actionLabel • Saved on phone ($lastError)"
+          stillPending -> "$actionLabel • Saved on phone (pending sync)"
+          else -> "$actionLabel • Synced"
         }
         _feedback.tryEmit(msg)
         onSaved(savedId)
@@ -538,10 +663,14 @@ class HomelyViewModel(
       if (result.isSuccess) {
         val savedId = result.getOrNull().orEmpty()
         val stillPending = coordinator?.isSupplierPending(savedId) ?: !isOnline
-        val msg = if (stillPending) {
-          "Supplier ${supplier.name} saved offline • Will sync when online"
-        } else {
-          "Supplier ${supplier.supplierCode} saved & synced"
+        val lastError = if (stillPending) coordinator?.getPendingSupplierError(savedId).orEmpty() else ""
+        val msg = when {
+          stillPending && lastError.isNotBlank() ->
+            "Supplier ${supplier.name} saved on phone • $lastError"
+          stillPending ->
+            "Supplier ${supplier.name} saved on phone • Will sync when connected"
+          else ->
+            "Supplier ${supplier.supplierCode} saved & synced"
         }
         _feedback.tryEmit(msg)
         onSaved()
@@ -817,6 +946,14 @@ class HomelyViewModel(
     viewModelScope.launch {
       coord.deletePendingSupplierById(localId)
       _feedback.tryEmit("Removed supplier from phone queue")
+    }
+  }
+
+  fun deletePendingRoute(routeId: String) {
+    val coord = coordinator ?: return
+    viewModelScope.launch {
+      coord.deletePendingRouteById(routeId)
+      _feedback.tryEmit("Removed route from phone queue")
     }
   }
 

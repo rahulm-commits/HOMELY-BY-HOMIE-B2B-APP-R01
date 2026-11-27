@@ -205,6 +205,22 @@ service cloud.firestore {
         isValidTimestamp(data.updatedAt);
     }
 
+    function isValidDeliveryRoute(data, userId) {
+      return data.userId is string && data.userId == userId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        isOptionalString(data, 'vehicle', 120) &&
+        data.maxCrates is int && data.maxCrates >= 1 && data.maxCrates <= 500 &&
+        isOptionalString(data, 'driverName', 100) &&
+        isOptionalString(data, 'driverPhone', 32) &&
+        isOptionalString(data, 'dispatchWindow', 80) &&
+        isOptionalString(data, 'stagingBay', 80) &&
+        data.colorIndex is int && data.colorIndex >= 0 && data.colorIndex <= 50 &&
+        data.isActive is bool &&
+        data.stopOrderIds is list && data.stopOrderIds.size() <= 500 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
     match /users/{userId}/shops/{shopId} {
       allow list: if isOwner(userId);
       allow get: if isOwner(userId) && isValidId(shopId);
@@ -442,6 +458,34 @@ service cloud.firestore {
           'updatedAt'
         ]);
       allow delete: if isOwner(userId) && isValidId(supplierId);
+    }
+
+    match /users/{userId}/routes/{routeId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId) && isValidId(routeId);
+      allow create: if isOwner(userId) &&
+        isValidId(routeId) &&
+        incoming().keys().hasAll([
+          'userId', 'name', 'maxCrates', 'colorIndex',
+          'isActive', 'stopOrderIds', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'name', 'vehicle', 'maxCrates', 'driverName',
+          'driverPhone', 'dispatchWindow', 'stagingBay', 'colorIndex',
+          'isActive', 'stopOrderIds', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidDeliveryRoute(incoming(), userId);
+      allow update: if isOwner(userId) &&
+        isValidId(routeId) &&
+        isValidDeliveryRoute(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'vehicle', 'maxCrates', 'driverName', 'driverPhone',
+          'dispatchWindow', 'stagingBay', 'colorIndex', 'isActive',
+          'stopOrderIds', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(routeId);
     }
   }
 }

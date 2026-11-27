@@ -238,6 +238,31 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
       },
       "required": ["userId", "supplierCode", "name", "category", "contactPerson", "phone", "address", "pinCode", "kycVerified", "status", "createdAt", "updatedAt"]
+    },
+    "DeliveryRoute": {
+      "title": "DeliveryRoute",
+      "description": "Delivery route configuration, assigned driver/vehicle, and ordered stop sequence.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "name": { "type": "string", "description": "Route display title." },
+        "vehicle": { "type": "string", "description": "Assigned vehicle description and plate number." },
+        "maxCrates": { "type": "integer", "description": "Vehicle crate capacity." },
+        "driverName": { "type": "string", "description": "Assigned field driver name." },
+        "driverPhone": { "type": "string", "description": "Assigned driver phone number." },
+        "dispatchWindow": { "type": "string", "description": "Dispatch time window label." },
+        "stagingBay": { "type": "string", "description": "Warehouse loading bay identifier." },
+        "colorIndex": { "type": "integer", "description": "Palette color index for route badges and map markers." },
+        "isActive": { "type": "boolean", "description": "Whether route is active for dispatch." },
+        "stopOrderIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ordered list of shop IDs defining stop sequence along the route."
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp via FieldValue.serverTimestamp()." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp via FieldValue.serverTimestamp()." }
+      },
+      "required": ["userId", "name", "maxCrates", "colorIndex", "isActive", "stopOrderIds", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -272,6 +297,10 @@
     "/users/{userId}/suppliers/{supplierId}": {
       "schema": { "$ref": "#/entities/Supplier" },
       "description": "Registered supplier directory profiles belonging to the authenticated user."
+    },
+    "/users/{userId}/routes/{routeId}": {
+      "schema": { "$ref": "#/entities/DeliveryRoute" },
+      "description": "Delivery routes, vehicle assignments, and stop sequences belonging to the authenticated user."
     }
   }
 }
